@@ -384,7 +384,7 @@ async def study(spec: dict[str, Any], args: argparse.Namespace) -> dict[str, Any
 
 
 def _old_baselines() -> dict[str, dict[str, Any]]:
-    path = ROOT / "research" / "regime_forex_backtest.json"
+    path = ROOT / "artifacts" / "regime_forex_backtest.json"
     if not path.exists():
         return {}
     return {a["asset"]: a for a in json.loads(path.read_text()).get("assets", [])}

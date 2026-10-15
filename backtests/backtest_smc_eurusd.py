@@ -78,7 +78,7 @@ async def main() -> None:
             t["year"] = year
             all_trades.append(t)
 
-    out = Path("research") / f"smc_{args.asset.replace('/', '').lower()}_{args.start}_{args.end}.json"
+    out = Path("artifacts") / f"smc_{args.asset.replace('/', '').lower()}_{args.start}_{args.end}.json"
     out.parent.mkdir(exist_ok=True)
     payload = {
         "asset": args.asset,

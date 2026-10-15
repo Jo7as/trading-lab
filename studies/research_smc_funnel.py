@@ -387,7 +387,7 @@ async def main() -> None:
     for k, v in summary["survival_pct"].items():
         print(f"    {k}: {v}%")
 
-    out = Path("research") / f"smc_funnel_{args.asset.replace('/','')}_{args.year_start}.json"
+    out = Path("artifacts") / f"smc_funnel_{args.asset.replace('/','')}_{args.year_start}.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(summary, indent=2))
     print(f"\nWrote {out}")

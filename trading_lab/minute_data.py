@@ -17,7 +17,7 @@ import pandas as pd
 
 from .mr_common import ensure_utc
 
-DEFAULT_CACHE = Path(__file__).resolve().parent.parent / "research" / "cache" / "m1"
+DEFAULT_CACHE = Path(__file__).resolve().parent.parent / "artifacts" / "cache" / "m1"
 
 # Asset codes → Dukascopy instruments (index CFDs are not in the 1h map)
 INSTRUMENTS: dict[str, str] = {

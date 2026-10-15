@@ -72,7 +72,7 @@ async def main() -> None:
         by_win[str(meta.get("sb_window") or "?")] += 1
     print("by window:", dict(by_win), flush=True)
 
-    out = Path("research") / f"silver_bullet_{args.asset.replace('/', '').lower()}_{args.start[:4]}.json"
+    out = Path("artifacts") / f"silver_bullet_{args.asset.replace('/', '').lower()}_{args.start[:4]}.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(
         json.dumps(

@@ -174,7 +174,7 @@ async def main() -> None:
             flush=True,
         )
 
-    out = Path("research") / "smc_p1_ablation_2024.json"
+    out = Path("artifacts") / "smc_p1_ablation_2024.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps({"rows": rows, "ranked": ranked}, indent=2, default=str))
     print(f"\nWrote {out}", flush=True)

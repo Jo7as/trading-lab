@@ -64,7 +64,7 @@ async def main() -> None:
     print("reasons:", dict(Counter(t.get("exit_reason") for t in trades)), flush=True)
     print("dirs:", dict(Counter(t.get("direction") for t in trades)), flush=True)
 
-    out = Path("research") / f"trr_{label.lower()}_{args.start[:4]}.json"
+    out = Path("artifacts") / f"trr_{label.lower()}_{args.start[:4]}.json"
     out.parent.mkdir(exist_ok=True)
     payload = {
         "asset": args.asset,

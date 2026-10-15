@@ -71,7 +71,7 @@ async def main() -> None:
     )
 
     out = (
-        Path("research")
+        Path("artifacts")
         / f"orb_{args.asset.lower()}_{args.start[:4]}.json"
     )
     out.parent.mkdir(exist_ok=True)

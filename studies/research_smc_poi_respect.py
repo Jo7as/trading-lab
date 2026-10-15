@@ -48,7 +48,7 @@ async def main() -> None:
         df_1m = await adapter.fetch_history(args.asset, "1m", start=start, end=end)
         print(f"  1m={len(df_1m)} in {time.time()-t1:.1f}s", flush=True)
 
-    out_dir = Path("research")
+    out_dir = Path("artifacts")
     out_dir.mkdir(exist_ok=True)
 
     if args.grid:
