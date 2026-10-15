@@ -62,6 +62,47 @@ python studies/research_c1_midday_reversal.py
 
 Backtests and studies write their reports to `artifacts/` (git-ignored).
 
+## Data
+
+Two free sources, switchable with `LAB_DATA_SOURCE=dukascopy|yfinance` (default
+is `dukascopy` for intraday workers, `yfinance` for the higher-timeframe ones):
+
+| Source | What you get | Intervals | Instruments |
+|---|---|---|---|
+| **Dukascopy** | OHLCV, and **1-minute bid+ask** with the real historical spread | 1m bid+ask (`minute_data`); the adapter also serves 5m, 10m, 15m, 30m, 1h, 4h, 1d | any instrument code of the `dukascopy_python` library for 1m bid+ask (FX, metals, indices, commodities, …); the historical adapter covers the mapped symbols + any `X/Y` FX pair |
+| **yfinance** | OHLCV bars | any interval yfinance itself supports (1m … 1mo) | any yfinance ticker (stocks, ETFs, indices, futures, forex, crypto) — passed straight through |
+
+- The 1-minute bid+ask series is Dukascopy, cached per calendar year under
+  `artifacts/cache/m1/` (finished years are never re-downloaded).
+- Add a new symbol with one line: `INSTRUMENTS` in `trading_lab/minute_data.py`
+  (1m aliases, e.g. `"JP225": "E_N225Jap"`) and/or `INSTRUMENT_MAP` in
+  `trading_lab/adapters/dukascopy_adapter.py`. yfinance needs no map — any
+  ticker works as-is.
+- Everything is fetched on demand and cached; tests never touch the network.
+
+## Built-in strategies
+
+The engine is strategy-agnostic; a few complete strategies ship as reference
+implementations:
+
+| Module | Strategy | Notes |
+|---|---|---|
+| `strategies/opening_range_breakout.py` | Opening-Range Breakout | NY 09:30, 5m |
+| `strategies/orb_2r.py` | ORB, fixed 2R target | 1m bid+ask; `US100`/`GER40`/`XAUUSD`/`JP225` |
+| `strategies/supertrend_volume.py` | Supertrend + Volume | Gold, hourly (default worker) |
+| `strategies/mean_reversion.py` | Z-score mean reversion | 15m fade back to the SMA |
+| `strategies/session_range_fade.py` | Session-Range-Fade | fade failed London breakouts (Gold) |
+| `strategies/regime_hybrid.py` | ADX regime hybrid | Supertrend in trends, BB reversion in ranges |
+| `strategies/bb_squeeze_breakout.py` | BB Squeeze Breakout | Forex H1 |
+| `strategies/trend_range_rejection.py` | Trend Range Rejection | CB reversal timing |
+| `strategies/smc_ict.py` (+ `strategies/smc/`) | SMC / ICT multi-timeframe | nested entry |
+| `strategies/silver_bullet.py` | ICT Silver Bullet | time-boxed SMC scalp |
+
+Evolution workers (`trading_lab/*_evolution_worker.py`) exist for Supertrend,
+SMC, ORB, ORB-2R, Session-Range and Mean-Reversion. **Any strategy can be
+implemented** against the same engine — module + runner + test, and optionally an
+evolution worker: see **[docs/ADD_STRATEGY.md](docs/ADD_STRATEGY.md)**.
+
 ## Add your own strategy
 
 A new idea is one module + one runner + one test. Hand this to your AI assistant
