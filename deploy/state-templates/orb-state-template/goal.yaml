@@ -1,0 +1,12 @@
+asset: "NQ"
+asset_label: "NAS100"
+target_return_30d: 0.02      # ~2%/30d after costs — realistic for ORB
+max_drawdown:      0.10
+min_sharpe:        0.5
+min_trades_per_week:  1.5
+target_trades_per_week: 2.5   # ~1 trade/day × ~half sessions
+failure_below:     -0.02
+reflection_every:  10
+one_variable_only: true
+candidates_per_round: 12
+forward_eval_days: 120

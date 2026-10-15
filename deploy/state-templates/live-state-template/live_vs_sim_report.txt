@@ -1,0 +1,116 @@
+========================================================================
+LIVE vs SIMULATION — hf_ls01
+========================================================================
+Live trades (closed):  0
+Sim trades (closed):   26
+Matched:               0
+Warnings:              0
+Mismatches:            0
+Live only:             0
+Sim only:              26
+
+Baseline mode: no live trades yet — sim column shows expected replay for the window.
+
+[SIM_ONLY] 2026-05-18 12:00 UTC LONG
+  sim:  entry=4575.20 pnl=-0.80% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-05-20 10:00 UTC LONG
+  sim:  entry=4497.10 pnl=+1.06% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-05-21 17:00 UTC LONG
+  sim:  entry=4553.10 pnl=-0.70% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-05-26 06:00 UTC LONG
+  sim:  entry=4531.80 pnl=-0.56% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-05-26 11:00 UTC SHORT
+  sim:  entry=4507.50 pnl=+0.87% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-05-28 12:00 UTC LONG
+  sim:  entry=4461.90 pnl=+1.88% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-02 13:00 UTC SHORT
+  sim:  entry=4532.10 pnl=+1.03% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-04 14:00 UTC SHORT
+  sim:  entry=4493.10 pnl=+2.13% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-08 11:00 UTC LONG
+  sim:  entry=4356.30 pnl=-0.85% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-09 14:00 UTC SHORT
+  sim:  entry=4325.00 pnl=+1.66% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-11 01:00 UTC LONG
+  sim:  entry=4122.40 pnl=-1.00% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-12 08:00 UTC LONG
+  sim:  entry=4241.20 pnl=-1.00% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-14 22:00 UTC LONG
+  sim:  entry=4305.80 pnl=+1.18% exit=time_stop
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-17 13:00 UTC LONG
+  sim:  entry=4359.80 pnl=+0.56% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-17 18:00 UTC SHORT
+  sim:  entry=4305.20 pnl=-0.81% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-18 01:00 UTC LONG
+  sim:  entry=4337.70 pnl=-0.93% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-18 08:00 UTC SHORT
+  sim:  entry=4285.90 pnl=+1.11% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-22 00:00 UTC LONG
+  sim:  entry=4218.10 pnl=-0.86% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-23 04:00 UTC SHORT
+  sim:  entry=4135.60 pnl=+2.29% exit=time_stop
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-25 12:00 UTC LONG
+  sim:  entry=4028.20 pnl=+1.51% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-06-30 06:00 UTC LONG
+  sim:  entry=4043.50 pnl=-0.83% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-07-01 10:00 UTC LONG
+  sim:  entry=4011.90 pnl=+1.30% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-07-01 19:00 UTC SHORT
+  sim:  entry=4052.30 pnl=-0.82% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-07-06 05:00 UTC SHORT
+  sim:  entry=4159.70 pnl=-0.77% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-07-07 15:00 UTC SHORT
+  sim:  entry=4150.10 pnl=+1.41% exit=stop_loss
+  → in replay, not in live log
+
+[SIM_ONLY] 2026-07-08 18:00 UTC LONG
+  sim:  entry=4094.10 pnl=+0.48% exit=time_stop
+  → in replay, not in live log

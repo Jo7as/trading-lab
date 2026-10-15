@@ -1,0 +1,33 @@
+# JPY evolution champion — hermes-jpy-evolution best_oos (round #1455, 2026-07-14)
+# OOS holdout at discovery: +22.09% total vs jpy_ls01 +12.9%
+# long_only, pullback_entry=true — validate before live
+asset: "USD/JPY"
+asset_label: "USD/JPY"
+
+supertrend_period: 10
+supertrend_mult: 1.8
+
+volume_ma_period: 20
+volume_mult: 1.4
+
+ema_fast: 3
+ema_slow: 40
+
+atr_period: 14
+min_atr_pct: 0.0005
+
+pullback_entry: true
+pullback_tolerance: 0.002
+
+account_size: 10000
+risk_per_trade: 0.01
+sl_atr_mult: 2.2
+tp1_r: 3.5
+tp1_close_pct: 0.50
+max_hold_hours: 24
+max_daily_loss: 0.03
+cooldown_hours: 3
+max_concurrent_positions: 1
+long_only: true
+
+version: "jpy_v48831"

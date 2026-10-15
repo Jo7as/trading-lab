@@ -1,0 +1,13 @@
+# Railway deployment for trading-lab.
+#
+# One repository serves every worker type. Create one Railway *service* per
+# worker (both built from this same Dockerfile) and give each service its own
+# variables and volume — see docs/DEPLOY_RAILWAY.md for the full walkthrough.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

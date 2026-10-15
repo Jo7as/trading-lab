@@ -1,0 +1,12 @@
+{
+  "version": "gold_v12119",
+  "source_version": "12119",
+  "asset": "GC=F",
+  "oos_pnl_pct": 54.13,
+  "evolution_round": 718,
+  "discovered_at": "2026-07-14T14:18:40.465120+00:00",
+  "origin": "hermes-jpy-evolution-volume (asset drift bug — evolved on Gold data)",
+  "live_baseline": "hf_ls01",
+  "live_baseline_oos_pnl_pct": 43.4,
+  "notes": "long_only + pullback_entry; not separately validated vs hf_ls01 Sharpe/DD"
+}

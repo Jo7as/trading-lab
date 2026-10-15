@@ -1,0 +1,35 @@
+# Gold evolution candidate — discovered accidentally on hermes-jpy-evolution (asset drift bug)
+# OOS holdout: +54.13% total (evolution round #718, 2026-07-14)
+# vs hf_ls01 live baseline: +43.4% OOS, Sharpe 1.81, DD -11%
+# NOT validated for live — long_only, pullback_entry=true, higher DD risk than hf_ls01
+# Source: hermes-jpy-evolution-volume best_oos.yaml before JPY reset
+asset: "GC=F"
+asset_label: "XAU/USD"
+
+supertrend_period: 7
+supertrend_mult: 1.6
+
+volume_ma_period: 25
+volume_mult: 1.0
+
+ema_fast: 3
+ema_slow: 40
+
+atr_period: 14
+min_atr_pct: 0.0
+
+pullback_entry: true
+pullback_tolerance: 0.002
+
+account_size: 10000
+risk_per_trade: 0.01
+sl_atr_mult: 1.6
+tp1_r: 3.5
+tp1_close_pct: 0.60
+max_hold_hours: 36
+max_daily_loss: 0.03
+cooldown_hours: 0
+max_concurrent_positions: 1
+long_only: true
+
+version: "gold_v12119"

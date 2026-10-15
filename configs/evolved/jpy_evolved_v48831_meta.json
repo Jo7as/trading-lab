@@ -1,0 +1,12 @@
+{
+  "version": "jpy_v48831",
+  "source_version": "48831",
+  "asset": "USD/JPY",
+  "oos_pnl_pct": 22.09,
+  "evolution_round": 1455,
+  "discovered_at": "2026-07-14T23:42:03.082102+00:00",
+  "origin": "hermes-jpy-evolution-volume best_oos.yaml",
+  "live_baseline": "jpy_ls01",
+  "live_baseline_oos_pnl_pct": 12.9,
+  "notes": "long_only + pullback_entry; independent validation pending"
+}

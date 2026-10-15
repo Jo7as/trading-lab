@@ -1,0 +1,32 @@
+# Docker build context — keep the image small and free of local state.
+.venv/
+.git/
+.github/
+tests/
+docs/
+artifacts/
+data/
+research/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+*.md
+!README.md
+
+# live evolution state is seeded from deploy/state-templates/ instead
+state/
+jpy-state/
+smc-state/
+orb2r-state/
+mean-reversion-state/
+mean-reversion-jpy-state/
+session-range-state/
+
+# local notes / snapshots
+railway_*.yaml
+railway_*.json
+railway_*.txt
+*.jsonl
+.DS_Store
+.env

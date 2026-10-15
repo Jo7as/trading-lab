@@ -1,0 +1,32 @@
+# HF baseline LOCKED — st7/1.5, no EMA filter, long+short
+# OOS backtest ~7.2% Return/30d, ~4.5 trades/week (LAB_FORCE_HF=1)
+asset: "XAU/USD"
+asset_label: "XAU/USD"
+
+supertrend_period: 7
+supertrend_mult: 1.5
+
+volume_ma_period: 20
+volume_mult: 1.0
+
+ema_fast: 3
+ema_slow: 3
+
+atr_period: 14
+min_atr_pct: 0.0
+
+pullback_entry: false
+pullback_tolerance: 0.002
+
+account_size: 10000
+risk_per_trade: 0.01
+sl_atr_mult: 1.5
+tp1_r: 2.0
+tp1_close_pct: 0.60
+max_hold_hours: 48
+max_daily_loss: 0.03
+cooldown_hours: 0
+max_concurrent_positions: 1
+long_only: false
+
+version: "hf_ls01"

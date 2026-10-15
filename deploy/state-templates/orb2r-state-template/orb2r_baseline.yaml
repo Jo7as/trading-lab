@@ -1,0 +1,12 @@
+# ORB 15 min / 2R as specified in the plan — session times come from the market preset
+asset: "US100"
+asset_label: "US100"
+range_minutes: 15
+signal_bar_minutes: 5
+signal_window_minutes: 120
+target_r: 2.0
+stop_buffer_spreads: 1.0
+max_cost_r: 0.04
+max_range_mult: 0.0
+range_lookback_days: 20
+version: "orb2r_01"

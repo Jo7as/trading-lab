@@ -1,0 +1,40 @@
+# ── Secrets / environments ─────────────────────────────
+.env
+.venv/
+venv/
+env/
+
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Data, caches, run artefacts (never publish) ────────
+artifacts/
+data/
+*.jsonl
+*.log
+
+# ── Live evolution state (runtime) ─────────────────────
+# Templates for fresh deployments live in deploy/state-templates/.
+/state/
+/*-state/
+
+# ── Ad-hoc local snapshots ─────────────────────────────
+railway_*.yaml
+railway_*.json
+railway_*.txt
+*.tmp
+
+# ── Editor / agent scratch ─────────────────────────────
+.cursor/
+terminals/
+agent-transcripts/
+canvases/
+.hermes/
+.DS_Store

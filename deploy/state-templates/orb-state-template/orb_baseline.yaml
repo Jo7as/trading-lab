@@ -1,0 +1,33 @@
+# Frozen ORB baseline — 1R long
+asset: "NQ"
+asset_label: "NAS100"
+
+rth_open: "09:30"
+orb_minutes: 15
+entry_cutoff: "11:00"
+eod_flat: "16:00"
+
+max_orb_pct: 0.008
+tp_range_mult: 1.0
+tp2_range_mult: 0.0
+tp1_close_pct: 1.0
+
+sl_buffer: 1.0
+breakout_buffer: 0.0
+
+long_only: true
+short_only: false
+
+atr_period: 14
+sl_atr_mult: 1.0
+tp1_r: 1.0
+
+account_size: 10000.0
+risk_per_trade: 0.01
+max_daily_loss: 0.03
+cooldown_hours: 0
+max_concurrent_positions: 1
+
+bar_minutes: 5
+
+version: "orb_1r_long"

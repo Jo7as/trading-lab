@@ -1,0 +1,10 @@
+asset: "XAU/USD"
+asset_label: "XAU/USD"
+target_return_30d: 0.06      # 6% per 30 days
+max_drawdown:      0.08      # 8% max drawdown
+min_sharpe:        0.8       # quality bar
+min_trades_per_week:  3       # evolution penalises below this
+target_trades_per_week: 5     # ideal frequency band (3–5/week)
+failure_below:     -0.02     # score floor
+reflection_every:  15        # reflect after 15 closed trades
+one_variable_only: true     # scientific-method guardrail

@@ -1,0 +1,39 @@
+# Frozen Session-Range-Fade baseline — rulebook values (30.09.2026)
+asset: "XAU/USD"
+asset_label: "XAU/USD"
+timeframe: "15min"
+
+asia_start_utc_hour: 0
+asia_end_utc_hour: 7
+london_start_utc_hour: 7
+london_end_utc_hour: 11
+
+atr_timeframe: "1h"
+atr_period: 14
+range_min_atr_mult: 1.5
+range_max_atr_mult: 4.0
+sl_buffer_atr_mult: 0.3
+tp1_close_pct: 0.5
+
+atr_period_daily: 14
+trend_day_atr_mult: 2.0
+skip_month_end: true
+max_gap_minutes: 60
+
+account_size: 10000.0
+risk_per_trade: 0.0075
+max_trades_per_day: 1
+max_leverage: 30.0
+long_only: false
+
+weekly_circuit_breaker_pct: -0.04
+
+fallback_spread_pct: 0.00015
+slippage_pct: 0.00002
+
+sl_atr_mult: 1.0
+tp1_r: 1.0
+max_daily_loss: 0.03
+cooldown_hours: 0
+
+version: "srf_01"

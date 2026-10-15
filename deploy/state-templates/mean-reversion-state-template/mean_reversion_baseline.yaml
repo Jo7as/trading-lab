@@ -1,0 +1,42 @@
+# Frozen z-score mean-reversion baseline — plan defaults
+asset: "GC=F"
+asset_label: "XAU/USD"
+timeframe: "15min"
+
+z_period: 20
+z_entry_tier_a: 2.0
+z_entry_tier_b: 1.5
+tier_b_size_mult: 0.5
+
+adx_period: 14
+adx_block_threshold: 32.0
+min_std_pct: 0.0005
+
+require_reversal_candle: false
+
+atr_period: 14
+sl_atr_mult: 1.5
+tp1_std_mult: 0.5
+tp1_close_pct: 0.5
+max_hold_bars: 16
+
+session_filter_enabled: true
+session_start_utc_hour: 7
+session_end_utc_hour: 20
+max_gap_minutes: 60
+
+account_size: 10000.0
+risk_per_trade: 0.01
+max_concurrent_positions: 1
+max_leverage: 30.0
+long_only: false
+cooldown_bars: 0
+
+fallback_spread_pct: 0.00015
+slippage_pct: 0.00002
+
+tp1_r: 1.0
+max_daily_loss: 0.03
+cooldown_hours: 0
+
+version: "mr_01"

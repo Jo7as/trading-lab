@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trading-lab"
+version = "0.1.0"
+description = "Research lab for testing, backtesting and evolving intraday trading strategies"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "ccxt>=4.0",
+    "yfinance>=0.2",
+    "pyyaml>=6.0",
+    "httpx>=0.27",
+    "aiofiles>=23.0",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "rich>=13.0",
+    "dukascopy-python>=4.0.1",
+]
+
+[project.scripts]
+trading-lab = "trading_lab.run:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["trading_lab*"]

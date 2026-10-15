@@ -1,0 +1,12 @@
+asset: "EUR/USD"
+asset_label: "EUR/USD"
+target_return_30d: 0.04      # 4% per 30 days (forex SMC baseline)
+max_drawdown:      0.08      # 8% max drawdown
+min_sharpe:        0.5       # quality bar (looser than ST gold)
+min_trades_per_week:  1.0    # smoke ~1.7/week
+target_trades_per_week: 3.0  # ideal frequency band
+failure_below:     -0.02     # score floor
+reflection_every:  10        # hill-climb every N closed trades (batch: per round)
+one_variable_only: true      # scientific-method guardrail
+candidates_per_round: 10
+forward_eval_days: 90        # score candidates on ~3 months forward
