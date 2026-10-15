@@ -43,13 +43,27 @@ trading strategies**. Paper/signal only, no live broker execution. Python 3.11.
 
 ## Adding a strategy
 
-Follow **[docs/ADD_STRATEGY.md](docs/ADD_STRATEGY.md)**. In short: copy a module
-in `trading_lab/strategies/`, keep the `run_backtest(df, cfg) -> dict` contract,
-add a runner in `backtests/`, add a test in `tests/`.
+Follow **[docs/ADD_STRATEGY.md](docs/ADD_STRATEGY.md)** — it has a copy-paste
+skeleton and five levels. The short version:
 
-Every strategy must pass the shared **acceptance path** (a null/significance
-test, not just positive PnL) — see **[docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)**.
-Evolution promotion to `best_oos` is gated on it.
+1. `trading_lab/strategies/my_idea.py` — a config dataclass (+ `search_space()`)
+   and `run_backtest(df, cfg, *, verbose=False) -> dict` returning
+   `{"trades", "metrics", "equity_curve", "signals"}`. Reuse the shared blocks —
+   `RiskManager` (`trading_lab.risk`), `_compute_metrics`/`_pos_to_dict`
+   (`trading_lab.backtest`), the indicators — don't re-implement them.
+2. `backtests/backtest_my_idea.py` — load data, call `run_backtest`, write a
+   report to `artifacts/` (see `backtests/backtest_orb_2r.py` for a full example).
+3. `tests/test_my_idea.py` — a tiny synthetic frame, assert the expected trade;
+   never hit the network.
+4. Run the **acceptance path** (`trading_lab.acceptance.run_acceptance`): the
+   shared null/significance test, not just positive PnL — see
+   **[docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)**. Evolution promotion to `best_oos`
+   is gated on it.
+5. Optional: an evolution worker for 24/7 parameter search — Level 3 in
+   ADD_STRATEGY.md, reference `trading_lab/orb2r_evolution_worker.py`.
+
+To hand this to your IDE assistant, point it at `docs/ADD_STRATEGY.md` together
+with the idea.
 
 ## Conventions
 

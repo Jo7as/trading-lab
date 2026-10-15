@@ -128,7 +128,7 @@ res = run_backtest(df, replace(DonchianConfig(), asset="US100"))
 # res["metrics"] -> total_trades, win_rate, sharpe, expectancy_r, max_drawdown_pct …
 ```
 
-Run it: `python backtests/backtest_my_idea.py`. See `backtests/backtest_orb_2r.py`
+Run it: `uv run python backtests/backtest_my_idea.py`. See `backtests/backtest_orb_2r.py`
 for a full example with a train/test/confirm split and a markdown report.
 
 ### Data
@@ -180,7 +180,7 @@ def test_breakout_opens_a_long():
     assert trades[0]["direction"] == "long"
 ```
 
-Run the suite: `python -m pytest -q`. Keep it green.
+Run the suite: `uv run python -m pytest -q`. Keep it green.
 
 ## Level 5 — acceptance (required for every strategy)
 
