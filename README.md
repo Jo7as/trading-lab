@@ -47,20 +47,33 @@ tests/                pytest suite
 uv sync                 # or: pip install -e .
 ```
 
+`uv sync` creates a local `.venv`. Activate it once before running any of the
+commands below, **or** prefix each command with `uv run`:
+
+```bash
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+```
+
+> Running a `python ...` command without activating (or without `uv run`) uses
+> your system interpreter, which does not have the dependencies — you will get
+> `ModuleNotFoundError`.
+
 ## Quickstart
 
 ```bash
 # Backtest an opening-range breakout config over 1m bid+ask data
-python backtests/backtest_orb_2r.py --markets US100
+uv run python backtests/backtest_orb_2r.py --markets US100
 
 # Run the pre-registered day-filter study
-python backtests/backtest_orb_2r_filters.py --markets US100,GER40
+uv run python backtests/backtest_orb_2r_filters.py --markets US100,GER40
 
 # A stage-1 measurement harness (no trading): US100 NY midday reversal
-python studies/research_c1_midday_reversal.py
+uv run python studies/research_c1_midday_reversal.py
 ```
 
-Backtests and studies write their reports to `artifacts/` (git-ignored).
+Backtests and studies write their reports to `artifacts/` (git-ignored). The
+first run of a backtest or study fetches its data on demand, so it needs network
+access (later runs use the local cache under `artifacts/cache/`).
 
 ## Data
 
@@ -119,10 +132,10 @@ add `trading_lab/strategies/my_idea.py` (a config dataclass + a
 The entrypoint dispatches on `LAB_WORKER`:
 
 ```bash
-LAB_WORKER=evolution       LAB_STATE=state python -m trading_lab.run
+LAB_WORKER=evolution       LAB_STATE=state uv run python -m trading_lab.run
 LAB_WORKER=orb2r_evolution LAB_STATE=orb2r-state ORB2R_EVOLUTION_ASSET=JP225 \
-    python -m trading_lab.run
-LAB_WORKER=signal          LAB_STATE=live-state python -m trading_lab.run
+    uv run python -m trading_lab.run
+LAB_WORKER=signal          LAB_STATE=live-state uv run python -m trading_lab.run
 ```
 
 Per-strategy workers and their knobs (e.g. `ORB2R_EVOLUTION_*`,
@@ -157,7 +170,7 @@ On first boot an empty `/app/state` is seeded from
 ## Tests
 
 ```bash
-python -m pytest -q
+uv run python -m pytest -q     # or, with the venv activated: python -m pytest -q
 ```
 
 ## License

@@ -11,8 +11,17 @@ trading strategies**. Paper/signal only, no live broker execution. Python 3.11.
 ## Setup & checks
 
 - Install: `uv sync` (or `pip install -e .`).
-- Tests: `python -m pytest -q` — **keep the suite green**; add a test for any
-  behaviour change. Never hit the network from tests.
+- **Tell the user about the venv on first run.** `uv sync` creates `.venv`; run
+  every Python command through it, e.g. `uv run python ...` (or activate it first
+  with `source .venv/bin/activate`, Windows: `.venv\Scripts\activate`). A bare
+  `python ...` uses the system interpreter and fails with `ModuleNotFoundError`.
+  If `import trading_lab` ever reports "No module named", re-run `uv sync`.
+  This is the single most common setup mistake — point it out proactively.
+- Tests: `uv run python -m pytest -q` — **keep the suite green**; add a test for
+  any behaviour change. Never hit the network from tests.
+- Backtests/studies download their data on demand (network) on the first run;
+  results are cached under `artifacts/`. Workers read config from `.env`
+  (copy `.env.example`); nothing there is required just to run or test code.
 - There is no separate lint/typecheck command configured; match the style of the
   surrounding modules instead.
 
