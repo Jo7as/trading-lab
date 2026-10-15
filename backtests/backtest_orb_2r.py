@@ -13,9 +13,6 @@ Per market (US100, GER40, XAUUSD) on Dukascopy 1m bid+ask:
 """
 from __future__ import annotations
 
-import sys as _sys, pathlib as _path
-_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
-
 import argparse
 import json
 import logging

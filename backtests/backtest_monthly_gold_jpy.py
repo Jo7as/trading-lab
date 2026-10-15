@@ -2,9 +2,6 @@
 """Monthly breakdown: Gold + USD/JPY portfolio (hf_ls01), last 12 months."""
 from __future__ import annotations
 
-import sys as _sys, pathlib as _path
-_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
-
 import argparse
 import asyncio
 import dataclasses

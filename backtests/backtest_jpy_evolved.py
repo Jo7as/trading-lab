@@ -2,8 +2,6 @@
 """Validate jpy_evolved_v48831 vs jpy_ls01 on Dukascopy USD/JPY 1h from 2020."""
 from __future__ import annotations
 
-import sys as _sys, pathlib as _path
-_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 from trading_lab.env import env
 
 import argparse

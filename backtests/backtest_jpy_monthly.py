@@ -2,9 +2,6 @@
 """Monthly breakdown for JPY evolved v48831 vs jpy_ls01 (Dukascopy from 2020)."""
 from __future__ import annotations
 
-import sys as _sys, pathlib as _path
-_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
-
 import argparse
 import asyncio
 import dataclasses

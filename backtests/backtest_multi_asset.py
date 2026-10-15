@@ -2,8 +2,6 @@
 """Multi-asset hf_ls01 backtest for frequency research (Dukascopy)."""
 from __future__ import annotations
 
-import sys as _sys, pathlib as _path
-_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 from trading_lab.env import env
 
 import argparse
