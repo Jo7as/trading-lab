@@ -75,14 +75,41 @@ def test_assess_random_entry_uses_the_percentile():
     assert not bad.passed
 
 
-def test_promotion_gate_is_on_by_default_and_can_be_disabled(monkeypatch):
-    weak = [{"status": "closed", "pnl_pct": 0.1}] * 5  # too few → fails when enabled
-    ok, sig = promotion_gate(weak)
-    assert ok is False and not sig.passed
+def test_promotion_gate_enforces_when_there_is_evidence_but_it_fails():
+    weak = [{"status": "closed", "pnl_pct": 0.1}] * 5  # n < MIN_TRADES → fails
+    allowed, sig, evaluated = promotion_gate(weak)
+    assert evaluated is True and sig.passed is False and allowed is False
 
+
+def test_promotion_gate_fails_open_without_trades():
+    allowed, sig, evaluated = promotion_gate([])
+    assert allowed is True and evaluated is False
+
+
+def test_promotion_gate_can_be_disabled(monkeypatch):
     monkeypatch.setenv("LAB_SIGNIFICANCE", "0")
-    ok, _ = promotion_gate(weak)
-    assert ok is True
+    allowed, sig, evaluated = promotion_gate([{"status": "closed", "pnl_pct": 0.1}] * 5)
+    assert allowed is True and evaluated is False
+
+
+def test_promotion_gate_flag_mode_records_but_allows(monkeypatch):
+    monkeypatch.setenv("LAB_SIGNIFICANCE_MODE", "flag")
+    allowed, sig, evaluated = promotion_gate([{"status": "closed", "pnl_pct": 0.1}] * 5)
+    assert allowed is True and evaluated is True and not sig.passed
+
+
+def test_promotion_gate_passes_on_a_clear_edge():
+    allowed, sig, evaluated = promotion_gate([{"status": "closed", "r": 1.0}] * 25)
+    assert allowed is True and evaluated is True and sig.passed
+
+
+def test_significance_as_dict_is_json_serializable():
+    d = assess([1.0] * 25).as_dict()
+    assert d["method"] == "sign-flip" and d["passed"] is True
+    assert d["n"] == 25
+    import json
+
+    json.dumps(d)  # must not raise
 
 
 def test_run_acceptance_requires_significance_and_extra_criteria():

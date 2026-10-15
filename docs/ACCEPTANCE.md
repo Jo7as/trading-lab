@@ -47,17 +47,30 @@ The evolution gate reads them from the environment:
 | Variable | Default | Meaning |
 |---|---|---|
 | `LAB_SIGNIFICANCE` | `1` | `0` disables the gate (debug only) |
+| `LAB_SIGNIFICANCE_MODE` | `enforce` | `enforce` blocks a non-significant promotion; `flag` still promotes but records the result |
 | `LAB_SIGNIFICANCE_MIN_PERCENTILE` | `95` | random-entry threshold |
 | `LAB_SIGNIFICANCE_MAX_PVALUE` | `0.05` | sign-flip threshold |
 | `LAB_SIGNIFICANCE_MIN_TRADES` | `10` | minimum trades to trust |
+
+**Fail-open.** When there is nothing to evaluate — no closed trades in the OOS
+log, or the gate disabled — it never blocks. That avoids a silent, permanent
+block from a missing/empty trade log; the missing evidence shows up in the meta
+as `significant: null`.
 
 ## Where it is enforced
 
 - **Evolution promotion (default on).** No worker promotes a new
   `best_oos` record unless the OOS trades pass `promotion_gate(...)`. Wired into
   every promotion path: `MrEvolutionBase` (mean-reversion, ORB-2R, session-range),
-  `orb_evolution_worker`, `smc_evolution_worker` and `st_evolution_worker`. When
-  blocked it logs `[best-oos] blocked — significance gate: …`.
+  `orb_evolution_worker`, `smc_evolution_worker` and `st_evolution_worker`.
+  A failed test logs `[best-oos] blocked — significance gate: …` (or `flagged`
+  in `flag` mode), and every promotion writes the result into
+  `best_oos_meta.json`:
+  ```json
+  { "oos_pnl_pct": -4.21, "significant": false,
+    "significance": { "method": "sign-flip", "n": 201, "p_value": 0.73, "passed": false, ... } }
+  ```
+
 - **The ORB Phase-1 machine** (`backtests/backtest_orb_2r.py`) and the
   **C1 harness** (`studies/research_c1_midday_reversal.py`) compute their
   percentile through the shared `significance.percentile_of`.

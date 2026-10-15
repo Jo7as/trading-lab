@@ -574,9 +574,13 @@ class SmcEvolutionWorker:
     def _update_best_oos(
         self, cfg: SmcIctConfig, oos_pnl: float, trades: list[dict] | None = None
     ) -> None:
-        ok, sig = promotion_gate(trades or [])
-        if not ok:
-            print(f"  [best-oos] blocked — significance gate: {sig.summary()}")
+        allowed, sig, evaluated = promotion_gate(trades or [])
+        if evaluated and not sig.passed:
+            print(
+                f"  [best-oos] {'flagged' if allowed else 'blocked'} — "
+                f"significance gate: {sig.summary()}"
+            )
+        if not allowed:
             return
         meta_path = self.state_dir / "best_oos_meta.json"
         strat_path = self.state_dir / "best_oos.yaml"
@@ -600,6 +604,8 @@ class SmcEvolutionWorker:
                     "oos_pnl_pct": oos_pnl,
                     "evolution_round": self.evolution_round,
                     "version": d.get("version"),
+                    "significant": sig.passed if evaluated else None,
+                    "significance": sig.as_dict() if evaluated else None,
                 },
                 indent=2,
             )

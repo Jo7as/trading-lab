@@ -122,6 +122,7 @@ def update_best_oos_tracker(
     oos_pnl_pct: float,
     *,
     evolution_round: int | None = None,
+    significance: dict[str, Any] | None = None,
 ) -> bool:
     """Save strategy snapshot when OOS PnL beats the running best."""
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -142,6 +143,8 @@ def update_best_oos_tracker(
         "oos_pnl_pct": round(float(oos_pnl_pct), 4),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "evolution_round": evolution_round,
+        "significant": None if significance is None else significance.get("passed"),
+        "significance": significance,
     }
     strat_path.write_text(
         yaml.dump(strategy, default_flow_style=False, sort_keys=False)

@@ -409,9 +409,13 @@ class OrbEvolutionWorker:
     def _update_best_oos(
         self, cfg: OpeningRangeBreakoutConfig, oos_pnl_net: float, trades: list[dict] | None = None
     ) -> None:
-        ok, sig = promotion_gate(trades or [])
-        if not ok:
-            print(f"  [best-oos] blocked — significance gate: {sig.summary()}")
+        allowed, sig, evaluated = promotion_gate(trades or [])
+        if evaluated and not sig.passed:
+            print(
+                f"  [best-oos] {'flagged' if allowed else 'blocked'} — "
+                f"significance gate: {sig.summary()}"
+            )
+        if not allowed:
             return
         meta_path = self.state_dir / "best_oos_meta.json"
         strat_path = self.state_dir / "best_oos.yaml"
@@ -433,6 +437,8 @@ class OrbEvolutionWorker:
                     "evolution_round": self.evolution_round,
                     "version": d["version"],
                     "cost_rt_points": self.cost_rt_points,
+                    "significant": sig.passed if evaluated else None,
+                    "significance": sig.as_dict() if evaluated else None,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 },
                 indent=2,

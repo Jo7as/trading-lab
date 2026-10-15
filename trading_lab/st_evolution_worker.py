@@ -293,19 +293,23 @@ class STEvolutionWorker:
 
                 strat_raw = yaml.safe_load(strategy_path.read_text()) or {}
                 goal_asset, _ = self._goal_asset()
-                sig_ok, sig = promotion_gate(oos_result.get("trades") or [])
+                allowed, sig, evaluated = promotion_gate(oos_result.get("trades") or [])
+                if evaluated and not sig.passed:
+                    print(
+                        f"  [best-oos] {'flagged' if allowed else 'blocked'} — "
+                        f"significance gate: {sig.summary()}"
+                    )
                 if str(strat_raw.get("asset", "")) != goal_asset:
                     print(
                         f"  [best-oos] skipped — wrong asset "
                         f"{strat_raw.get('asset', '?')!r} (goal {goal_asset!r})"
                     )
-                elif not sig_ok:
-                    print(f"  [best-oos] blocked — significance gate: {sig.summary()}")
-                elif update_best_oos_tracker(
+                elif allowed and update_best_oos_tracker(
                     self.state_dir,
                     strat_raw,
                     float(oos_result["metrics"]["total_pnl_pct"]),
                     evolution_round=self.evolution_round,
+                    significance=sig.as_dict() if evaluated else None,
                 ):
                     print(
                         f"  [best-oos] new record: "

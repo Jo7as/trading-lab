@@ -65,6 +65,20 @@ class Significance:
             bits.append(f"({self.reason})")
         return " ".join(bits)
 
+    def as_dict(self) -> dict:
+        """JSON-serializable form, for the ``best_oos`` meta record."""
+        return {
+            "method": self.method,
+            "n": self.n,
+            "observed": round(self.observed, 4),
+            "ci_low": round(self.ci_low, 4),
+            "ci_high": round(self.ci_high, 4),
+            "p_value": None if self.p_value is None else round(self.p_value, 4),
+            "percentile": None if self.percentile is None else round(self.percentile, 1),
+            "passed": self.passed,
+            "reason": self.reason,
+        }
+
 
 def bootstrap_ci(
     values: Sequence[float], *, n_boot: int = _BOOT, alpha: float = 0.05, seed: int = 7
@@ -146,7 +160,7 @@ def assess(
             ci_low=lo, ci_high=hi, percentile=pct, passed=ok, reason=reason,
         )
 
-    obs = float(a.mean()) if observed is None else float(observed)
+    obs = float(observed) if observed is not None else (float(a.mean()) if a.size else 0.0)
     if a.size < min_trades:
         return Significance(
             method="sign-flip", n=a.size, observed=obs, ci_low=lo, ci_high=hi,
@@ -162,28 +176,41 @@ def assess(
 
 def promotion_gate(
     trades: Iterable[dict], *, null_samples: Sequence[float] | None = None, seed: int = 7
-) -> tuple[bool, Significance]:
-    """Enforced gate for evolution promotion — read from the env, default on.
+) -> tuple[bool, Significance, bool]:
+    """Gate for evolution promotion. Returns ``(allowed, significance, evaluated)``.
 
-    ``LAB_SIGNIFICANCE=0`` disables it (debug only); thresholds are tunable via
-    ``LAB_SIGNIFICANCE_MIN_PERCENTILE`` / ``LAB_SIGNIFICANCE_MAX_PVALUE`` /
-    ``LAB_SIGNIFICANCE_MIN_TRADES``.
+    Defaults are read from the environment:
+
+    * ``LAB_SIGNIFICANCE`` — ``0`` disables the gate entirely (debug only).
+    * ``LAB_SIGNIFICANCE_MODE`` — ``enforce`` (default) blocks a non-significant
+      promotion; ``flag`` records the result in ``best_oos_meta.json`` but still
+      promotes.
+    * ``LAB_SIGNIFICANCE_MIN_PERCENTILE`` / ``_MAX_PVALUE`` / ``_MIN_TRADES``.
+
+    **Fail-open:** when there is nothing to evaluate (no closed trades) the gate
+    never blocks — ``evaluated`` is ``False`` and ``allowed`` is ``True``. This
+    avoids a silent, permanent block from a missing/empty trade log; the missing
+    evidence is surfaced in the meta as ``significant: null``.
     """
-    enabled = env("LAB_SIGNIFICANCE", "1").strip().lower() not in ("0", "false", "no", "off")
     returns = returns_from_trades(trades)
-    min_trades = int(env("LAB_SIGNIFICANCE_MIN_TRADES", str(MIN_TRADES)))
+    enabled = env("LAB_SIGNIFICANCE", "1").strip().lower() not in ("0", "false", "no", "off")
     if not enabled:
-        sig = assess(returns, min_trades=0, seed=seed)
-        return True, sig
+        return True, assess(returns, min_trades=0, seed=seed), False
+    if not returns:
+        return True, assess(returns, min_trades=0, seed=seed), False
+
     sig = assess(
         returns,
         null_samples=null_samples,
         min_percentile=float(env("LAB_SIGNIFICANCE_MIN_PERCENTILE", str(MIN_PERCENTILE))),
         max_pvalue=float(env("LAB_SIGNIFICANCE_MAX_PVALUE", str(MAX_PVALUE))),
-        min_trades=min_trades,
+        min_trades=int(env("LAB_SIGNIFICANCE_MIN_TRADES", str(MIN_TRADES))),
         seed=seed,
     )
-    return sig.passed, sig
+    if sig.passed:
+        return True, sig, True
+    mode = (env("LAB_SIGNIFICANCE_MODE", "enforce") or "enforce").strip().lower()
+    return (mode == "flag"), sig, True
 
 
 def _clean(values: Sequence[float]) -> np.ndarray:
