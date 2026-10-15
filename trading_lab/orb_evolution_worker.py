@@ -32,6 +32,7 @@ from .reflect import (
     save_prior,
 )
 from .score import score, trades_per_week
+from .significance import promotion_gate
 from .strategies.opening_range_breakout import (
     OpeningRangeBreakoutConfig,
     run_backtest,
@@ -405,7 +406,13 @@ class OrbEvolutionWorker:
             with open(path, "a") as f:
                 f.write(json.dumps(hyp, default=str) + "\n")
 
-    def _update_best_oos(self, cfg: OpeningRangeBreakoutConfig, oos_pnl_net: float) -> None:
+    def _update_best_oos(
+        self, cfg: OpeningRangeBreakoutConfig, oos_pnl_net: float, trades: list[dict] | None = None
+    ) -> None:
+        ok, sig = promotion_gate(trades or [])
+        if not ok:
+            print(f"  [best-oos] blocked — significance gate: {sig.summary()}")
+            return
         meta_path = self.state_dir / "best_oos_meta.json"
         strat_path = self.state_dir / "best_oos.yaml"
         prev = -1e18
@@ -553,7 +560,9 @@ class OrbEvolutionWorker:
                 oos_res.get("trades_net") or [], "OOS", _period_days(df_oos)
             )
             self._check_goal(oos_res["metrics"], "OOS", _period_days(df_oos))
-            self._update_best_oos(evolved, net_oos)
+            self._update_best_oos(
+                evolved, net_oos, oos_res.get("trades_net") or oos_res.get("trades")
+            )
 
             if self._config_snapshot(evolved) != round_start:
                 self.stagnation_rounds = 0

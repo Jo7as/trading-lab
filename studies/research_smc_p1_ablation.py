@@ -5,9 +5,12 @@ Fixed flow base: Stage B + sell-side (current best filter stack).
 Exit stacks: baseline OB+RR+BE vs P0 sweep+liquidity (strategy.yaml v04).
 
 Example:
-  PYTHONPATH=. uv run python research_smc_p1_ablation.py
+  python studies/research_smc_p1_ablation.py
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import asyncio

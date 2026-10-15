@@ -34,7 +34,7 @@ backtests/            runnable backtest / study runners (use the library)
 studies/              exploratory measurement harnesses
 configs/              strategy presets: baselines/ and evolved/
 deploy/state-templates/  seed state for fresh deployments (Railway volumes)
-docs/                 strategy specs, research notes, ADD_STRATEGY.md, DEPLOY_RAILWAY.md
+docs/                 strategy specs, research notes, ADD_STRATEGY.md, ACCEPTANCE.md, DEPLOY_RAILWAY.md
 AGENTS.md             onboarding guide for AI assistants in your IDE
 scripts/              ops helpers (monitoring, inspections)
 mt5/                  MetaTrader 5 demo EA
@@ -99,7 +99,10 @@ implementations:
 | `strategies/silver_bullet.py` | ICT Silver Bullet | time-boxed SMC scalp |
 
 Evolution workers (`trading_lab/*_evolution_worker.py`) exist for Supertrend,
-SMC, ORB, ORB-2R, Session-Range and Mean-Reversion. **Any strategy can be
+SMC, ORB, ORB-2R, Session-Range and Mean-Reversion. Every result must pass the
+shared **acceptance path** — a null/significance test, not just positive PnL —
+before it counts, and evolution promotion is gated on it: see
+**[docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)**. **Any strategy can be
 implemented** against the same engine — module + runner + test, and optionally an
 evolution worker: see **[docs/ADD_STRATEGY.md](docs/ADD_STRATEGY.md)**.
 

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Silver Bullet backtest research (default XAU/USD 2024→now).
 
-  PYTHONPATH=. uv run python research_silver_bullet.py
-  PYTHONPATH=. uv run python research_silver_bullet.py --asset EUR/USD --sl-buffer 0.0001
+  python studies/research_silver_bullet.py
+  python studies/research_silver_bullet.py --asset EUR/USD --sl-buffer 0.0001
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import asyncio

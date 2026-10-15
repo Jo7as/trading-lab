@@ -181,3 +181,22 @@ def test_breakout_opens_a_long():
 ```
 
 Run the suite: `python -m pytest -q`. Keep it green.
+
+## Level 5 — acceptance (required for every strategy)
+
+A positive PnL is not enough. Every strategy runs the **same acceptance path**
+before it counts: the shared significance test plus any strategy-specific
+criteria (period sums, cost stress, neighbours). Wire it into your runner:
+
+```python
+from trading_lab.acceptance import run_acceptance
+
+report = run_acceptance(trades, extra={"oos_positive": ..., "double_cost_positive": ...})
+print(report.summary())
+assert report.passed
+```
+
+The evolution path enforces this automatically — a worker only promotes a new
+`best_oos` record when its OOS trades pass the gate. Full details, the null
+models and the tunable thresholds: **[ACCEPTANCE.md](ACCEPTANCE.md)**.
+

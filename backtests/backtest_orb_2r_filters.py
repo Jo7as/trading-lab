@@ -11,9 +11,12 @@ Protocol — fixed before looking at any result, no thresholds are tuned:
 The 2022–now numbers of the single filters are printed for transparency;
 they play no part in the selection.
 
-  PYTHONPATH=. uv run python backtest_orb_2r_filters.py
+  python backtests/backtest_orb_2r_filters.py
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import json

@@ -8,10 +8,13 @@ Per market (US100, GER40, XAUUSD) on Dukascopy 1m bid+ask:
   - robustness grid: range 5/15/30 min × signal bar 1/5/15 min × target 1.5/2/3 R
   - pass/fail against the plan's criteria, 20 sample trades for a manual chart check
 
-  PYTHONPATH=. uv run python backtest_orb_2r.py
-  PYTHONPATH=. uv run python backtest_orb_2r.py --markets US100 --runs 200
+  python backtests/backtest_orb_2r.py
+  python backtests/backtest_orb_2r.py --markets US100 --runs 200
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import json
@@ -26,6 +29,7 @@ import pandas as pd
 import yaml
 
 from trading_lab.minute_data import load_minute_bid_ask
+from trading_lab.significance import percentile_of
 from trading_lab.strategies.orb_2r import (
     MARKETS,
     OrbConfig,
@@ -118,7 +122,7 @@ def by_year(trades: list[dict]) -> dict[str, dict[str, Any]]:
 
 
 def percentile(strategy_sum: float, random_sums: np.ndarray) -> float:
-    return round(float((random_sums < strategy_sum).mean() * 100), 1)
+    return round(percentile_of(strategy_sum, random_sums), 1)
 
 
 # ── Study ───────────────────────────────────────────────────────────

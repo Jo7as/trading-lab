@@ -2,10 +2,13 @@
 """Opening Range Breakout research — Nasdaq-100 (Dukascopy E_NQ-100).
 
 Example:
-  PYTHONPATH=. uv run python research_orb_nq.py
-  PYTHONPATH=. uv run python research_orb_nq.py --long-only --tp 1.0
+  python studies/research_orb_nq.py
+  python studies/research_orb_nq.py --long-only --tp 1.0
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import asyncio

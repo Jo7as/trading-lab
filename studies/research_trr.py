@@ -2,10 +2,13 @@
 """Trend Range Rejection (TRR) research — USDJPY / XAUUSD.
 
 Example:
-  PYTHONPATH=. uv run python research_trr.py --asset USD/JPY --start 2025-01-01
-  PYTHONPATH=. uv run python research_trr.py --asset XAU/USD --start 2025-01-01
+  python studies/research_trr.py --asset USD/JPY --start 2025-01-01
+  python studies/research_trr.py --asset XAU/USD --start 2025-01-01
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import asyncio

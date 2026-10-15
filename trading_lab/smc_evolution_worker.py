@@ -4,7 +4,7 @@ Batch hill-climb per round (MTF backtests are expensive):
   load 4h/15m/1m → train/OOS split → score train → mutate 1 var →
   score forward slice → anneal → OOS validate → save strategy.yaml
 
-State lives in smc-state/ (or LAB_TRADING_STATE).
+State lives in smc-state/ (or LAB_STATE).
 """
 from __future__ import annotations
 from .env import env
@@ -28,6 +28,7 @@ import yaml
 from .backtest import print_metrics
 from .exploration import SMC_RESEARCH_SEEDS, random_smc_config
 from .score import score, trades_per_week
+from .significance import promotion_gate
 from .strategies.smc_ict import SmcIctConfig, run_backtest
 
 _MAX_ANNEAL_DROP = 0.05
@@ -570,7 +571,13 @@ class SmcEvolutionWorker:
         )
         return est_30d >= target and actual_dd <= max_dd and actual_sharpe >= min_sharpe
 
-    def _update_best_oos(self, cfg: SmcIctConfig, oos_pnl: float) -> None:
+    def _update_best_oos(
+        self, cfg: SmcIctConfig, oos_pnl: float, trades: list[dict] | None = None
+    ) -> None:
+        ok, sig = promotion_gate(trades or [])
+        if not ok:
+            print(f"  [best-oos] blocked — significance gate: {sig.summary()}")
+            return
         meta_path = self.state_dir / "best_oos_meta.json"
         strat_path = self.state_dir / "best_oos.yaml"
         prev = -1e18
@@ -681,7 +688,9 @@ class SmcEvolutionWorker:
             )
             self._check_goal(oos_result["metrics"], "OOS", _period_days(oos_1m))
             self._update_best_oos(
-                evolved, float(oos_result["metrics"].get("total_pnl_pct", 0))
+                evolved,
+                float(oos_result["metrics"].get("total_pnl_pct", 0)),
+                oos_result.get("trades"),
             )
 
             round_end = self._config_snapshot(evolved)

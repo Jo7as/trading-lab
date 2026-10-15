@@ -27,6 +27,7 @@ from . import reflect
 from .backtest import print_metrics
 from .mr_common import load_bid_ask, period_days, resample_ohlc
 from .score import score, trades_per_week
+from .significance import promotion_gate
 
 _MAX_ANNEAL_DROP = 0.05
 _MAX_ANNEAL_P = 0.25
@@ -363,7 +364,11 @@ class MrEvolutionBase:
         }
         self._append_hypothesis(hyp)
 
-    def _update_best_oos(self, cfg: Any, oos_pnl: float) -> None:
+    def _update_best_oos(self, cfg: Any, oos_pnl: float, trades: list[dict] | None = None) -> None:
+        ok, sig = promotion_gate(trades or [])
+        if not ok:
+            print(f"  [best-oos] blocked — significance gate: {sig.summary()}")
+            return
         meta_path = self.state_dir / "best_oos_meta.json"
         prev = -1e18
         if meta_path.exists():
@@ -507,7 +512,11 @@ class MrEvolutionBase:
             print(f"  OOS score={oos_sc:.4f}")
             print_metrics(oos_res["metrics"], label="OUT-OF-SAMPLE")
             self._check_goal(oos_res, "OOS", oos_days)
-            self._update_best_oos(evolved, float(oos_res["metrics"].get("total_pnl_pct", 0)))
+            self._update_best_oos(
+                evolved,
+                float(oos_res["metrics"].get("total_pnl_pct", 0)),
+                oos_res.get("trades"),
+            )
 
             if self._config_snapshot(evolved) != round_start:
                 self.stagnation_rounds = 0

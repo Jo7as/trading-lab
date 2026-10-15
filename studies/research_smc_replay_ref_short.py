@@ -2,6 +2,9 @@
 """Replay the Jul-2026 EURUSD reference short against current SMC config."""
 from __future__ import annotations
 
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
+
 import asyncio
 from datetime import datetime, timezone
 

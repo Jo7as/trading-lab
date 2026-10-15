@@ -44,6 +44,7 @@ from .reflect import (
 )
 
 from .exploration import RESEARCH_SEEDS, random_config
+from .significance import promotion_gate
 
 # Annealing: reject clearly worse configs; cap acceptance probability
 _MAX_ANNEAL_DROP = 0.05
@@ -292,11 +293,14 @@ class STEvolutionWorker:
 
                 strat_raw = yaml.safe_load(strategy_path.read_text()) or {}
                 goal_asset, _ = self._goal_asset()
+                sig_ok, sig = promotion_gate(oos_result.get("trades") or [])
                 if str(strat_raw.get("asset", "")) != goal_asset:
                     print(
                         f"  [best-oos] skipped — wrong asset "
                         f"{strat_raw.get('asset', '?')!r} (goal {goal_asset!r})"
                     )
+                elif not sig_ok:
+                    print(f"  [best-oos] blocked — significance gate: {sig.summary()}")
                 elif update_best_oos_tracker(
                     self.state_dir,
                     strat_raw,

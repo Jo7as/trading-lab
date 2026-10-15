@@ -2,10 +2,13 @@
 """Research: 15m OB+FVG rejection rate + where 1m ChoCh lands (OB vs FVG).
 
 Example:
-  PYTHONPATH=. uv run python research_smc_poi_respect.py --year 2020
-  PYTHONPATH=. uv run python research_smc_poi_respect.py --year 2020 --grid
+  python studies/research_smc_poi_respect.py --year 2020
+  python studies/research_smc_poi_respect.py --year 2020 --grid
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import asyncio

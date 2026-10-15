@@ -38,6 +38,10 @@ Follow **[docs/ADD_STRATEGY.md](docs/ADD_STRATEGY.md)**. In short: copy a module
 in `trading_lab/strategies/`, keep the `run_backtest(df, cfg) -> dict` contract,
 add a runner in `backtests/`, add a test in `tests/`.
 
+Every strategy must pass the shared **acceptance path** (a null/significance
+test, not just positive PnL) — see **[docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)**.
+Evolution promotion to `best_oos` is gated on it.
+
 ## Conventions
 
 - Environment variables are read via `trading_lab.env.env` with the `LAB_`

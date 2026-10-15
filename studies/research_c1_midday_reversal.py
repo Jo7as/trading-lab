@@ -21,9 +21,12 @@ volume feed), counts a hit when the midday return points back toward it.
 Pre-registered go/no-go: reversal rate ≥ 58%, better than 99% of random runs,
 in at least two of the three sub-periods (2016–21 / 22–24 / 25–now).
 
-  PYTHONPATH=. uv run python research_c1_midday_reversal.py
+  python studies/research_c1_midday_reversal.py
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import json
@@ -37,6 +40,7 @@ import numpy as np
 import pandas as pd
 
 from trading_lab.minute_data import load_minute_bid_ask
+from trading_lab.significance import percentile_of
 
 NY = "America/New_York"
 MIN_NS = 60 * 10**9
@@ -338,7 +342,7 @@ def main() -> None:
         "mean": round(float(null.mean()), 4),
         "p95": round(float(np.quantile(null, 0.95)), 4),
         "p99": round(float(np.quantile(null, 0.99)), 4),
-        "percentile": round(float((null < overall["reversal_rate"]).mean() * 100), 1),
+        "percentile": round(percentile_of(overall["reversal_rate"], null), 1),
     }
     periods_ok = sum(1 for name in PERIODS if periods[name]["reversal_rate"] >= REVERSAL_MIN)
     passed = bool(

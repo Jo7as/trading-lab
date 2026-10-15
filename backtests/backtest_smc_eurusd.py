@@ -2,10 +2,13 @@
 """SMC/ICT smoke research: EUR/USD (or other forex) multi-TF backtest.
 
 Example:
-  PYTHONPATH=. uv run python backtest_smc_eurusd.py --year 2020
-  PYTHONPATH=. uv run python backtest_smc_eurusd.py --start 2020 --end 2022
+  python backtests/backtest_smc_eurusd.py --year 2020
+  python backtests/backtest_smc_eurusd.py --start 2020 --end 2022
 """
 from __future__ import annotations
+
+import sys as _sys, pathlib as _path
+_sys.path.insert(0, str(_path.Path(__file__).resolve().parent.parent))
 
 import argparse
 import asyncio
