@@ -214,10 +214,48 @@ def _compute_side_metrics(trades: list[dict]) -> dict[str, dict[str, float | int
     return out
 
 
+def _max_drawdown_from_equity(equity_curve: list[float] | None) -> float | None:
+    """Peak-to-trough drawdown in % from an equity curve.
+
+    Returns None when the curve has fewer than two usable points, so the caller
+    can fall back to the trade-PnL stream.
+    """
+    if not equity_curve or len(equity_curve) < 2:
+        return None
+    peak = float(equity_curve[0])
+    max_dd = 0.0
+    for value in equity_curve:
+        v = float(value)
+        peak = max(peak, v)
+        if peak > 0:
+            max_dd = min(max_dd, (v - peak) / peak * 100.0)
+    return max_dd
+
+
+def _max_drawdown_from_pnls(pnls: list[float]) -> float:
+    """Fallback drawdown in % from the cumulative trade-PnL stream."""
+    cum = 0.0
+    peak = 0.0
+    max_dd = 0.0
+    for p in pnls:
+        cum += p
+        peak = max(peak, cum)
+        max_dd = min(max_dd, cum - peak)
+    return max_dd
+
+
 def _compute_metrics(
-    trades: list[dict], equity_curve: list[float], cfg: MCTFBConfig
+    trades: list[dict],
+    equity_curve: list[float] | None = None,
+    cfg: MCTFBConfig | None = None,
 ) -> dict[str, Any]:
-    """Compute performance metrics from trade list and equity curve."""
+    """Compute performance metrics from the trade list and equity curve.
+
+    ``equity_curve`` drives max drawdown when it has at least two points
+    (intratrade dips included); otherwise the drawdown falls back to the
+    cumulative trade-PnL stream. ``cfg`` is accepted for backward compatibility
+    and is not used.
+    """
     if not trades:
         return {
             "total_trades": 0,
@@ -239,23 +277,17 @@ def _compute_metrics(
     total_pnl = sum(pnls)
     win_rate = len(wins) / len(pnls) * 100 if pnls else 0.0
 
-    # Max drawdown from PnL stream
-    cum = 0.0
-    peak = 0.0
-    max_dd = 0.0
-    for p in pnls:
-        cum += p
-        peak = max(peak, cum)
-        dd = cum - peak
-        max_dd = min(max_dd, dd)
+    # Max drawdown: prefer the equity curve (real intratrade path), else the
+    # trade-PnL stream.
+    equity_dd = _max_drawdown_from_equity(equity_curve)
+    max_dd = equity_dd if equity_dd is not None else _max_drawdown_from_pnls(pnls)
 
-    # Sharpe (per-trade, annualized with sqrt of trades per year)
+    # Sharpe (per-trade, annualized with sqrt of the realized trade frequency)
     if len(pnls) > 1:
         mean_pnl = np.mean(pnls)
         std_pnl = np.std(pnls, ddof=1)
         if std_pnl > 0:
-            # Approximate annualization: ~200 trades/year at 3-5/week
-            trades_per_year = 200
+            trades_per_year = max(trades_per_week(closed), 1.0) * 52.0
             sharpe = (mean_pnl / std_pnl) * np.sqrt(trades_per_year)
         else:
             sharpe = 0.0
