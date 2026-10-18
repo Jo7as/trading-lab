@@ -1,0 +1,20 @@
+# Economic calendar example — US "Red Folder" events.
+#
+# Schema: `time,event,impact` in CSV, or a JSON list of objects with the same
+# three fields (a top-level {"events": [...]} wrapper also works).
+#
+#   time    ISO-8601. With an offset it is absolute; without one it is read in
+#           the timezone given to `load_events(..., tz=...)` (default UTC).
+#           Times below carry the US Eastern offset so they are unambiguous.
+#   impact  high | medium | low (aliases: red/orange/yellow, 3/2/1).
+#           Only `high` is treated as a Red Folder event by the strategy.
+#
+# Replace with a file covering the backtest period; without a calendar the
+# news setups (C and the 08:30 fair-price rule) stay inactive.
+time,event,impact
+2024-06-12T08:30:00-04:00,CPI,high
+2024-06-12T14:00:00-04:00,FOMC Rate Decision,high
+2024-07-05T08:30:00-04:00,Nonfarm Payrolls,high
+2024-07-11T08:30:00-04:00,CPI,high
+2024-09-18T14:00:00-04:00,FOMC Rate Decision,high
+2024-11-07T14:00:00-05:00,FOMC Rate Decision,high
