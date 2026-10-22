@@ -53,6 +53,30 @@ pass-speed surface. They measured a misaligned-window artifact.
   frame shape); a "too good" result is a bug signal; per-day slicing must be
   validated against the actual clock.
 
+## Completeness check across 11 markets (fixed engine)
+
+`studies/multimarket_check.py`, 2019–2026, stops and costs scaled to each
+instrument's median 1-minute range, next-open entry:
+
+| market | trades | expectancy | WR | PF | negative years |
+|---|---|---|---|---|---|
+| US100 | 2 515 | −0.285 R | 19.1 % | 0.72 | 7 |
+| SP500 | 2 531 | −0.386 R | 19.7 % | 0.62 | 8 |
+| US30 | 2 619 | −0.355 R | 17.7 % | 0.66 | 8 |
+| GER40 | 2 735 | −0.323 R | 19.7 % | 0.68 | 8 |
+| UK100 | 2 800 | −0.460 R | 15.8 % | 0.57 | 8 |
+| XAUUSD | 2 751 | −0.539 R | 17.8 % | 0.49 | 8 |
+| XAGUSD | 2 496 | −0.988 R | 9.4 % | 0.22 | 8 |
+| COPPER | 2 313 | −1.180 R | 8.2 % | 0.15 | 8 |
+| BRENT | 2 755 | −0.755 R | 13.7 % | 0.34 | 8 |
+| UST10Y | 2 765 | −0.848 R | 13.3 % | 0.29 | 8 |
+| JP225 | 2 605 | −0.469 R | 17.0 % | 0.56 | 8 |
+
+**Every market is negative, none is close.** On US100 the fade's expectancy
+(−0.249 R) equals the random-direction baseline (−0.248 R): no information. There
+are therefore no uncorrelated markets "where the strategy works" — the rule
+itself does not work.
+
 ## Next
 
 The rule as specified does not work on the three major indices with correct
