@@ -23,6 +23,15 @@ DEFAULT_CACHE = Path(__file__).resolve().parent.parent / "artifacts" / "cache" /
 INSTRUMENTS: dict[str, str] = {
     "US100": "E_NQ-100",
     "SP500": "E_SandP-500",   # S&P 500 CFD (ES/MES proxy)
+    "US30": "E_D&J-Ind",      # Dow Jones CFD
+    "UK100": "E_Futsee-100",  # FTSE 100 CFD
+    "XAGUSD": "XAG/USD",      # silver spot
+    "COPPER": "COPPER.CMD/USD",
+    "BRENT": "E_Brent",
+    "WTI": "E_Light",
+    "UST10Y": "USTBOND.TR/USD",
+    "EURUSD": "EUR/USD",
+    "GBPUSD": "GBP/USD",
     "GER40": "E_DAAX",
     "XAUUSD": "XAU/USD",
     "JP225": "E_N225Jap",   # Nikkei 225 CFD (Tokyo cash open 09:00 JST)

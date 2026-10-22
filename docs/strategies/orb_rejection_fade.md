@@ -157,6 +157,38 @@ The **relative** finding is the solid one — near-zero correlation cuts the
 drawdown roughly in three and lifts the Sharpe well above any single market —
 not the absolute level. Expect live numbers far below these.
 
+## Walk-forward / stability (A5)
+
+Parameters are frozen, so this is out-of-sample by construction: the same rule
+per calendar year and in rolling windows. `studies/walk_forward_orb_fade.py`.
+
+Per market × year (expectancy R), 2019–2026: US100 0 negative years
+(+0.50…+1.72 R), SP500 0 negative years (+0.36…+1.85 R), GER40 0 negative years
+(+0.65…+1.68 R). **XAUUSD 2 negative years** (−0.36 in 2019, −0.04 in 2022),
+**JP225 5 negative years** (−0.83, −0.14, −0.70, −0.11, −0.41).
+
+Pre-committed selection rule — keep a market only if it is positive in
+2019–2022 (in-sample), then judge 2023–2026 — selects exactly
+**US100 + SP500 + GER40** and drops gold and Nikkei. That book: every year
+positive (2019–2026 +49 %…+102 %), OOS 2023–2026 **+58.8 %/yr compounded**
+(linear-sum +47.4 %/yr) at 9.5 % vol, Sharpe 4.97; 1 743 rolling 252-day windows
+all positive (min +43 %, median +66 %), worst window drawdown −3.0 %.
+
+Return conventions: earlier tables used the linear sum ×252/365; compounding
+gives higher figures (e.g. +47 %/yr linear vs +59 %/yr compounded here). Same
+caveat as the portfolio section: one favourable sample, backtest costs, selection
+within the project — treat the levels as upper bounds.
+
+## Additional instruments (in progress)
+
+Dukascopy offers silver (`XAG/USD`), copper, Brent/WTI, the Dow, FTSE 100, the
+10Y Treasury CFD and FX majors; mappings were added to
+`trading_lab/minute_data.py`. Downloads for silver, Brent, 10Y, copper, FTSE 100
+and Dow are running. Dow/FTSE overlap the existing equity indices (low expected
+diversification); silver, energy and rates have different drivers and are the
+interesting ones. They will be judged with the same pre-committed in-sample rule
+above — not added because they happen to look good.
+
 ## Improvement backlog (partly done; needs approval)
 
 1. **Robustness** (no tuning): next-bar-open entry, parameter neighbourhood,
