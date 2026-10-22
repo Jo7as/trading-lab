@@ -22,6 +22,7 @@ DEFAULT_CACHE = Path(__file__).resolve().parent.parent / "artifacts" / "cache" /
 # Asset codes → Dukascopy instruments (index CFDs are not in the 1h map)
 INSTRUMENTS: dict[str, str] = {
     "US100": "E_NQ-100",
+    "SP500": "E_SandP-500",   # S&P 500 CFD (ES/MES proxy)
     "GER40": "E_DAAX",
     "XAUUSD": "XAU/USD",
     "JP225": "E_N225Jap",   # Nikkei 225 CFD (Tokyo cash open 09:00 JST)
