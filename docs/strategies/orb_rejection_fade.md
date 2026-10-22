@@ -1,7 +1,8 @@
 # ORB Rejection Fade — **REJECTED** (the edge was an artifact)
 
 Status: **rejected.** Every positive number this strategy ever produced came from a
-bug in its own day-slicing code, not from a real edge.
+bug in its own day-slicing code, not from a real edge. Source spec kept at
+[`orb_rejection_ifvg_SPEC.yaml`](orb_rejection_ifvg_SPEC.yaml).
 
 ## Root cause
 

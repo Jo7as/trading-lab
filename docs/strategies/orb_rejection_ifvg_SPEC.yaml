@@ -1,0 +1,295 @@
+# =====================================================================================
+# Strategy spec: ORB Rejection Fade mit Inverse FVG ("ORB Ping-Pong")
+# Quelle: Instagram-Reel (@ceewillii "Mind Over Markets", Reaction + Roboquant-AI-Demo)
+#         Transkript + 127 Einzelbilder ausgewertet.
+# Legende:  # VIDEO = im Bild/Ton belegt   # ANNAHME = von mir ergänzt, als Parameter testen
+# =====================================================================================
+
+meta:
+  id: orb_rejection_ifvg_v1
+  version: 1.0.0
+  status: hypothesis
+  style: intraday_mean_reversion_inside_range   # Fade an den ORB-Kanten, kein Breakout
+  sources:
+    video: "snapgram.io_0j7ktx6tcgep.mp4 (127 s)"
+    chart_tool: "TradingView-Indikator 'ORB Ultimate+ | CeeWilli x Taking Prophets'"   # VIDEO
+    example_day: "2026-07-14, MESU2026, 1m-Chart"                                     # VIDEO
+    backtest_tool: "Roboquant AI (Werbung im Video)"                                   # VIDEO
+  transcript_corrections:
+    - "Transkript sagt '50 minute candle' -> im Chart steht klar '15': erste 15-Minuten-Kerze ab 9:30 ET."   # VIDEO
+    - "'Ses. Open 9:30AM EST' -> gemeint ist New Yorker Ortszeit (im Juli EDT). Immer America/New_York verwenden."
+
+# -------------------------------------------------------------------------------------
+# 1. MARKT & DATEN
+# -------------------------------------------------------------------------------------
+market:
+  instrument: MES                    # VIDEO (MESU2026, Backtest "MES futures")
+  instrument_variants: [MES, ES, MNQ, NQ]
+  point_value_usd: { MES: 5, ES: 50, MNQ: 2, NQ: 20 }
+  tick_size: 0.25
+  timezone: America/New_York
+  rth: { open: "09:30", close: "16:00" }
+  execution_timeframe: 1m            # VIDEO (Chart zeigt "(1m)" bei Einstieg)
+  range_timeframe: 15m               # VIDEO
+data:
+  bars: 1m OHLCV, RTH + ETH vorhanden (ETH nur für Indikatoren/ATR optional)
+  continuous_contract: back_adjusted_by_roll_gap   # VIDEO: "7 contract rolls ... shifted by each roll's gap"
+  roll_rule: volume_switch
+  min_history: "2019-01-01"          # ANNAHME: mehrere Marktphasen (2020, 2022 Bärenmarkt, 2023-26)
+
+# -------------------------------------------------------------------------------------
+# 2. ORB-DEFINITION
+# -------------------------------------------------------------------------------------
+opening_range:
+  start: "09:30"                     # VIDEO
+  end: "09:45"                       # VIDEO (15m)
+  orh: max(high) der 1m-Bars 09:30-09:44
+  orl: min(low)  der 1m-Bars 09:30-09:44
+  mid: (orh + orl) / 2               # VIDEO: Indikator zeigt 50%-Linie
+  size: orh - orl
+  filters:
+    min_size_atr: 0.0                # ANNAHME, Sweep [0, 0.3, 0.5] x ATR(14, daily) / Tages-ATR-Anteil
+    max_size_atr: 99                 # ANNAHME, zu große Ranges -> Ziel zu weit, Sweep [1.0, 1.5]
+  variant_preset_ai: "09:15-09:30"   # VIDEO: Roboquants erster Preset nutzte falsches Fenster (Hinweis, nicht verwenden)
+
+# -------------------------------------------------------------------------------------
+# 3. REGIME: "Momentum" vs. "Chop" (entscheidet Fade vs. Break&Retest)
+# -------------------------------------------------------------------------------------
+regime:
+  # VIDEO: "Wenn Preis mit viel Momentum rausdrückt -> Break & Retest.
+  #         Wenn Preis mehrfach an ORH scheitert -> Fade. Funktioniert besser bei Chop/Ping-Pong."
+  momentum_breakout:                 # ANNAHME, operationalisiert
+    rule: >
+      1m-Close jenseits ORH/ORL um >= breakout_close_buffer UND
+      Summe der Closes außerhalb in Folge >= acceptance_bars
+    breakout_close_buffer: "0.10 * or_size"   # Sweep [0.05, 0.10, 0.20]
+    acceptance_bars: 3                        # Sweep [2, 3, 5]
+    effect: "Fade an dieser Seite für den Tag gesperrt; optional Modul B (Break&Retest) aktiv"
+  chop_condition: "kein momentum_breakout bisher an der betrachteten Seite"
+
+# -------------------------------------------------------------------------------------
+# 4. SETUP-BAUSTEINE (Definitionen)
+# -------------------------------------------------------------------------------------
+definitions:
+  touch_high:
+    rule: "high >= orh - touch_tolerance UND close <= orh + reject_close_buffer"
+    touch_tolerance: "2 ticks"       # ANNAHME, Sweep [1, 2, 4] ticks oder 0.05*or_size
+    reject_close_buffer: "0.05 * or_size"   # Fehlausbruch: Docht drüber, Close zurück (VIDEO: "break to the upside, sellers push price down")
+    min_bars_between_touches: 3      # ANNAHME, damit 3 Kerzen in Folge nicht als 3 Touches zählen
+  rejection_count:
+    rule: "Anzahl separater touch_high seit 09:45 ohne momentum_breakout"
+    min_touches: 3                   # VIDEO: Beispiel zeigt Ausbruch + 2 weitere Tests ("multiple times") -> Sweep [2, 3, 4]
+  rejection_candle:
+    rule: "oberer Docht >= wick_ratio * Kerzenrange UND close < open"   # VIDEO: "two rejection candles"
+    wick_ratio: 0.5                  # ANNAHME
+    min_count_at_level: 2            # VIDEO
+  bearish_engulfing:
+    rule: "close < open UND open >= close[1] UND close <= open[1] UND body >= engulf_min * body[1]"   # VIDEO: "big ass engulfing candle"
+    engulf_min: 1.0
+    min_range_atr1m: 1.5             # ANNAHME: "groß" = Range >= 1.5 x ATR(14) auf 1m
+  bullish_fvg:
+    rule: "low[0] > high[2]  (3-Kerzen-Lücke, Bereich high[2]..low[0])"
+  inverse_fvg_bearish:
+    # VIDEO: "beautiful inversion fair value gap"
+    rule: >
+      Eine bullish_fvg aus den letzten ifvg_lookback Bars wird von einer Kerze mit
+      close < fvg_bottom durchschlossen -> Zone kippt zu Widerstand (bearish iFVG)
+    ifvg_lookback: 15                # ANNAHME, Sweep [5, 10, 15, 30]
+    min_fvg_size: "1 tick"           # ANNAHME
+  # Long-Seite spiegelbildlich: touch_low, bullish_engulfing, bearish_fvg -> inverse_fvg_bullish
+  # VIDEO: "Price hits the ORB low, buyers come in, bullish inverse fair value gap"
+
+# -------------------------------------------------------------------------------------
+# 5. MODUL A: ORB REJECTION FADE (Kern der Strategie)
+# -------------------------------------------------------------------------------------
+module_a_fade:
+  enabled: true
+  short_setup:
+    conditions:
+      - "Zeit in entry_window"
+      - "regime.chop_condition für Oberseite"
+      - "rejection_count.high >= min_touches"
+      - "rejection_candle (Oberseite) >= min_count_at_level innerhalb der letzten 10 Bars"
+      - "Trigger-Bar: bearish_engulfing UND inverse_fvg_bearish (gleiche Bar oder max. trigger_gap Bars auseinander)"
+      - "Close der Trigger-Bar innerhalb der ORB"
+    trigger_gap_bars: 2              # ANNAHME
+    trigger_mode: all                # Varianten: [all, engulf_only, ifvg_only] -> Ablation
+  long_setup: "spiegelbildlich an ORL"
+  entry:
+    type: market_on_close_of_trigger_bar    # VIDEO: Einstieg direkt nach der Engulfing-Kerze
+    variants: [market_on_close, limit_at_ifvg_retest]
+    limit_timeout_bars: 5
+  stop:
+    rule: "über dem höchsten High der Rejection-Kerzen + stop_buffer"   # VIDEO
+    stop_buffer: "2 ticks"           # ANNAHME
+    max_stop_points: 10              # ANNAHME (Beispiel im Video: 4.75 Pkt = 19 Ticks)
+    min_stop_points: 2
+  target:
+    rule: "gegenüberliegende ORB-Kante (Short -> ORL, Long -> ORH)"      # VIDEO
+    variants:
+      - opposite_edge                # VIDEO
+      - mid_then_edge                # VIDEO-Indikator zeigt TP1/TP2: 50% Teilgewinn an mid, Rest an Kante
+      - fixed_R: [1.0, 1.5, 2.0]
+    front_run_ticks: 2               # ANNAHME: Ziel knapp vor der Kante
+  filters:
+    min_reward_risk: 1.5             # ANNAHME; Ziel-Distanz / Stop-Distanz, sonst kein Trade
+  break_even:
+    enabled: false                   # Variante: Stop auf Einstieg nach Erreichen von mid
+  ping_pong:
+    # VIDEO: Short von ORH zu ORL, danach Long von ORL zu ORH am selben Tag
+    allow_opposite_after_exit: true
+    max_trades_per_side_per_day: 1
+    max_trades_per_day: 2
+
+# -------------------------------------------------------------------------------------
+# 6. MODUL B: BREAK & RETEST (optional, für Momentum-Tage)
+# -------------------------------------------------------------------------------------
+module_b_break_retest:
+  enabled: false                     # erst separat testen, dann kombinieren
+  rule: >
+    Nach momentum_breakout: Pullback berührt ORH (+/- tolerance) von oben,
+    Bar schließt wieder über ORH -> Long. Stop: unter Retest-Low bzw. ORB-mid.
+  target: [fixed_R_2, or_size_projection_1x]
+
+# -------------------------------------------------------------------------------------
+# 7. ZEIT & SESSION
+# -------------------------------------------------------------------------------------
+session_rules:
+  entry_window: { start: "09:45", end: "11:30" }   # ANNAHME; VIDEO-Trades lagen 10:00-10:35. Sweep end [10:30, 11:30, 12:00]
+  flat_by: "15:55"                   # VIDEO (AI-Spec: "flattened at a set time, nothing overnight")
+  variants_flat_by: ["12:00", "15:55"]
+  skip_days:
+    - early_close
+    - optional: [FOMC, CPI, NFP]     # separat auswerten statt blind ausschließen
+
+# -------------------------------------------------------------------------------------
+# 8. POSITIONSGRÖSSE & RISIKO
+# -------------------------------------------------------------------------------------
+sizing:
+  method: fixed_dollar_risk          # VIDEO (AI-Spec: "size computed from a fixed dollar risk per trade, floored")
+  risk_per_trade_usd: 150            # ANNAHME für 25k-Prop-Konto (< 25% der Daily Loss Limit $600)
+  contracts: "floor(risk_per_trade_usd / (stop_points * point_value))"
+  min_contracts: 1
+  skip_if_below_min: true            # nie mehr riskieren als Budget
+  max_contracts: { MES: 20, ES: 2 }  # VIDEO: Lucid "2 minis / 20 micros"
+  daily_loss_stop_usd: 400           # ANNAHME, unter Prop-DLL
+  consecutive_loss_stop: 2           # ANNAHME
+
+# -------------------------------------------------------------------------------------
+# 9. KOSTEN & AUSFÜHRUNG
+# -------------------------------------------------------------------------------------
+costs:
+  commission_per_contract_roundtrip_usd: 1.50   # ANNAHME MES; Video: $522 / 174 Trades ≈ $3 pro Trade
+  slippage_ticks_entry: 1
+  slippage_ticks_stop: 2
+  slippage_ticks_target: 0           # Limit
+  fill_model:
+    intrabar: "Stop vor Ziel, wenn beide in derselben 1m-Bar"   # konservativ
+    limit_fill: "nur wenn Preis Limit um >= 1 Tick durchtradet"
+  no_lookahead: "alle Signale auf Bar-Close, Ausführung frühestens nächste Bar-Open (bzw. Close + Slippage)"
+
+# -------------------------------------------------------------------------------------
+# 10. BACKTEST-SETUP
+# -------------------------------------------------------------------------------------
+backtest:
+  period: { start: "2019-01-01", end: "2026-09-30" }
+  in_sample:     { start: "2019-01-01", end: "2023-12-31" }
+  out_of_sample: { start: "2024-01-01", end: "2026-09-30" }
+  claim_replication_window: { start: "2025-03-19", end: "2026-09-16" }   # VIDEO: Zeitraum der gezeigten Ergebnisse
+  walk_forward: { train_months: 18, test_months: 6, step_months: 6 }
+  initial_capital_usd: 10000         # VIDEO: "Backtest capital $10,000"
+  parameter_search:
+    method: grid_coarse              # bewusst grob, gegen Overfitting
+    max_combinations: 200
+    select_by: median_oos_expectancy  # nicht bestes IS-Ergebnis
+
+# -------------------------------------------------------------------------------------
+# 11. BASELINES & ABLATION (Pflicht)
+# -------------------------------------------------------------------------------------
+baselines:
+  - name: classic_orb_breakout       # das, was im Video "kritisiert" wird
+    rule: "erster 1m-Close außerhalb ORB, Stop ORB-mid, Ziel 1R/2R"
+  - name: naive_fade_first_touch     # ohne Rejection-Count, ohne Engulfing, ohne iFVG
+  - name: fade_n_touches_only        # nur Rejection-Count
+  - name: fade_plus_engulf           # + Engulfing
+  - name: full_setup                 # + iFVG  -> zeigt, ob jeder Filter Mehrwert bringt
+  - name: random_entry_inside_orb_same_exits
+  - name: buy_and_hold_benchmark
+
+# -------------------------------------------------------------------------------------
+# 12. KENNZAHLEN
+# -------------------------------------------------------------------------------------
+metrics:
+  - trades_total / per_year / per_month
+  - win_rate
+  - avg_win, avg_loss, avg_R, expectancy_after_costs
+  - profit_factor
+  - max_drawdown_usd, max_drawdown_pct
+  - largest_loss_usd                 # wichtig für Prop-Regeln
+  - longest_losing_streak
+  - sharpe, sortino, calmar
+  - long_vs_short
+  - by_year, by_weekday, by_or_size_bucket, by_entry_time_bucket
+  - exit_reason_split: [target, stop, time_exit]
+  - monte_carlo: { method: block_bootstrap_days, runs: 5000, report: [dd_p95, ruin_prob] }
+
+# -------------------------------------------------------------------------------------
+# 13. PROP-FIRM-SIMULATION
+# -------------------------------------------------------------------------------------
+prop_firm:
+  preset: "Lucid Trading, LucidPro 25K"   # VIDEO
+  account_size: 25000
+  profit_target_usd: 1250            # VIDEO 5%
+  max_daily_loss_usd: 600            # VIDEO 2.4%, "soft lockout"
+  max_total_loss_usd: 1000           # VIDEO 4%, EOD trailing
+  drawdown_type: eod_trailing        # VIDEO
+  max_contracts: "2 minis / 20 micros"   # VIDEO
+  time_limit_days: 365
+  sampling: block_bootstrap_days     # VIDEO
+  runs: 5000
+  checks:
+    - "Größter Einzelverlust < max_daily_loss (sonst Regelbruch an einem Tag)"
+    - "Pass-Rate auf Sizing, das tatsächlich in DLL/MaxLoss passt, NICHT auf skalierter Backtest-Größe"
+
+# -------------------------------------------------------------------------------------
+# 14. AKZEPTANZKRITERIEN
+# -------------------------------------------------------------------------------------
+acceptance_criteria:
+  min_trades_oos: 150
+  expectancy_after_costs_R: "> 0.15"
+  profit_factor_oos: "> 1.3"
+  oos_vs_is_degradation: "OOS-Expectancy >= 50% der IS-Expectancy"
+  beats_baselines: "full_setup > naive_fade_first_touch und > random_entry (p < 0.05)"
+  each_filter_adds_value: "Ablation: jeder Filter verbessert OOS-Expectancy, sonst streichen"
+  param_robustness: "Nachbarwerte (min_touches ±1, ifvg_lookback ±5, Fenster ±30 min) bleiben positiv"
+  stable_years: "höchstens 1 Verlustjahr ab 2019"
+  prop_pass_rate: "> 50% bei realem Sizing"
+
+# -------------------------------------------------------------------------------------
+# 15. VIDEO-BEHAUPTUNGEN (zum Gegenprüfen, nicht als Ziel übernehmen)
+# -------------------------------------------------------------------------------------
+reported_claims:
+  # alles VIDEO, Screenshot Roboquant
+  period: "2025-03-19 bis 2026-09-16 (~18 Monate, im Ton '2 Jahre')"
+  return_pct: 200.1
+  net_pnl_usd: 20010
+  trades: 174
+  win_rate_pct: 55.8
+  profit_factor: 2.17
+  max_dd_pct: 22.2
+  avg_win_usd: 382
+  avg_loss_usd: -221
+  largest_win_usd: 2953
+  largest_loss_usd: -2185
+  sortino: 2.72
+  calmar: 4.0
+  commission_usd: 522
+  prop_sim: "Lucid 25K: 73.8% Pass-Rate simuliert, 73.2% historisch, ~12.7 Kalendertage; 'Simulated at 3x your backtest's position size'"
+  first_ai_attempt: "NQ 15m-Preset: 15 Trades in 3 Jahren, Win-Rate 26.7%, PF 0.07, Max DD 101% (Konto weg)"
+
+red_flags:
+  - "Die finalen 'profitablen Settings' werden im Video NICHT gezeigt. Erst nach mehreren erfolglosen Versuchen 'gefunden' -> starkes Overfitting-Risiko."
+  - "Nur ~18 Monate Daten, kein Out-of-Sample erkennbar."
+  - "Größter Einzelverlust $2,185 > Lucid Max Total Loss $1,000 und > Daily Loss $600. Bei 3x Größe erst recht. Die 73.8% Pass-Rate passt damit nicht zusammen."
+  - "Das AI-Tool hat die Diskretion (Rejection, Engulfing, iFVG) vermutlich vereinfacht; unklar, was tatsächlich getestet wurde."
+  - "Video ist Werbung für Roboquant AI und den CeeWilli-Indikator; die Chart-Beispiele sind ausgewählte Tage (2026-07-14)."

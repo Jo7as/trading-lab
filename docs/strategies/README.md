@@ -9,12 +9,17 @@ included.
 
 | Strategy | Status | Instruments tested | Headline | File |
 |---|---|---|---|---|
-| **ORB Rejection Fade** (`orb_fade`) | **REJECTED** | US100, SP500, GER40 (2019–2026) | earlier positives were a day-slicing bug; corrected: −0.25…−0.56 R, 8/8 negative years | [orb_rejection_fade.md](orb_rejection_fade.md) |
+| **ORB Rejection Fade** (`orb_fade`) | **REJECTED** | US100, SP500, GER40 + 8 more (2019–2026) | earlier positives were a day-slicing bug; corrected: −0.29…−1.18 R on all 11 markets, 7–8/8 negative years | [orb_rejection_fade.md](orb_rejection_fade.md) · [source spec](orb_rejection_ifvg_SPEC.yaml) |
 | Fair Pricing (JJ Simon) | rejected | US100 (2016–2026) | −0.15…−0.30 R, acceptance FAIL | [fair_pricing_REJECTED.md](fair_pricing_REJECTED.md) |
 | NY-Open EMA12 | rejected | US100 (2016–2026) | −0.15…−0.30 R, all 20 parameter combos negative | [ny_open_ema12_REJECTED.md](ny_open_ema12_REJECTED.md) |
 
 There is currently **no candidate.** The one that looked strongest was rejected
 after a day-slicing bug in its engine was found and fixed.
+
+**Next plan:** [MULTI_STRATEGY_DUKASCOPY_PLAN.md](../MULTI_STRATEGY_DUKASCOPY_PLAN.md)
+— a four-module design (noise-area momentum, order-flow absorption at levels,
+mean reversion inside the noise area, FX strength) with a regime and portfolio
+layer. Not started; build module by module with a go/no-go after each.
 
 ## How the verdict is produced
 
