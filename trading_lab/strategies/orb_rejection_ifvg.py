@@ -168,13 +168,14 @@ def prepare(data: pd.DataFrame, cfg: OrbRejConfig) -> Prepared:
     rth = (minutes >= _hhmm_min(cfg.session_open)) & (minutes < _hhmm_min(cfg.session_close))
     idx_rth = np.flatnonzero(rth)
     day_arr = local[idx_rth].normalize().to_numpy()
+    # rows are time-sorted, so each day is contiguous: one vectorised split
+    uniq, starts, counts = np.unique(day_arr, return_index=True, return_counts=True)
     days, slices = [], []
-    for d in pd.unique(day_arr):
-        pos = np.flatnonzero(day_arr == d)
-        if len(pos) < cfg.or_minutes + 5:
+    for u, s, c in zip(uniq, starts, counts):
+        if c < cfg.or_minutes + 5:
             continue
-        days.append(pd.Timestamp(d).date())
-        slices.append(slice(int(pos[0]), int(pos[-1]) + 1))
+        days.append(pd.Timestamp(u).date())
+        slices.append(slice(int(s), int(s) + int(c)))
 
     skip: set[date] = set()
     if days:
