@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from trading_lab.minute_data import load_minute_bid_ask
-from trading_lab.prop_sim import daily_pnl, evaluate, get_firm, risk_usd_for
+from trading_lab.prop_sim import FIRMS, daily_pnl, evaluate, get_firm, risk_usd_for, simulate_funded
 from trading_lab.strategies.orb_2r import skipped_days
 from trading_lab.strategies.orb_rejection_ifvg import OrbRejConfig, run_backtest
 
@@ -79,7 +79,25 @@ def report(trades: list[dict], days: list[date], *, risk_pct: float, firm_name: 
     firm = get_firm(firm_name)
     risk_usd = risk_usd_for(firm.account_size, risk_pct)
     stream = daily_pnl(trades, risk_usd=risk_usd, days=days)
-    prop = evaluate(stream, firm, runs=runs)
+    if firm.is_instant:
+        res = simulate_funded(stream, firm, runs=runs)
+        prop = {"firm": firm.name, "risk_usd": round(risk_usd, 0), "kind": "instant",
+                "survival_pct": round(res.survival_rate * 100, 1),
+                "payout_rate_pct": round(res.payout_rate * 100, 1),
+                "mean_payout_usd": round(res.mean_payout_usd, 0),
+                "median_days_to_breach": round(res.median_days_to_breach, 0)
+                if res.breaches else None,
+                "worst_day_usd": round(float(stream.min()), 0),
+                "worst_trade_usd": round(float(rs.min()) * risk_usd, 0)}
+    else:
+        prop = evaluate(stream, firm, runs=runs)
+        prop = {"firm": prop.firm, "risk_usd": round(risk_usd, 0), "kind": "eval",
+                "pass_rate_pct": round(prop.pass_rate * 100, 1),
+                "phase_pass_pct": [round(r * 100, 1) for r in prop.phase_pass_rate],
+                "median_days": round(prop.median_days, 0), "p95_days": round(prop.p95_days, 0),
+                "cost_per_funded_usd": round(prop.cost_per_funded, 0),
+                "worst_day_usd": round(float(stream.min()), 0),
+                "worst_trade_usd": round(float(rs.min()) * risk_usd, 0)}
 
     longs = [t for t in trades if t["direction"] == "long"]
     shorts = [t for t in trades if t["direction"] == "short"]
@@ -115,15 +133,7 @@ def report(trades: list[dict], days: list[date], *, risk_pct: float, firm_name: 
         "longest_losing_streak": _streaks(list(rs)),
         "sharpe_daily_ann": round(float(full.mean() / full.std() * np.sqrt(252)), 2) if full.std() else 0.0,
         "long": _side(longs), "short": _side(shorts), "exit_reasons": reasons,
-        "prop": {
-            "firm": firm.name, "risk_usd": round(risk_usd, 0),
-            "pass_rate_pct": round(prop.pass_rate * 100, 1),
-            "phase_pass_pct": [round(r * 100, 1) for r in prop.phase_pass_rate],
-            "median_days": round(prop.median_days, 0), "p95_days": round(prop.p95_days, 0),
-            "cost_per_funded_usd": round(prop.cost_per_funded, 0),
-            "worst_day_usd": round(float(stream.min()), 0),
-            "worst_trade_usd": round(float(rs.min()) * risk_usd, 0),
-        },
+        "prop": prop,
     }
 
 
@@ -131,7 +141,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--strategy", default="orb_fade", choices=sorted(STRATEGIES))
     ap.add_argument("--asset", default="US100")
-    ap.add_argument("--firm", default="lucid", choices=["ftmo", "lucid"])
+    ap.add_argument("--firm", default="lucid", choices=sorted(FIRMS))
     ap.add_argument("--risk-pct", type=float, default=0.5)
     ap.add_argument("--start-year", type=int, default=2019)
     ap.add_argument("--end-year", type=int, default=datetime.now(timezone.utc).year)

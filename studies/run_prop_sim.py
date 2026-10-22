@@ -21,7 +21,15 @@ from typing import Callable
 import pandas as pd
 
 from trading_lab.minute_data import load_minute_bid_ask
-from trading_lab.prop_sim import PropFirm, daily_pnl, evaluate, get_firm, risk_usd_for
+from trading_lab.prop_sim import (
+    FIRMS,
+    PropFirm,
+    daily_pnl,
+    evaluate,
+    get_firm,
+    risk_usd_for,
+    simulate_funded,
+)
 from trading_lab.strategies.orb_2r import skipped_days
 from trading_lab.strategies.orb_rejection_ifvg import OrbRejConfig, run_backtest
 
@@ -52,7 +60,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--strategy", default="orb_fade", choices=sorted(STRATEGIES))
     ap.add_argument("--asset", default="US100")
-    ap.add_argument("--firm", default="ftmo", choices=["ftmo", "lucid"])
+    ap.add_argument("--firm", default="ftmo", choices=sorted(FIRMS))
     ap.add_argument("--start-year", type=int, default=2024)
     ap.add_argument("--end-year", type=int, default=datetime.now(timezone.utc).year)
     ap.add_argument("--risk-pct", type=float, default=0.5, help="risk per trade, % of account")
@@ -79,20 +87,29 @@ def main() -> int:
     print(f"  days {len(days)} | worst day ${stream.min():,.0f} | best day ${stream.max():,.0f} "
           f"| trading days used {int((stream != 0).sum())}")
 
-    res = evaluate(stream, firm, runs=args.runs, block=args.block)
-    print("  " + res.summary())
+    if firm.is_instant:
+        funded = simulate_funded(stream, firm, runs=args.runs, block=args.block)
+        print("  " + funded.summary())
+        res = funded
+    else:
+        res = evaluate(stream, firm, runs=args.runs, block=args.block)
+        print("  " + res.summary())
 
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
-        args.json.write_text(json.dumps({
-            "strategy": args.strategy, "asset": args.asset, "firm": firm.name,
-            "risk_pct": args.risk_pct, "risk_usd": risk_usd,
-            "worst_single_trade_usd": round(worst_r * risk_usd, 2),
-            "worst_day_usd": round(float(stream.min()), 2),
-            "pass_rate": res.pass_rate, "phase_pass_rate": res.phase_pass_rate,
-            "median_days": res.median_days, "p95_days": res.p95_days,
-            "fails": res.fails, "cost_per_funded": res.cost_per_funded,
-        }, indent=2))
+        payload = {"strategy": args.strategy, "asset": args.asset, "firm": firm.name,
+                   "risk_pct": args.risk_pct, "risk_usd": risk_usd,
+                   "worst_single_trade_usd": round(worst_r * risk_usd, 2),
+                   "worst_day_usd": round(float(stream.min()), 2)}
+        if firm.is_instant:
+            payload |= {"survival_rate": res.survival_rate, "payout_rate": res.payout_rate,
+                        "mean_payout_usd": res.mean_payout_usd,
+                        "median_days_to_breach": res.median_days_to_breach}
+        else:
+            payload |= {"pass_rate": res.pass_rate, "phase_pass_rate": list(res.phase_pass_rate),
+                        "median_days": res.median_days, "p95_days": res.p95_days,
+                        "fails": res.fails, "cost_per_funded": res.cost_per_funded}
+        args.json.write_text(json.dumps(payload, indent=2))
         print(f"  json: {args.json}")
     return 0
 

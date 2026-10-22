@@ -38,7 +38,12 @@ _OUTCOMES = ("pass", "daily", "total", "min_days", "timeout")
 
 @dataclass(frozen=True)
 class PropFirm:
-    """One firm's evaluation rules (percentages of ``account_size``)."""
+    """One firm's rules (percentages of ``account_size``).
+
+    An empty ``phase_targets`` means **instant funding**: there is no evaluation
+    to pass — the account is funded from day one and is judged by survival and
+    payouts (see ``simulate_funded``).
+    """
 
     name: str
     account_size: float = 25_000.0
@@ -49,11 +54,19 @@ class PropFirm:
     min_trading_days: int = 0                    # per phase
     time_limit_days: int | None = 365            # per phase; None = unlimited
     eval_price_per_phase: float = 100.0
+    # instant-funding payout model
+    payout_split: float = 0.8                    # trader's share of profit at payout
+    payout_cycle_days: int = 14                  # how often payouts are taken
+    min_profit_before_payout: float = 0.0
     note: str = ""
 
     def __post_init__(self) -> None:
         if self.drawdown_type not in DRAWDOWN_TYPES:
             raise ValueError(f"drawdown_type must be one of {DRAWDOWN_TYPES}")
+
+    @property
+    def is_instant(self) -> bool:
+        return not self.phase_targets
 
     @property
     def daily_limit_usd(self) -> float:
@@ -85,7 +98,35 @@ LUCID = PropFirm(
     min_trading_days=0, time_limit_days=365, eval_price_per_phase=100.0,
 )
 
-FIRMS: dict[str, PropFirm] = {"ftmo": FTMO, "lucid": LUCID}
+# Stylized 1-step: one phase, higher target, same risk limits as FTMO.
+ONE_STEP = PropFirm(
+    name="1-step (8% target / 5% daily / 10% static)",
+    account_size=100_000.0, phase_targets=(0.08,),
+    max_daily_loss_frac=0.05, max_total_loss_frac=0.10, drawdown_type="static",
+    min_trading_days=0, time_limit_days=None, eval_price_per_phase=99.0,
+    note="stylized one-phase variant; confirm exact target/limits with the firm",
+)
+
+# Instant funding: no evaluation, funded from day one (static drawdown from the
+# initial balance), payouts every cycle on the profit above the starting balance.
+INSTANT_25K = PropFirm(
+    name="Instant 25K (2.4% daily / 4% static total / 80% split)",
+    account_size=25_000.0, phase_targets=(),
+    max_daily_loss_frac=0.024, max_total_loss_frac=0.04, drawdown_type="static",
+    time_limit_days=None, payout_split=0.8, payout_cycle_days=14,
+)
+
+INSTANT_100K = PropFirm(
+    name="Instant 100K (5% daily / 8% static total / 80% split)",
+    account_size=100_000.0, phase_targets=(),
+    max_daily_loss_frac=0.05, max_total_loss_frac=0.08, drawdown_type="static",
+    time_limit_days=None, payout_split=0.8, payout_cycle_days=14,
+)
+
+FIRMS: dict[str, PropFirm] = {
+    "ftmo": FTMO, "lucid": LUCID, "one_step": ONE_STEP,
+    "instant_25k": INSTANT_25K, "instant_100k": INSTANT_100K,
+}
 
 
 def get_firm(name: str) -> PropFirm:
@@ -199,6 +240,94 @@ def _attempt(path: np.ndarray, firm: PropFirm) -> dict:
                     "reached": reached, "passed_phases": passed_phases}
     return {"passed": True, "days": total_days, "reason": "pass",
             "reached": reached, "passed_phases": passed_phases}
+
+
+@dataclass(frozen=True)
+class FundedResult:
+    firm: str
+    attempts: int
+    survival_rate: float            # fraction that never breached within the horizon
+    breaches: int
+    median_days_to_breach: float
+    payout_rate: float              # fraction of attempts that took ≥1 payout
+    mean_payout_usd: float          # average total payout per account
+    median_payout_usd: float
+    ev_per_account_usd: float       # mean payout (instant accounts cost nothing to open)
+    worst_day: float
+
+    def summary(self) -> str:
+        return (
+            f"{self.firm} | survive {self.survival_rate * 100:.1f}% ({self.attempts - self.breaches}/"
+            f"{self.attempts}) | breach median {self.median_days_to_breach:.0f}d | "
+            f"payout in {self.payout_rate * 100:.1f}% of runs | "
+            f"mean payout ${self.mean_payout_usd:,.0f} (median ${self.median_payout_usd:,.0f}) | "
+            f"EV/account ${self.ev_per_account_usd:,.0f}"
+        )
+
+
+def _one_funded(daily: np.ndarray, firm: PropFirm, horizon: int) -> tuple[bool, int, float]:
+    """Run one instant account over ``daily`` (up to ``horizon`` days).
+
+    Returns ``(survived, days_until_breach_or_horizon, total_payout)``. Payouts are
+    taken every ``payout_cycle_days`` on the profit above the initial balance and
+    reset the balance to the initial amount (a simple, documented model).
+    """
+    balance = firm.account_size
+    peak = firm.account_size
+    payout = 0.0
+    for i, pnl in enumerate(daily[:horizon], start=1):
+        balance += pnl
+        if pnl <= -firm.daily_limit_usd:
+            return False, i, payout
+        if firm.drawdown_type == "static":
+            floor = firm.account_size - firm.total_limit_usd
+        else:
+            peak = max(peak, balance)
+            floor = peak - firm.total_limit_usd
+        if balance <= floor:
+            return False, i, payout
+        if firm.payout_cycle_days and i % firm.payout_cycle_days == 0:
+            profit = balance - firm.account_size
+            if profit >= firm.min_profit_before_payout:
+                payout += firm.payout_split * profit
+                balance = firm.account_size          # reset after a payout
+    return True, min(len(daily), horizon), payout
+
+
+def simulate_funded(daily: np.ndarray, firm: PropFirm, *, runs: int = 5000,
+                    block: int = 20, horizon_days: int = 252, seed: int = 7) -> FundedResult:
+    """Instant-funding account: survival rate and expected payout over a horizon."""
+    rng = np.random.default_rng(seed)
+    n = len(daily)
+    worst_day = float(daily.min()) if n else 0.0
+    out: list[tuple[bool, int, float]] = [(_one_funded(daily, firm, horizon_days))]
+
+    def _padded(a: np.ndarray) -> np.ndarray:
+        return a[:horizon_days] if len(a) >= horizon_days else np.concatenate(
+            [a, np.zeros(horizon_days - len(a))])
+
+    out[0] = (_one_funded(_padded(daily), firm, horizon_days))
+    if n:
+        n_blocks = int(np.ceil(horizon_days / block)) + 1
+        for _ in range(runs):
+            starts = rng.integers(0, n, size=n_blocks)
+            path = np.concatenate([daily[s:s + block] for s in starts])[:horizon_days]
+            out.append(_one_funded(path, firm, horizon_days))
+
+    attempts = len(out)
+    breached = [d for ok, d, _ in out if not ok]
+    payouts = np.array([p for _, _, p in out])
+    return FundedResult(
+        firm=firm.name, attempts=attempts,
+        survival_rate=1 - len(breached) / attempts,
+        breaches=len(breached),
+        median_days_to_breach=float(np.median(breached)) if breached else float("nan"),
+        payout_rate=float((payouts > 0).mean()),
+        mean_payout_usd=float(payouts.mean()),
+        median_payout_usd=float(np.median(payouts)),
+        ev_per_account_usd=float(payouts.mean()),
+        worst_day=worst_day,
+    )
 
 
 def evaluate(daily: np.ndarray, firm: PropFirm, *, runs: int = 5000,
