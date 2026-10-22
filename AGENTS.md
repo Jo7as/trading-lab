@@ -68,6 +68,15 @@ with the idea.
 
 ## Conventions
 
+- **Index spaces are a trap.** Per-day/session slices must index the *full*
+  frame even when they come from a boolean mask (RTH, session hours). Open-coding
+  `np.flatnonzero(mask)` + `unique(...)` and slicing the full frame silently
+  walks windows out of phase with the clock — this once made a whole strategy
+  look profitable before it was caught. Use `trading_lab.mr_common.day_slices`
+  and keep a test on a **full 24 h frame** (`tests/test_day_slices.py`); a
+  synthetic RTH-only frame will not catch it.
+- A backtest that looks too good is a bug signal: check the session mapping,
+  per-year split, and the random-direction baseline before believing it.
 - Environment variables are read via `trading_lab.env.env` with the `LAB_`
   prefix (legacy `HERMES_*` names still work).
 - Reports/results go to `artifacts/`; never commit data, `.env`, or live state.

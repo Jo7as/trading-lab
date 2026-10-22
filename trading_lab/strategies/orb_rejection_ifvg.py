@@ -30,7 +30,7 @@ import pandas as pd
 
 from ..backtest import _compute_metrics
 from ..indicators import atr as atr_indicator
-from ..mr_common import ASK_COLS, ensure_utc, with_ask
+from ..mr_common import ASK_COLS, day_slices, ensure_utc, with_ask
 from .orb_2r import skipped_days
 
 MODES = ("naive", "touches", "engulf", "full", "random", "breakout")
@@ -167,19 +167,9 @@ def prepare(data: pd.DataFrame, cfg: OrbRejConfig) -> Prepared:
 
     minutes = local.hour * 60 + local.minute
     rth = (minutes >= _hhmm_min(cfg.session_open)) & (minutes < _hhmm_min(cfg.session_close))
-    idx_rth = np.flatnonzero(rth)
-    day_arr = local[idx_rth].normalize().to_numpy()
-    # rows are time-sorted, so each day is contiguous: one vectorised split.
-    # IMPORTANT: slice the FULL frame, so map RTH positions back through idx_rth.
-    uniq, starts, counts = np.unique(day_arr, return_index=True, return_counts=True)
-    days, slices = [], []
-    for u, s, c in zip(uniq, starts, counts):
-        if c < cfg.or_minutes + 5:
-            continue
-        lo = int(idx_rth[s])
-        hi = int(idx_rth[s + c - 1]) + 1
-        days.append(pd.Timestamp(u).date())
-        slices.append(slice(lo, hi))
+    # Slices must index the FULL frame (not the RTH-filtered subset) — see
+    # mr_common.day_slices for why this is a helper.
+    days, slices = day_slices(local, rth, min_bars=cfg.or_minutes + 5)
 
     skip: set[date] = set()
     if days:

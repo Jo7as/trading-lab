@@ -12,7 +12,7 @@ from .env import env
 
 import os
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +87,37 @@ def prepare_frame(
     out = ensure_utc(df)
     out = drop_unclosed_last_bar(out, bar_minutes(timeframe), now)
     return with_ask(out, fallback_spread_pct)
+
+
+def day_slices(local: pd.DatetimeIndex, mask: np.ndarray, *, min_bars: int = 1
+               ) -> tuple[list[date], list[slice]]:
+    """Per-day slices into the **full** frame, from a boolean bar mask.
+
+    ``local`` is the full frame's index in the strategy's timezone; ``mask``
+    marks the bars that belong to a session (e.g. RTH). Returns ``(days,
+    slices)`` where every slice indexes the *original* frame — so
+    ``bid["open"][sl]`` is that day's session bars.
+
+    The trap this exists to prevent: building positions from the **masked**
+    subset (``np.flatnonzero(mask)`` then ``unique(..., return_index=True)``)
+    and then applying them to the full frame. That mixes two index spaces and
+    silently walks windows out of phase with the clock — the bug that made a
+    whole strategy look profitable. Use this helper instead of open-coding it,
+    and keep a 24 h-frame test for any new session logic.
+    """
+    pos = np.flatnonzero(mask)
+    if pos.size == 0:
+        return [], []
+    days_arr = local[pos].normalize().to_numpy()
+    uniq, starts, counts = np.unique(days_arr, return_index=True, return_counts=True)
+    days: list[date] = []
+    slices: list[slice] = []
+    for u, s, c in zip(uniq, starts, counts):
+        if c < min_bars:
+            continue
+        days.append(pd.Timestamp(u).date())
+        slices.append(slice(int(pos[s]), int(pos[s + c - 1]) + 1))
+    return days, slices
 
 
 def epoch_seconds(index: pd.DatetimeIndex) -> np.ndarray:

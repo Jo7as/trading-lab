@@ -109,6 +109,16 @@ def run_backtest(df: pd.DataFrame, cfg: DonchianConfig, *, verbose: bool = False
     }
 ```
 
+> **Watch out — index spaces.** If your strategy trades session/day slices (RTH,
+> opening range, session hours) built from a boolean mask, the slices must index
+> the **full** frame. Open-coding `np.flatnonzero(mask)` + `unique(...)` and then
+> slicing the full frame silently walks windows out of phase with the clock —
+> this once made an entire strategy look profitable. Use
+> `trading_lab.mr_common.day_slices(local, mask)` and keep a test on a **full
+> 24 h frame** (`tests/test_day_slices.py`); an RTH-only synthetic frame will not
+> catch it. Also: a result that looks too good is a bug signal — check the
+> session mapping, the per-year split and the random-direction baseline first.
+
 Good references to read next: `trading_lab/strategies/orb_2r.py` (1m bid+ask,
 costs, filters) and `trading_lab/strategies/opening_range_breakout.py` (5m,
 RiskManager lifecycle).
