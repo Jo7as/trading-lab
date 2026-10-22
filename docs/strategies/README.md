@@ -9,13 +9,12 @@ included.
 
 | Strategy | Status | Instruments tested | Headline | File |
 |---|---|---|---|---|
-| **ORB Rejection Fade** (`orb_fade`) | **GO candidate** | US100, SP500 (2019–2026) | expectancy +0.65…+1.09 R, PF 2.0–3.0, every year positive, all prop models pass | [orb_rejection_fade.md](orb_rejection_fade.md) |
+| **ORB Rejection Fade** (`orb_fade`) | **REJECTED** | US100, SP500, GER40 (2019–2026) | earlier positives were a day-slicing bug; corrected: −0.25…−0.56 R, 8/8 negative years | [orb_rejection_fade.md](orb_rejection_fade.md) |
 | Fair Pricing (JJ Simon) | rejected | US100 (2016–2026) | −0.15…−0.30 R, acceptance FAIL | [fair_pricing_REJECTED.md](fair_pricing_REJECTED.md) |
 | NY-Open EMA12 | rejected | US100 (2016–2026) | −0.15…−0.30 R, all 20 parameter combos negative | [ny_open_ema12_REJECTED.md](ny_open_ema12_REJECTED.md) |
 
-There is currently **one candidate and no combination** — the two tested
-instruments are both US indices and highly correlated, so this is a single edge
-run on two markets, not a diversified portfolio.
+There is currently **no candidate.** The one that looked strongest was rejected
+after a day-slicing bug in its engine was found and fixed.
 
 ## How the verdict is produced
 

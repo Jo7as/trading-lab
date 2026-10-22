@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from trading_lab.strategies.orb_rejection_ifvg import (
+    prepare,
     OrbRejConfig,
     bearish_engulfing,
     bullish_engulfing,
@@ -116,6 +117,47 @@ def test_next_open_entry_uses_the_following_bar() -> None:
     assert nxt["entry"] == pytest.approx(97.0 - 0.25)
     assert close["entry"] == pytest.approx(97.4 - 0.25)
     assert nxt["entry_iso"].startswith("2024-03-05T15:06")        # 10:06 ET = 15:06 UTC
+
+
+def _day_full_session(overrides: dict[int, tuple[float, float, float, float]],
+                      base: float = 96.0, day: str = "2024-03-05") -> pd.DataFrame:
+    """A full 24h frame (00:00–23:58 ET) so the day-slice must map RTH rows back.
+
+    ``overrides`` use offsets relative to the 09:30 open (as in ``_day``).
+    """
+    idx = pd.date_range(f"{day} 00:00", f"{day} 23:58", freq="1min", tz=NY).tz_convert("UTC")
+    n = len(idx)
+    o = np.full(n, base)
+    h, l, c = o.copy(), o.copy(), o.copy()
+    for m, (po, ph, pl, pc) in overrides.items():
+        k = 570 + m                                   # 09:30 ET is minute 570
+        o[k], h[k], l[k], c[k] = po, ph, pl, pc
+    df = pd.DataFrame({"open": o, "high": h, "low": l, "close": c, "volume": 1.0}, index=idx)
+    for col in ("open", "high", "low", "close"):
+        df[f"ask_{col}"] = df[col] + SPREAD
+    return df
+
+
+def test_full_day_frame_still_slices_the_session() -> None:
+    """Regression: with a 24h frame the day slice must be the RTH session, not an
+    arbitrary 390-bar window (the bug that made every result an artifact)."""
+    ov = {0: (99.2, 100.0, 99.1, 99.3), 1: (90.9, 91.0, 90.0, 90.8),
+          20: (99.5, 100.2, 99.0, 99.05), 24: (99.5, 100.2, 99.0, 99.05),
+          28: (99.5, 100.2, 99.0, 99.05), 30: (98.0, 98.9, 98.0, 98.0),
+          31: (98.5, 100.0, 98.5, 99.1), 32: (99.5, 99.9, 99.2, 99.4),
+          33: (99.4, 99.5, 99.2, 99.3), 34: (99.6, 99.7, 98.7, 98.8),
+          35: (99.4, 99.5, 97.2, 97.4)}
+    for m in range(36, 390):
+        ov[m] = (89.0, 89.0, 89.0, 89.0)
+    df = _day_full_session(ov)
+    prep = prepare(df, CFG)
+    sl = prep.day_slices[0]
+    assert prep.local[sl.start].strftime("%H:%M") == "09:30"
+    assert prep.local[sl.stop - 1].strftime("%H:%M") == "15:59"
+    trades = run_backtest(df, CFG)["trades"]
+    assert len(trades) == 1
+    hour = pd.Timestamp(trades[0]["entry_iso"]).tz_convert(NY).hour
+    assert 9 <= hour <= 11                              # inside the 09:45–11:30 window
 
 
 def test_no_setup_without_engulf_under_full_mode() -> None:
