@@ -49,7 +49,8 @@ class OrbRejConfig:
     entry_end: str = "11:30"
     flat_time: str = "15:55"
 
-    mode: str = "full"                 # naive | touches | engulf | full
+    mode: str = "full"                 # naive | touches | engulf | full | random | breakout
+    entry_mode: str = "close"          # close (touch bar) | next_open (bar after the signal)
 
     touch_tolerance_ticks: float = 2.0
     reject_close_buffer_frac: float = 0.05   # × or_size
@@ -285,7 +286,16 @@ def run_backtest(data: pd.DataFrame, cfg: OrbRejConfig, *, verbose: bool = False
         consec_losses = 0
         fired = {1: False, -1: False}      # classic-breakout baseline: first break per side
 
-        def enter(side: int, entry: float, risk: float, target: float) -> None:
+        def entry_for(side: int, i: int) -> tuple[int, float]:
+            """Entry bar and price: the signal bar's close, or the next bar's open."""
+            if cfg.entry_mode == "next_open":
+                j = i + 1
+                if j >= n:                     # signal on the last bar → no next bar
+                    return n, 0.0
+                return j, ((a_op[j] + slip_e) if side > 0 else (b_op[j] - slip_e))
+            return i, ((a_c[i] + slip_e) if side > 0 else (c[i] - slip_e))
+
+        def enter(i0: int, side: int, entry: float, risk: float, target: float) -> None:
             nonlocal busy_until, trades_today, consec_losses
             size = min(cfg.risk_per_trade_pct / 100.0 / (risk / entry), cfg.max_leverage)
             stop_abs = entry - risk if side > 0 else entry + risk
@@ -293,15 +303,17 @@ def run_backtest(data: pd.DataFrame, cfg: OrbRejConfig, *, verbose: bool = False
                 d_hi, d_lo, d_op, d_cl = b_hi, b_lo, b_op, b_cl
             else:
                 d_hi, d_lo, d_op, d_cl = a_hi, a_lo, a_op, a_cl
-            i_exit, exit_price, reason = _simulate(cfg, i, i_flat, side, d_hi, d_lo, d_op, d_cl, stop_abs, target)
+            i_exit, exit_price, reason = _simulate(cfg, i0, i_flat, side, d_hi, d_lo, d_op, d_cl, stop_abs, target)
             move = (exit_price - entry) if side > 0 else (entry - exit_price)
             move_net = move - 2 * cfg.commission_points
             r = move_net / risk
             trades.append({
                 "day": d.isoformat(), "direction": "long" if side > 0 else "short",
                 "status": "closed", "pnl_pct": round((move_net / entry) * size * 100.0, 4),
-                "entry_time": float(p.ts[sl.start + i]) / 1e9,
-                "entry_iso": pd.Timestamp(p.ts[sl.start + i], tz="UTC").isoformat(),
+                "entry_time": float(p.ts[sl.start + i0]) / 1e9,
+                "entry_iso": pd.Timestamp(p.ts[sl.start + i0], tz="UTC").isoformat(),
+                "exit_time": float(p.ts[sl.start + i_exit]) / 1e9,
+                "exit_iso": pd.Timestamp(p.ts[sl.start + i_exit], tz="UTC").isoformat(),
                 "entry": round(entry, 4), "stop": round(stop_abs, 4), "target": round(target, 4),
                 "exit": round(exit_price, 4), "exit_reason": reason,
                 "risk_points": round(risk, 4), "r": round(r, 4), "mode": cfg.mode,
@@ -331,15 +343,17 @@ def run_backtest(data: pd.DataFrame, cfg: OrbRejConfig, *, verbose: bool = False
             # ── classic ORB breakout baseline (first close beyond an edge, stop mid)
             if cfg.mode == "breakout":
                 if not fired[1] and c[i] > orh:
-                    entry = a_c[i] + slip_e
-                    risk = float(np.clip(abs(entry - mid), cfg.min_stop_points, cfg.max_stop_points))
-                    fired[1] = True
-                    enter(1, entry, risk, entry + cfg.breakout_target_r * risk)
+                    i_e, entry = entry_for(1, i)
+                    if i_e <= i_flat:
+                        fired[1] = True
+                        risk = float(np.clip(abs(entry - mid), cfg.min_stop_points, cfg.max_stop_points))
+                        enter(i_e, 1, entry, risk, entry + cfg.breakout_target_r * risk)
                 elif not fired[-1] and c[i] < orl:
-                    entry = c[i] - slip_e
-                    risk = float(np.clip(abs(entry - mid), cfg.min_stop_points, cfg.max_stop_points))
-                    fired[-1] = True
-                    enter(-1, entry, risk, entry - cfg.breakout_target_r * risk)
+                    i_e, entry = entry_for(-1, i)
+                    if i_e <= i_flat:
+                        fired[-1] = True
+                        risk = float(np.clip(abs(entry - mid), cfg.min_stop_points, cfg.max_stop_points))
+                        enter(i_e, -1, entry, risk, entry - cfg.breakout_target_r * risk)
                 continue
 
             # ── random-direction baseline: same touch bars, same stop/target distances
@@ -349,7 +363,9 @@ def run_backtest(data: pd.DataFrame, cfg: OrbRejConfig, *, verbose: bool = False
                     continue
                 ts_ = cands[0]
                 side = int(rng.choice((1, -1)))
-                entry = (a_c[i] + slip_e) if side > 0 else (c[i] - slip_e)
+                i_e, entry = entry_for(side, i)
+                if i_e > i_flat:
+                    continue
                 ext = (max(h[j] for j in touches[ts_][-5:] + [i]) if ts_ < 0
                        else min(l[j] for j in touches[ts_][-5:] + [i]))
                 raw = (ext + sob - entry) if ts_ < 0 else (entry - (ext - sob))
@@ -358,7 +374,7 @@ def run_backtest(data: pd.DataFrame, cfg: OrbRejConfig, *, verbose: bool = False
                 reward = abs(entry - level)
                 if reward / risk < cfg.min_reward_risk:
                     continue
-                enter(side, entry, risk, entry - reward if side < 0 else entry + reward)
+                enter(i_e, side, entry, risk, entry - reward if side < 0 else entry + reward)
                 continue
 
             # ── fade modes: naive / touches / engulf / full
@@ -385,7 +401,9 @@ def run_backtest(data: pd.DataFrame, cfg: OrbRejConfig, *, verbose: bool = False
                 if cfg.mode == "full" and inv[side] is not None and not inv[side][max(0, i - gap):i + 1].any():
                     continue
 
-                entry = (a_c[i] + slip_e) if side > 0 else (c[i] - slip_e)
+                i_e, entry = entry_for(side, i)
+                if i_e > i_flat:
+                    continue
                 ref = [h[j] for j in tok[-5:]] + [h[i]] if side < 0 else [l[j] for j in tok[-5:]] + [l[i]]
                 extreme = max(ref) if side < 0 else min(ref)
                 raw = (extreme + sob - entry) if side < 0 else (entry - (extreme - sob))
@@ -394,7 +412,7 @@ def run_backtest(data: pd.DataFrame, cfg: OrbRejConfig, *, verbose: bool = False
                 reward = abs(entry - target)
                 if risk <= 0 or reward / risk < cfg.min_reward_risk:
                     continue
-                enter(side, entry, risk, target)
+                enter(i_e, side, entry, risk, target)
                 break
 
     equity = [10000.0]

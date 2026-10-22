@@ -79,7 +79,55 @@ Largest single trade: −2.2 R (US100) / −2.5 R (SP500) → within daily limit
 6. **Model limits**: CFD proxies (no futures roll), SP500-2018 missing, prop daily
    loss modelled on realised (not intrabar) P&L, Monte Carlo resamples 2019–2026.
 
-## Improvement backlog (not done; needs approval)
+## Robustness sprint results
+
+**A1 — Entry timing (2019–2026).** Next-bar-open entry (with 1-tick slippage) is
+*not* worse than the same-bar close:
+US100 +1.025 R (close) → **+1.238 R** (next open), n 708→698;
+SP500 +1.064 R → **+1.113 R**, n 476→469. The edge is not an artifact of
+entering on the touch bar's close.
+
+**A2 — Parameter neighbourhood (2019–2026, next-open).** Broad positive plateau,
+no cliff. Longer opening range helps (US100 +0.96 R at 10 min → +1.70 R at
+30 min; SP500 +1.07 → +1.37) and a stricter R/R filter helps (US100 +1.07 at
+1.0 → +1.44 at 2.0; SP500 +0.88 → +1.19). Touch tolerance, front-run and the stop
+bounds are flat (US100 1.06–1.30 R, SP500 0.88–1.16 R). The defaults are
+**conservative, not overfit**.
+
+**A3 — Holdout US100 2016–2018** (never used before): +0.35 R, PF 1.41,
+WR 35–37 % (n≈250). Positive but clearly weaker than 2019–2026 — the edge existed
+earlier too, at a lower magnitude.
+
+**A4 — Cost stress (next-open, 2019–2026).**
+
+| | default | 2× slippage | +0.3 pt commission | 3× slippage + commission |
+|---|---|---|---|---|
+| US100 | +1.24 R | +1.05 R | +1.10 R | **+0.70 R** (PF 1.73) |
+| SP500 | +1.11 R | +0.91 R | +0.86 R | **+0.32 R** (PF 1.33) |
+
+Break-even slippage is beyond 3× the default on both.
+
+**B1 — Diversification (same rule, other markets, 2019–2026, price-scaled stops).**
+
+| market | trades | expectancy | WR | PF | verdict |
+|---|---|---|---|---|---|
+| GER40 | 905 | **+1.20 R** | 48.0 % | 2.65 | works (non-US market) |
+| US100 | 721 | +1.12 R | 43.7 % | 2.39 | works |
+| SP500 | 711 | +0.86 R | 45.0 % | 2.00 | works |
+| XAUUSD | 1003 | +0.14 R | 31.6 % | 1.13 | marginal |
+| JP225 | 880 | **−0.14 R** | 27.7 % | 0.88 | fails |
+
+Monthly-return correlations are low (US100↔SP500 0.03, US100↔GER40 0.01,
+SP500↔JP225 0.53, others ≈0), so US100 + SP500 + GER40 is a genuine
+diversification candidate — not the correlated pair it looked like from the
+underlying markets. Caveat: the SP500 figures here use price-scaled stops and so
+differ from the 2/10-point runs above; a portfolio needs one consistent config.
+
+**Sprint verdict:** the candidate survives the cheap falsification tests
+(A1–A4). The pre-2019 era is weaker, the edge is not universal (Nikkei fails),
+and diversification across US100/SP500/GER40 looks promising.
+
+## Improvement backlog (partly done; needs approval)
 
 1. **Robustness** (no tuning): next-bar-open entry, parameter neighbourhood,
    cost stress on both assets, holdout US100 2016–2018.

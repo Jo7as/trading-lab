@@ -36,7 +36,8 @@ def _day(overrides: dict[int, tuple[float, float, float, float]],
 
 
 def _short_day(last: float = 89.0,
-               trigger: tuple[float, float, float, float] | None = None) -> pd.DataFrame:
+               trigger: tuple[float, float, float, float] | None = None,
+               bar36: tuple[float, float, float, float] | None = None) -> pd.DataFrame:
     """ORB 90–100; three rejections at ORH; a bullish FVG broken, then an
     engulfing trigger — a textbook Setup A short toward ORL."""
     ov = {
@@ -54,6 +55,8 @@ def _short_day(last: float = 89.0,
     }
     for m in range(36, 390):
         ov[m] = (last, last, last, last)
+    if bar36 is not None:
+        ov[36] = bar36
     return _day(ov)
 
 
@@ -102,6 +105,17 @@ def test_momentum_lock_disables_the_fade() -> None:
 def test_min_reward_risk_blocks_a_poor_trade() -> None:
     # huge ORB → the opposite edge is far but the stop is far too; force a high gate
     assert run_backtest(_short_day(), replace(CFG, min_reward_risk=99.0))["trades"] == []
+
+
+def test_next_open_entry_uses_the_following_bar() -> None:
+    # bar 36 opens at 97.0 while the trigger (bar 35) closed at 97.4, so the two
+    # entry modes give different prices: a short sells the bid open, minus slippage
+    frame = _short_day(last=97.4, bar36=(97.0, 97.1, 96.9, 97.0))
+    nxt = run_backtest(frame, replace(CFG, entry_mode="next_open"))["trades"][0]
+    close = run_backtest(frame, replace(CFG, entry_mode="close"))["trades"][0]
+    assert nxt["entry"] == pytest.approx(97.0 - 0.25)
+    assert close["entry"] == pytest.approx(97.4 - 0.25)
+    assert nxt["entry_iso"].startswith("2024-03-05T15:06")        # 10:06 ET = 15:06 UTC
 
 
 def test_no_setup_without_engulf_under_full_mode() -> None:
