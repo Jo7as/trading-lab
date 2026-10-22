@@ -127,6 +127,36 @@ differ from the 2/10-point runs above; a portfolio needs one consistent config.
 (A1–A4). The pre-2019 era is weaker, the edge is not universal (Nikkei fails),
 and diversification across US100/SP500/GER40 looks promising.
 
+## Portfolio (B2) + Monte Carlo (A6)
+
+Same rule on US100 + SP500 + GER40, capital split with weights summing to 1
+(0.5 % risk per trade of each allocation), 2019–2026, 1 994 trading days (1 206
+with a trade). Run: `studies/portfolio_orb_fade.py`.
+
+| variant | %/yr | vol | Sharpe | max DD | positive months | longest negative streak |
+|---|---|---|---|---|---|---|
+| US100 | +51.0 | 18.4 | 2.77 | −10.0 | 77.1 % | 3 |
+| SP500 | +38.6 | 16.7 | 2.32 | −8.4 | 70.8 % | 4 |
+| GER40 | +65.6 | 18.2 | 3.60 | −13.5 | 79.2 % | 4 |
+| equal weight | +51.7 | 10.1 | **5.14** | −3.3 | 92.7 % | 1 |
+| inverse vol | +51.3 | 10.0 | 5.12 | −3.0 | 92.7 % | 1 |
+| inv-vol, 12 % vol target | +61.4 | 12.0 | 5.12 | −3.6 | 92.7 % | 1 |
+
+Daily-R correlations are ~0 (US100↔SP500 0.01, US100↔GER40 −0.05,
+SP500↔GER40 −0.09) — that is where the drawdown reduction comes from.
+Prop on the vol-targeted book: FTMO 100 % pass (median 66 d), Lucid 99 %
+(22 d), Instant 25K survive 98 % (mean payout $12 k), Instant 100K survive 100 %
+($49 k). Block-bootstrap Monte Carlo (20-day blocks, 3 000 runs): annual
++61 % mean, p5 +41 %, P(negative year) 0 %, P(DD > 20 %) 0 %.
+
+**Read this sceptically.** A Sharpe near 5 and P(negative year) = 0 are not
+credible as a forecast: the Monte Carlo resamples one favourable 2019–2026
+sample (no regime change, no edge decay), costs are backtest assumptions, the
+12 % target implies leverage 1.2×, and the rule was selected within the project.
+The **relative** finding is the solid one — near-zero correlation cuts the
+drawdown roughly in three and lifts the Sharpe well above any single market —
+not the absolute level. Expect live numbers far below these.
+
 ## Improvement backlog (partly done; needs approval)
 
 1. **Robustness** (no tuning): next-bar-open entry, parameter neighbourhood,
