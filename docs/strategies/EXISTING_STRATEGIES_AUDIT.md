@@ -104,3 +104,29 @@ Follow-up candidates are listed in `docs/RESEARCH_BACKLOG.md`; the highest-value
 untested direction is market-neutral spreads (ES/NQ, gold/silver, Brent/WTI,
 DAX/FTSE), where the tradable object *is* the spread and costs are smaller
 relative to the moves.
+
+## Step 1+2: netting the gross-only modules (`studies/net_of_costs.py`)
+
+Spread per trade taken from the real 1-minute ask-bid at each trade's entry/exit
+minute; entry is a taker, a stop/time exit is a taker, a limit (take-profit) exit
+pays nothing; slippage shown as a band (0 / 0.5 / 1.0 × half-spread per taker leg).
+
+| module / instrument | trades | gross | net (0×) | net (0.5×) | net (1×) | positive years net |
+|---|---|---|---|---|---|---|
+| gold Supertrend `hf_ls01` / XAUUSD 1h | 1 582 | +59.3 % | +28.5 % | **+13.1 %** | −2.3 % | 4/8 |
+| `opening_range_breakout` / US100 | 1 697 | **−9.8 %** | −20.6 % | −25.9 % | −31.3 % | 2/8 |
+| `silver_bullet` / XAUUSD (15m+1m) | 269 | **+0.3 %** | −5.2 % | −7.9 % | −10.7 % | 0/1 |
+| `orb_2r` / US100 | 1 433 | already cost-modelled in-engine | — | — | — | its own gate: `passed: []` |
+
+Not yet wired (need extra frames or FX data we do not have cached):
+`smc_ict` (4h+15m+1m), `regime_hybrid`, `bb_squeeze_breakout`,
+`trend_range_rejection` (EUR/USD, USD/JPY).
+
+**Conclusions.**
+The gold baseline is *at the execution margin*: its sign depends on stop slippage
+(between −2 % and +28 % over 7.8 years, i.e. −0.3 %…+3.5 %/yr) and half its years
+are negative after costs. Two modules are **negative before costs at all**
+(`opening_range_breakout` −9.8 %, `silver_bullet` +0.3 %, i.e. zero), so no cost
+model could have saved them. Net effect of the exercise: **the repo has no
+tradable candidate**, but the gross-only claims are now quantified rather than
+assumed.

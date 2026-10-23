@@ -13,7 +13,8 @@ negative results — both are documented so nothing gets rebuilt.
 | Fair pricing (JJ Simon) | rejected — −0.15…−0.30 R, acceptance FAIL | [strategies/fair_pricing_REJECTED.md](strategies/fair_pricing_REJECTED.md) |
 | NY-open first candle vs EMA12 | rejected — all 20 parameter combos negative | [strategies/ny_open_ema12_REJECTED.md](strategies/ny_open_ema12_REJECTED.md) |
 | ORB rejection fade + inverse FVG | rejected — the early positives were a **day-slicing bug**; corrected: −0.29…−1.18 R on 11 markets | [strategies/orb_rejection_fade.md](strategies/orb_rejection_fade.md) |
-| Gold Supertrend baseline (`hf_ls01`) | **not rejected** — +59 % gross, **≈+30 % net** (≈+3.5 %/yr) after its real capped sizing; marginal (avg move 0.72 $ vs 0.37 $ spread = 1.94) | [strategies/EXISTING_STRATEGIES_AUDIT.md](strategies/EXISTING_STRATEGIES_AUDIT.md) |
+| Gold Supertrend baseline (`hf_ls01`) | **no edge** — +59 % gross, but net is −2 %…+28 % depending on stop slippage (+13 % at 0.5×, 4/8 negative years): indistinguishable from zero |
+| `opening_range_breakout` / `silver_bullet` (gross-only modules) | **no edge** — negative or zero *before* costs (−9.8 %, +0.3 %) | [strategies/EXISTING_STRATEGIES_AUDIT.md](strategies/EXISTING_STRATEGIES_AUDIT.md) |
 | Pair spreads (stat-arb, market-neutral) | rejected — gross PF ≈ 1.0, net −141…−691 % | [strategies/pair_spreads_REJECTED.md](strategies/pair_spreads_REJECTED.md) |
 
 Also audited: the repo's own stored verdicts already said nothing passed
