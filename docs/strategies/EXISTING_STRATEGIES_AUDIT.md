@@ -41,28 +41,43 @@ Re-run on our cached Dukascopy XAUUSD 1-minute data, 2019–2026, gross of costs
 
 It does **not** decay (2024 +8.6 %, 2025 +13.4 %, 2026 +22.0 %). But
 `supertrend_volume.py` contains **no cost model at all** — no spread, slippage or
-commission. Netted for the gold spread:
+commission. Netted for the gold spread, using the strategy's **actual sizing**:
 
-- median price 1 911, median 1-minute spread **0.374 USD** (0.0196 %);
-- 1h ATR(14) = 5.09 → stop = 1.5·ATR = 7.6 = 0.40 % of price → the 1 %-risk
-  sizing implies **2.5× notional** per trade;
-- cost ≈ 0.0196 % × 2.5 = **0.049 % of account per round trip**; ×1 582 trades =
-  **77.5 %** over 7.8 years.
+- median price 1 911, median 1-minute spread **0.374 USD** (0.0195 %);
+- `RiskManager.calculate_position_size` **caps the position at 1× account
+  notional** (`min(size, 1.0)`), and 97 % of trades hit that cap → real risk per
+  trade ≈ **0.59 %** (not the nominal 1 %), notional = 1×;
+- round-trip cost = 0.0195 % × 1 = **0.0182 % of account**; ×1 582 trades =
+  **28.8 %** over 7.8 years (≈3.7 %/yr);
+- **net ≈ +30.5 %** (≈+3.5 %/yr). Average gross move per trade **0.72 USD** against
+  a **0.374 USD** spread → ratio **1.94**.
 
-**Net ≈ −18 % (−2.3 %/yr)**, and the sizing-independent statement is worse: the
-average gross move per trade is 0.0376 % of the account ÷ 2.5 = **0.29 USD**,
-against a **0.37 USD** spread — *the average trade captures less than one spread*.
-No position sizing fixes that.
+> Correction: an earlier version of this note computed −18 % net by taking the
+> *nominal* 1 % risk rule at face value and assuming a 2.5× notional. The sizing
+> cap makes the real cost ~2.6× smaller. The honest verdict is the one above.
+
+**So this baseline is *not* rejected** — it survives costs at ≈+3.5 %/yr with a
+−9 % drawdown, but only just (move/spread 1.94, right at the ~2 threshold). It
+deserves a proper cost-aware validation (per-year after costs, random baseline,
+tick-level fills with explicit order types, then the prop sim) before any
+conclusion. It is currently the only candidate in the repo that clears the
+spread at all.
 
 ## Verdict
 
-**No validated edge exists in the repo** — same conclusion as this project's own
-three rejections. The recurring failure mode is identical every time: a signal
-with positive gross expectancy whose per-trade move is the same order as (or
-smaller than) the spread. Two structural lessons for anything built next:
+**No *validated* edge exists in the repo** — the stored gate results (`passed: []`,
+`all_go: []`) stand, and the pair-spread direction was rejected on its gross
+result. But the gold Supertrend baseline is **not** rejected: it survives the
+spread at ≈+3.5 %/yr after its real (capped) sizing, at the margin (move/spread
+1.94) — it needs cost-aware validation before any conclusion.
 
-1. **Measure the gross move per trade against the spread before anything else.**
-   If `avg |move| / spread < ~2`, stop — it cannot work at that frequency.
+Two structural lessons for anything built next:
+
+1. **Measure the gross move per trade against the spread before anything else**,
+   and compute the cost from the strategy's **actual sizing and order types**
+   (a `RiskManager` position is capped at 1× notional; a limit exit pays no
+   spread, a stop/time exit does). If `avg |move| / spread < ~2`, stop — it
+   cannot work at that frequency.
 2. **A missing cost model is a bug, not a simplification.** Any strategy module
    without spread/slippage inputs should be treated as unreported, not as
    profitable. (The same applies to a result that is "too good": here it was
