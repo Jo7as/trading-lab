@@ -1,0 +1,19 @@
+# Hypothesis card (S2) — copy to docs/hypotheses/<id>.yaml and fill BEFORE testing.
+# trading_lab.hypothesis rejects the card if a field is missing, the claim has no
+# number, the mechanism is empty, kill criteria are absent, or kosten_ratio < 2.
+id: H-2026-001
+titel: "…"
+beobachtung: "which recurring behaviour, seen where, in which data window"
+mechanismus: "who trades why — the economic reason the behaviour exists"
+quellen: ["paper/reference"]
+behauptung: "with |z| >= 2 and <state> the mean forward return over 60m is > +0.05 % (a number!)"
+dosis_wirkung: "effect grows with the magnitude quintile of <state>"
+placebo: "same condition on random timestamps/levels shows no effect"
+horizont: "60m"
+kosten_ratio: 0.0        # measured E|move| / round-trip cost at that horizon (studies/cost_gate.py)
+instrumente: ["US100", "SP500"]   # chosen by the cost key, never by performance
+kill_kriterien:
+  - "t < 3 in the event study"
+  - "no difference to the placebo"
+  - "effect per trade < 2x round-trip cost"
+status: offen

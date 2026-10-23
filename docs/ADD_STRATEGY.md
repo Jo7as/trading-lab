@@ -109,7 +109,13 @@ def run_backtest(df: pd.DataFrame, cfg: DonchianConfig, *, verbose: bool = False
     }
 ```
 
-> **Before writing any code — two mandatory gates.**
+> **Before writing any code — three mandatory gates.**
+> **(0b) Hypothesis card.** Any candidate behaviour is written down first as
+> `docs/HYPOTHESIS_TEMPLATE.yaml` → `docs/hypotheses/<id>.yaml`, and
+> `trading_lab.hypothesis` must accept it (claim with a number, mechanism,
+> placebo, kill criteria, `kosten_ratio` from the cost gate). See
+> `docs/PATTERN_RESEARCH.md` for how to look for recurring behaviour without
+> chart-shape scanning.
 > **(0) Cost gate.** Run `studies/cost_gate.py` for the instrument and your
 > intended horizon. It reports `E|move| / round-trip cost`; a ratio below ~2
 > means **nothing built on that horizon can work** (no parameter search fixes

@@ -31,6 +31,13 @@ are flagged unvalidated (one from an asset-drift bug), and the one positive gros
 lead (gold Supertrend `hf_ls01`, +59 % gross) turns **negative** once the gold
 spread is applied (avg gross move 0.29 USD vs 0.37 USD spread).
 
+## Method (for the next candidates)
+
+- `docs/PATTERN_RESEARCH.md` — measurable-state catalogue and protocol (no shape scanning).
+- `docs/HYPOTHESIS_TEMPLATE.yaml` + `trading_lab/hypothesis.py` — the S2 card gate.
+- `studies/cost_gate.py` — S0 pre-flight; `trading_lab/data_quality.py` + `studies/data_audit.py` — data gate.
+- `trading_lab/research.py` + `studies/observe.py` — observation tables and event studies (WIP).
+
 ## How the verdict is produced
 
 | step | command |
