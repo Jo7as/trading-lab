@@ -13,6 +13,23 @@ ORB fade).
 4 evolution workers, a candidate leaderboard, and stored reports under
 `artifacts/`.
 
+## Repo-wide: which modules even have a cost model?
+
+| modules | cost model |
+|---|---|
+| `orb_2r`, `session_range_fade`, `mean_reversion`, `pair_spread`, `orb_rejection_ifvg` | bid/ask and/or slippage/commission |
+| `opening_range_breakout`, `supertrend_volume`, `regime_hybrid`, `bb_squeeze_breakout`, `trend_range_rejection`, `smc_ict` (+`smc/`), `silver_bullet` | **none — every number from these is gross** |
+
+That is 7 of 12 modules. Any result attributed to them (README claims, artifacts
+reports, leaderboard entries) is unverified until the spread is applied. The
+README table now carries a "Costs modelled" column.
+
+Spreads in the cached data are realistic (median ask−bid: US100 0.022 % /
+0.0098 % at the 25th percentile, SP500 0.012 %, GER40 0.017 %, XAUUSD 0.020 %,
+XAGUSD 0.123 %, JP225 0.024 %), and the strategies that do model costs price it
+from each bar's actual bid/ask rather than a median — so their costs are correct
+per fill.
+
 ## Documented verdicts found in the repo
 
 | item | what the stored evidence says |

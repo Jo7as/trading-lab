@@ -110,18 +110,23 @@ The engine is strategy-agnostic; a few complete strategies ship as reference
 implementations (note: none of them is validated net of costs — see the findings
 above):
 
-| Module | Strategy | Notes |
-|---|---|---|
-| `strategies/opening_range_breakout.py` | Opening-Range Breakout | NY 09:30, 5m |
-| `strategies/orb_2r.py` | ORB, fixed 2R target | 1m bid+ask; `US100`/`GER40`/`XAUUSD`/`JP225` |
-| `strategies/supertrend_volume.py` | Supertrend + Volume | Gold, hourly (default worker) |
-| `strategies/mean_reversion.py` | Z-score mean reversion | 15m fade back to the SMA |
-| `strategies/session_range_fade.py` | Session-Range-Fade | fade failed London breakouts (Gold) |
-| `strategies/regime_hybrid.py` | ADX regime hybrid | Supertrend in trends, BB reversion in ranges |
-| `strategies/bb_squeeze_breakout.py` | BB Squeeze Breakout | Forex H1 |
-| `strategies/trend_range_rejection.py` | Trend Range Rejection | CB reversal timing |
-| `strategies/smc_ict.py` (+ `strategies/smc/`) | SMC / ICT multi-timeframe | nested entry |
-| `strategies/silver_bullet.py` | ICT Silver Bullet | time-boxed SMC scalp |
+**Costs column matters:** a strategy without a cost model reports *gross* P&L —
+treat those numbers as unverified, not as profit (see `docs/FINDINGS.md`).
+
+| Module | Strategy | Notes | Costs modelled |
+|---|---|---|---|
+| `strategies/orb_2r.py` | ORB, fixed 2R target | 1m bid+ask; `US100`/`GER40`/`XAUUSD`/`JP225` | yes (bid/ask + slippage + commission) |
+| `strategies/session_range_fade.py` | Session-Range-Fade | fade failed London breakouts (Gold) | yes (bid/ask + slippage) |
+| `strategies/mean_reversion.py` | Z-score mean reversion | 15m fade back to the SMA | yes (slippage) |
+| `strategies/pair_spread.py` | Pair spread (stat-arb) | rejected candidate, kept as a guard | yes (bid/ask both legs) |
+| `strategies/orb_rejection_ifvg.py` | ORB rejection fade | rejected candidate, kept for its ablation | yes (bid/ask + ticks) |
+| `strategies/opening_range_breakout.py` | Opening-Range Breakout | NY 09:30, 5m | **no — gross only** |
+| `strategies/supertrend_volume.py` | Supertrend + Volume | Gold, hourly (default worker) | **no — gross only** |
+| `strategies/regime_hybrid.py` | ADX regime hybrid | Supertrend in trends, BB reversion in ranges | **no — gross only** |
+| `strategies/bb_squeeze_breakout.py` | BB Squeeze Breakout | Forex H1 | **no — gross only** |
+| `strategies/trend_range_rejection.py` | Trend Range Rejection | CB reversal timing | **no — gross only** |
+| `strategies/smc_ict.py` (+ `strategies/smc/`) | SMC / ICT multi-timeframe | nested entry | **no — gross only** |
+| `strategies/silver_bullet.py` | ICT Silver Bullet | time-boxed SMC scalp | **no — gross only** |
 
 Evolution workers (`trading_lab/*_evolution_worker.py`) exist for Supertrend,
 SMC, ORB, ORB-2R, Session-Range and Mean-Reversion. Every result must pass the

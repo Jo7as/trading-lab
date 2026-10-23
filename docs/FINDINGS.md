@@ -41,8 +41,9 @@ review process:
    spread.) Below ~2–3 it cannot work at that frequency; no parameter search
    fixes that.
 2. **A strategy module without a cost model is a bug, not a simplification.**
-   Anything reported "gross only" is unreported, not profitable. (Both live
-   baselines in this repo were gross-only.)
+   Anything reported "gross only" is unreported, not profitable. **7 of the 12
+   modules in this repo have no cost model** (see the table in the README and in
+   `strategies/EXISTING_STRATEGIES_AUDIT.md`) — results from those are gross.
 
 Two process lessons, learned the hard way:
 
