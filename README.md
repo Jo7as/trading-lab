@@ -93,10 +93,22 @@ is `dukascopy` for intraday workers, `yfinance` for the higher-timeframe ones):
   ticker works as-is.
 - Everything is fetched on demand and cached; tests never touch the network.
 
+## Research findings
+
+Read **[docs/FINDINGS.md](docs/FINDINGS.md)** first: this repo's research log.
+No strategy here has a validated, cost-surviving edge — five directions were
+tested and rejected, and the recurring cause is the same (the average move per
+trade is the same order as the spread). The log states the two rules that follow
+(measure `move/cost` before building; a missing cost model is a bug) and what is
+durable: `trading_lab/prop_sim.py` (FTMO/Lucid/Instant evaluation + payout
+simulation), the acceptance/significance path, the report/dashboard tooling, and
+the per-strategy dossiers under **[docs/strategies/](docs/strategies/README.md)**.
+
 ## Built-in strategies
 
 The engine is strategy-agnostic; a few complete strategies ship as reference
-implementations:
+implementations (note: none of them is validated net of costs — see the findings
+above):
 
 | Module | Strategy | Notes |
 |---|---|---|

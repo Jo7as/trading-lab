@@ -37,7 +37,7 @@ trading strategies**. Paper/signal only, no live broker execution. Python 3.11.
 | `studies/` | Exploratory measurement harnesses (no trading) |
 | `configs/` | Strategy presets: `baselines/`, `evolved/` |
 | `deploy/state-templates/` | Seed state for fresh deployments |
-| `docs/` | Strategy specs, research notes, deployment guide |
+| `docs/` | Strategy specs, research notes, deployment guide (`FINDINGS.md` = research log) |
 | `docs/strategies/` | One dossier per strategy (index in `README.md`): status, numbers, caveats |
 | `scripts/`, `mt5/`, `tests/` | Ops helpers, MT5 demo EA, test suite |
 | `artifacts/` | Generated reports/caches — **git-ignored, don't commit** |

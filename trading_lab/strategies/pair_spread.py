@@ -12,10 +12,12 @@ i.e. a full spread per leg per round trip, from the actual bid/ask of each leg.
 Contract (shared): ``run_backtest(frames, cfg) -> {"trades","metrics","equity_curve","signals"}``
 where ``frames`` is ``{asset: DataFrame}`` (bid OHLC + ``ask_*``).
 
-This is the first candidate in the project whose *gross move* is many times the
-cost (see ``studies/spread_pairs_gate.py``: 2σ/cost = 8…54). It is still a
-stat-arb bet: the residual must stay mean-reverting, which the per-year split
-tests.
+**REJECTED — do not use as a candidate.** Measured on US100/SP500,
+US30/SP500, GER40/UK100 and XAUUSD/XAGUSD (2019–2026, 15m): the gross (mid-price)
+expectancy is ≈ 0 (profit factor 0.97–1.06) and with real spreads it is −141 % to
+−691 %. The earlier "2σ_deviation/cost = 8…54" is the *wrong* quantity — σ of the
+deviation is not the realized reversion. See
+``docs/strategies/pair_spreads_REJECTED.md``.
 """
 from __future__ import annotations
 

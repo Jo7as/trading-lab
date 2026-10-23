@@ -1,4 +1,14 @@
-"""ORB Rejection Fade with inverse FVG ("ORB Ping-Pong") — spec-driven v0.
+"""ORB Rejection Fade with inverse FVG ("ORB Ping-Pong") — **REJECTED**.
+
+Do not use as a candidate. Every positive result this module once produced came
+from a day-slicing bug (slices built from the RTH-filtered index but applied to
+the full 24 h frame). With correct sessions the rule is negative on all 11 tested
+markets (expectancy −0.29…−1.18 R, 7–8 of 8 negative years) and indistinguishable
+from a random-direction baseline on US100. See
+``docs/strategies/orb_rejection_fade.md``. The module is kept as a negative
+result and because its ablation switch (naive/touches/engulf/full) is a useful
+example of testing whether filters add anything.
+"""
 
 Spec: ``strategy_orb_rejection_ifvg.yaml``. Fade the opening-range edges when
 price repeatedly *fails* there (rejection candles + bearish/bullish engulfing +
