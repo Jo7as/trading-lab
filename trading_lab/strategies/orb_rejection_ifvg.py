@@ -8,12 +8,11 @@ from a random-direction baseline on US100. See
 ``docs/strategies/orb_rejection_fade.md``. The module is kept as a negative
 result and because its ablation switch (naive/touches/engulf/full) is a useful
 example of testing whether filters add anything.
-"""
 
-Spec: ``strategy_orb_rejection_ifvg.yaml``. Fade the opening-range edges when
-price repeatedly *fails* there (rejection candles + bearish/bullish engulfing +
-an inverted fair-value gap), targeting the opposite edge. A momentum breakout
-locks the failed side for the day.
+Original idea (spec ``docs/strategies/orb_rejection_ifvg_SPEC.yaml``): fade the
+opening-range edges when price repeatedly *fails* there (rejection candles +
+bearish/bullish engulfing + an inverted fair-value gap), targeting the opposite
+edge. A momentum breakout locks the failed side for the day.
 
 Ablation-first: ``mode`` selects how many filters are active, so the runner can
 show whether each one adds anything:
