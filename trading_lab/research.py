@@ -1,6 +1,9 @@
 """Research engine (S1/S2b): observe recurring behaviour, test it before coding.
 
-**WIP — do not quote the event-study numbers yet.** Self-checking found three
+**DEPRECATED / BROKEN — use `studies/hypotheses_60m.py` instead.** The
+first-hour condition here reports a median of +2.38 %/day where the same
+quantity computed directly on the minutes clock is +0.08 %; the discrepancy is
+not explained, so nothing from this module is quotable. Kept only as a record. Self-checking found three
 defects, two fixed and one open:
 
 - OPEN: the first/last-hour conditions still return implausible magnitudes
@@ -55,26 +58,35 @@ class EventStudy:
     placebo_mean_pct: float
     quintiles: tuple[float, ...] = ()
     notes: str = ""
+    mean_pct: float = 0.0          # reference only (fat tails)
+    winsor_pct: float = 0.0        # 5%-winsorised mean
 
     @property
     def effect_cost(self) -> float:
         return self.mean_fwd_pct / self.cost_pct if self.cost_pct else float("inf")
 
     def verdict(self) -> str:
+        """Robust gates: sign-test z ≥ 3, effect (median) ≥ 2x cost, placebo small,
+        dose-response monotone."""
         if self.n < MIN_EVENTS:
             return "INSUFFICIENT"
         if self.t_stat < PASS_T:
-            return "FAIL(t)"
+            return "FAIL(sign)"
         if self.effect_cost < PASS_EFFECT_COST:
             return "FAIL(cost)"
         if abs(self.placebo_mean_pct) > 0.5 * abs(self.mean_fwd_pct):
             return "FAIL(placebo)"
+        if len(self.quintiles) == 5:
+            q = np.array(self.quintiles) * np.sign(self.mean_fwd_pct or 1)
+            if np.polyfit(range(5), q, 1)[0] <= 0:
+                return "FAIL(dose)"
         return "PASS"
 
     def summary(self) -> str:
         q = " ".join(f"{x:+.3f}" for x in self.quintiles)
-        return (f"{self.name:22s} n={self.n:5d} fwd {self.mean_fwd_pct:+.4f}% cost {self.cost_pct:.4f}% "
-                f"eff/cost {self.effect_cost:5.2f} t={self.t_stat:5.2f} hit {self.hit_rate:.0%} "
+        return (f"{self.name:22s} n={self.n:5d} med {self.mean_fwd_pct:+.4f}% mean {self.mean_pct:+.4f}% "
+                f"cost {self.cost_pct:.4f}% "
+                f"eff/cost {self.effect_cost:5.2f} z={self.t_stat:5.2f} hit {self.hit_rate:.0%} "
                 f"placebo {self.placebo_mean_pct:+.4f}% quint {q}  {self.verdict()}")
 
 
@@ -101,10 +113,16 @@ def _study(name: str, mechanism: str, ts: pd.DatetimeIndex, direction: np.ndarra
     if n == 0:
         return EventStudy(name, mechanism, 0, horizon, 0, 0, 0, 0, 0)
     signed = direction * fwd_pct                     # return in the traded direction
+    # Event samples are fat-tailed (level breaks cluster in crises), so the mean is
+    # a bad effect measure: report the median and a 5%-winsorised mean, and use a
+    # sign test (distribution-free) for significance.
     mean = float(np.mean(signed))
-    std = float(np.std(signed, ddof=1)) if n > 1 else 0.0
-    t = mean / (std / np.sqrt(n)) if std else 0.0
-    hit = float((signed > 0).mean())
+    med = float(np.median(signed))
+    lo, hi = np.percentile(signed, [5, 95])
+    wmean = float(np.mean(np.clip(signed, lo, hi)))
+    n_pos = int((signed > 0).sum())
+    z_sign = (n_pos - n / 2) / np.sqrt(n / 4) if n else 0.0
+    hit = float(n_pos / n) if n else 0.0
     cost = float(np.median(cost_pct))
     # placebo: random bars on the full series, same horizon and direction mix
     placebo = 0.0
@@ -120,8 +138,11 @@ def _study(name: str, mechanism: str, ts: pd.DatetimeIndex, direction: np.ndarra
     if magnitude is not None and n >= 25:
         q = pd.qcut(pd.Series(magnitude).rank(method="first"), 5, labels=False)
         quint = tuple(round(float(np.mean(signed[q == k])) * 100, 4) for k in range(5))
-    return EventStudy(name, mechanism, n, horizon, round(mean * 100, 4), round(hit, 3),
-                      round(t, 2), round(cost * 100, 4), round(placebo * 100, 4), quint)
+    ev = EventStudy(name, mechanism, n, horizon, round(med * 100, 4), round(hit, 3),
+                    round(z_sign, 2), round(cost * 100, 4), round(placebo * 100, 4), quint)
+    ev.mean_pct = round(mean * 100, 4)
+    ev.winsor_pct = round(wmean * 100, 4)
+    return ev
 
 
 # ── Pre-registered conditions ───────────────────────────────────────
@@ -283,6 +304,9 @@ def run_all(m1: pd.DataFrame, *, timeframe: str = "15min", tz: str = "America/Ne
         r = mid.pct_change()
         scale = float(r.abs().median()) or 1e-9
         mid = mid.where(r.abs() <= z_cut * scale)
+        # the daily roll (21:00-01:00 UTC) carries the corrupt bars: mask it too
+        roll = pd.Series(df.index.hour, index=df.index).isin((21, 22, 23, 0))
+        mid = mid.where(~roll)
     bar_min = {"5min": 5, "15min": 15, "30min": 30, "1h": 60}.get(timeframe, 15)
     h30 = max(int(round(30 / bar_min)), 1)
     studies: list[EventStudy] = []

@@ -31,6 +31,13 @@ are flagged unvalidated (one from an asset-drift bug), and the one positive gros
 lead (gold Supertrend `hf_ls01`, +59 % gross) turns **negative** once the gold
 spread is applied (avg gross move 0.29 USD vs 0.37 USD spread).
 
+## Latest step (Oct 2026)
+
+[../STRATEGY_HYPOTHESES_STEP2.md](../STRATEGY_HYPOTHESES_STEP2.md): cleaned re-runs of every
+headline, three pre-registered hypotheses on ≥60m horizons (all nine cells
+FAIL), and the pre-committed decision to change the data foundation (crypto L1 or
+real futures) instead of searching more patterns on these CFDs.
+
 ## Method (for the next candidates)
 
 - `docs/PATTERN_RESEARCH.md` — measurable-state catalogue and protocol (no shape scanning).
