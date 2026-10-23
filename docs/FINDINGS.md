@@ -77,6 +77,22 @@ Two process lessons, learned the hard way:
    kill criteria in [RESEARCH_BACKLOG.md](RESEARCH_BACKLOG.md) are what ended
    this round rather than another month of parameter tuning.
 
+## Method layer adopted (Oct 2026)
+
+The research method now comes from the reviewed drop-in (integrated):
+`docs/DATA_AUDIT_SPEC.md` (A1–A6 classification — real market events are **kept**,
+not deleted), `docs/PATTERN_RESEARCH.md` (Z1–Z10 measurable-state catalogue and
+protocol), `docs/hypotheses/` (template + three registered cards),
+`trading_lab/hypothesis_card.py` + `scripts/validate_hypotheses.py` (the S2 gate:
+numbered claim, mechanism, placebo, kill criteria, S0 ratio below 0.10,
+instruments must have `audit_passed`).
+
+Outcome of the first pass under that protocol: 9 of 11 instruments pass the data
+audit (JP225 thin days, UST10Y wrong data); the strict S0 limit excludes 60-minute
+horizons on our CFDs (only ≥240m qualifies); three pre-registered hypotheses fail
+their gates; **H-001's high-volatility variant is the largest effect measured
+(+0.183 % median, eff/cost 9.4) but fails on z and an inverted dose-response**.
+
 ## What is durable here
 
 - **Prop-firm simulator** (`trading_lab/prop_sim.py`): FTMO 2-step, 1-step,

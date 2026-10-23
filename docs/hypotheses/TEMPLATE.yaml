@@ -1,0 +1,58 @@
+# Hypothesen-Karte (Vorlage). Alle Felder sind Pflicht, außer ausdrücklich "optional".
+# Prüfen mit:  python tools/validate_hypothesis.py hypotheses/H-XXX.yaml --audit data/audit_status.yaml
+
+id: H-000                       # Format H-<3 Ziffern>
+titel: ""
+status: entwurf                 # entwurf | registriert | kill | bestanden_train | bestanden_validate
+erstellt: 2026-01-01
+autor: ""
+
+beobachtung: ""                 # was wurde wo beobachtet (Explorationsdaten oder Literatur)
+
+mechanismus:
+  wer: ""                       # welche Marktteilnehmer handeln
+  warum: ""                     # warum sie zu diesem Zeitpunkt / an diesem Ort so handeln müssen
+  quellen: []                   # mindestens eine Quelle
+
+zustaende:                      # 1–2 Familien aus PATTERN_RESEARCH Abschnitt 2 (Z1..Z10)
+  - familie: Z3
+    definition: ""              # exakte Berechnung, nur Daten bis zum Entscheidungszeitpunkt
+    einheit: sigma              # sigma | spread | perzentil | session_min | z | quote | verhaeltnis | korrelation
+
+ort: ""                         # Level bzw. "keiner"; Abstand in sigma- oder spread-Einheiten
+zeit: ""                        # Session-Phase / Prüfzeitpunkte in Ortszeit des Heimatmarkts
+ereignis_definition: ""         # wann genau gilt ein Ereignis; Regel gegen Überlappung
+richtung: ""                    # welches Vorzeichen der Vorwärtsrendite wird erwartet
+
+horizont_min: 60                # >= 60, außer s0.kurz_horizont_begruendung ist gesetzt
+instrumente: []                 # nur Instrumente mit audit_passed: true
+
+behauptung: ""                  # eine Zahl: z. B. "mittlere Netto-Vorwärtsrendite > 0 und Brutto >= min_effekt_bp"
+
+placebo: ""                     # Vergleichsereignisse (gleiche Uhrzeit, gleiches Regime, Zustand nicht erfüllt)
+dosis_wirkung:
+  staerke_variable: ""          # nach welcher Größe in Quintile geteilt wird
+  erwartung: monoton_steigend   # monoton_steigend | monoton_fallend
+
+s0:                             # Effekt/Kosten-Gate, VOR dem Test berechnet (Train-Daten, DATA_AUDIT A4)
+  kosten_rt_bp: null            # Round-Trip-Kosten in bp (Spread je Uhrzeit + Kommission), Median über Instrumente
+  typische_bewegung_bp: null    # Median |Rendite über H| im Zielzeitfenster, in bp
+  s0_quote: null                # kosten_rt_bp / typische_bewegung_bp
+  grenze: 0.10                  # darf nur strenger (kleiner) werden
+  min_effekt_bp: null           # mindestens 2 x kosten_rt_bp
+  kurz_horizont_begruendung: "" # optional; nur nötig, wenn horizont_min < 60
+
+kill_kriterien:                 # Defaults; dürfen nur verschärft werden
+  t_min: 3.0
+  placebo_mindestabstand: 0.5   # (Effekt - Placebo) / Effekt
+  dosis_rangkorrelation_min: 0.8
+  vorzeichen_jahre_min: 0.7
+  netto_effekt_min_bp: 0.0
+
+varianten:                      # vorregistrierte Varianten (max. 10), jede zählt als Versuch
+  - name: basis
+    aenderung: "keine"
+
+datenabschnitt: train           # Event-Studie läuft auf: train (oder exploration, dann nur als Beobachtung)
+
+ergebnis: null                  # optional; wird NACH dem Test befüllt, Karte selbst bleibt unverändert

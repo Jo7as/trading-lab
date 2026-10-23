@@ -1,0 +1,81 @@
+id: H-002
+titel: "Große Overnight-Gaps bei Indizes werden intraday teilweise zurückgenommen"
+status: kill
+erstellt: 2026-10-23
+autor: ""
+
+beobachtung: >
+  Lou, Polk & Skouras (JFE 2019): Renditen über Nacht und während der Handelszeit ziehen
+  oft in entgegengesetzte Richtungen ("Tug of War"). Zu prüfen ist, ob das auf Index-Ebene
+  intraday nach großen Gaps sichtbar und groß genug gegenüber den Kosten ist.
+  Konkurrierende Hypothese: H-001 behandelt Gaps über die Gap-Korrektur eher als Fortsetzungssignal.
+  Beide Karten sind vor dem Test registriert, damit das Ergebnis nicht nachträglich umgedeutet wird.
+
+mechanismus:
+  wer: "Privatanleger und Overnight-Orders zur Eröffnung gegenüber professionellen Intraday-Händlern"
+  warum: >
+    Orders, die über Nacht aufgelaufen sind, werden zur Eröffnung gebündelt ausgeführt und
+    verschieben den Kurs über den fairen Wert hinaus. Intraday-Händler und Market Maker
+    stellen Liquidität bereit und lassen sich die Rücknahme bezahlen.
+  quellen:
+    - "Lou, Polk, Skouras (2019): A Tug of War: Overnight versus Intraday Expected Returns, JFE"
+
+zustaende:
+  - familie: Z5
+    definition: >
+      gap = (Session-Eröffnung − Vortagesschluss der Session) / sigma_tag;
+      sigma_tag = Standardabweichung der Close-to-Close-Renditen der letzten 20 Tage, nur bis Vortag.
+    einheit: sigma
+  - familie: Z4
+    definition: "Einstieg nach der Eröffnungsphase: Session-Start + 30 Min (Eröffnungsrauschen vermeiden)"
+    einheit: session_min
+
+ort: "Vortagesschluss als Bezugsniveau; Abstand = gap in sigma_tag"
+zeit: "Einstieg Session-Start + 30 Min, Ausstieg Session-Ende (mindestens 60 Min Haltedauer)"
+ereignis_definition: >
+  |gap| >= 0,5 an einem Handelstag; ein Ereignis je Instrument und Tag; Tage mit thin_day-Markierung ausgeschlossen.
+richtung: "gegen das Vorzeichen des Gaps (Rücknahme)"
+
+horizont_min: 240
+instrumente: [US100, US30, SP500, GER40]
+
+behauptung: >
+  Mittlere Brutto-Vorwärtsrendite gegen die Gap-Richtung von Session-Start + 30 Min bis Session-Ende
+  ist >= min_effekt_bp, und die mittlere Netto-Rendite ist > 0, gepoolt über alle Instrumente.
+
+placebo: >
+  Tage mit |gap| < 0,2 (gleiches Instrument, gleiches Volatilitätsquintil); Richtung = gegen das Vorzeichen
+  des (kleinen) Gaps. Prüft, ob die Rücknahme an die Gap-Größe gebunden ist.
+
+dosis_wirkung:
+  staerke_variable: "|gap| in Quintilen (nur Ereignistage)"
+  erwartung: monoton_steigend
+
+s0:
+  kosten_rt_bp: 1.41          # median 1m spread, audit-correct frame, entry window (measured)
+  typische_bewegung_bp: 18.5  # median |move| over 240m (cost gate ratio x cost)
+  s0_quote: 0.076             # cost / move -> below the 0.10 limit
+  grenze: 0.10
+  min_effekt_bp: 2.82         # 2 x kosten_rt_bp
+  kurz_horizont_begruendung: ""
+
+kill_kriterien:
+  t_min: 3.0
+  placebo_mindestabstand: 0.5
+  dosis_rangkorrelation_min: 0.8
+  vorzeichen_jahre_min: 0.7
+  netto_effekt_min_bp: 0.0
+
+varianten:
+  - {name: basis, aenderung: "|gap| >= 0,5, Einstieg +30 Min"}
+  - {name: gap_1_0, aenderung: "|gap| >= 1,0"}
+  - {name: einstieg_60, aenderung: "Einstieg Session-Start + 60 Min"}
+  - {name: nur_ohne_news_vortag, aenderung: "Tage nach Spread-Explosion (spread_event) am Vortag ausgeschlossen"}
+
+datenabschnitt: train
+ergebnis: >
+  Getestet (direkte Minuten-Clock, Audit-Frame): Gap-Fade bis Session-Ende,
+  median Vorwärtsrendite gegen das Gap. US100 -0.036% (z -1.42, eff/cost 2.0),
+  SP500 -0.022% (z -1.26), US30 +0.008% (z 0.30), GER40 -0.003% (z -0.25).
+  Vorzeichen wie erwartet (leichte Rücknahme), aber signifikant nicht von null
+  verschieden (z < 3) und ohne stabile Dosis-Wirkung -> kill.

@@ -1,0 +1,79 @@
+id: H-003
+titel: "Die Tagesrendite bis eine Stunde vor Schluss sagt die Richtung der letzten Stunde voraus"
+status: kill
+erstellt: 2026-10-23
+autor: ""
+
+beobachtung: >
+  Baltussen et al. (JFE 2021, über 60 Futures 1974–2020): Die Rendite des bisherigen Tages sagt
+  die Rendite der letzten 30 Minuten vorher, verstärkt bei negativem Gamma der Optionshändler.
+  Gao et al. (JFE 2018) fanden den verwandten Effekt für SPY; eine Folgestudie sieht ihn nach 2013
+  nicht mehr. Die Karte testet die Variante mit 60-Min-Horizont (Kostengate) auf Index-CFDs.
+
+mechanismus:
+  wer: "Optionshändler mit negativem Gamma, Manager gehebelter ETFs"
+  warum: >
+    Beide müssen zum Tagesende in Richtung der Tagesbewegung handeln (Delta-Absicherung bzw.
+    tägliches Rebalancing auf den Zielhebel). Das Volumen dieser Flüsse wächst mit der Größe der Tagesbewegung.
+  quellen:
+    - "Baltussen, Da, Lammers, Martens (2021): Hedging Demand and Market Intraday Momentum, JFE 142"
+    - "Gao, Han, Li, Zhou (2018): Market Intraday Momentum, JFE 126"
+
+zustaende:
+  - familie: Z3
+    definition: >
+      rod = (Mid zum Zeitpunkt Session-Ende − 60 Min) / Vortagesschluss − 1, geteilt durch sigma_rod;
+      sigma_rod = Standardabweichung von rod der letzten 60 Handelstage, nur Vergangenheit.
+    einheit: sigma
+  - familie: Z4
+    definition: "Session-Phase: letzte 60 Minuten der Kernsession des Heimatmarkts"
+    einheit: session_min
+
+ort: "keiner"
+zeit: "Einstieg Session-Ende − 60 Min, Ausstieg Session-Ende − 1 Min"
+ereignis_definition: "|rod| >= 0,5 am Einstiegszeitpunkt; ein Ereignis je Instrument und Tag"
+richtung: "in Richtung des Vorzeichens von rod"
+
+horizont_min: 60
+instrumente: [US100, US30, SP500, GER40]
+
+behauptung: >
+  Mittlere Brutto-Rendite der letzten 60 Minuten in Richtung von rod ist >= min_effekt_bp,
+  und die mittlere Netto-Rendite ist > 0, gepoolt über alle Instrumente.
+
+placebo: >
+  Gleiche Berechnung für ein Mittagsfenster: rod bis Session-Mitte, Vorwärtsrendite der folgenden 60 Minuten,
+  gleiche Schwelle. Prüft, ob der Effekt spezifisch für das Tagesende ist (Mechanismus) oder allgemeines Intraday-Momentum.
+
+dosis_wirkung:
+  staerke_variable: "|rod| in Quintilen"
+  erwartung: monoton_steigend
+
+s0:
+  kosten_rt_bp: 1.41          # measured
+  typische_bewegung_bp: 8.4   # median |move| over 60m
+  s0_quote: 0.168             # cost / move -> ABOVE the 0.10 limit: rejected at S0
+  grenze: 0.10
+  min_effekt_bp: 2.82
+  kurz_horizont_begruendung: ""
+
+kill_kriterien:
+  t_min: 3.0
+  placebo_mindestabstand: 0.5
+  dosis_rangkorrelation_min: 0.8
+  vorzeichen_jahre_min: 0.7
+  netto_effekt_min_bp: 0.0
+
+varianten:
+  - {name: basis, aenderung: "|rod| >= 0,5"}
+  - {name: rod_1_0, aenderung: "|rod| >= 1,0"}
+  - {name: ohne_overnight, aenderung: "rod ab Session-Eröffnung statt ab Vortagesschluss"}
+  - {name: nur_hohe_vola, aenderung: "nur Tage mit 20-Tage-Vola im oberen Drittel (Gamma-Proxy)"}
+
+datenabschnitt: train
+ergebnis: >
+  Bereits am S0-Gate abgelehnt: bei 60 Minuten Horizont kostet der Round Trip
+  1.41 bp gegen eine typische Bewegung von 8.4 bp (Quote 0.168 > 0.10) - kein Test.
+  Zur Information direkt gemessen (letzte Stunde, Richtung der Tagesrendite):
+  US100 +0.009% (z 1.23), US30 0.000%, SP500 +0.001%, GER40 -0.000%, UK100 -0.002%.
+  Effekt null -> kill.

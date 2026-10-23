@@ -1,0 +1,89 @@
+id: H-001
+titel: "Ungewöhnlicher Intraday-Fortschritt bei hoher Volatilität setzt sich bis Session-Ende fort"
+status: kill
+erstellt: 2026-10-23
+autor: ""
+
+beobachtung: >
+  Zarattini, Aziz & Barbon (SPY 2007–2024; laut FAQ auch 33 Futures inkl. 12 Aktienindizes):
+  Verlässt der Kurs die zeitabhängige Noise Area, folgt überdurchschnittlich oft ein Trendtag.
+  Die Sharpe der Strategie steigt laut Paper mit dem VIX-Niveau.
+
+mechanismus:
+  wer: "Optionshändler mit negativem Gamma, gehebelte ETFs, verspätet informierte Händler"
+  warum: >
+    Bei negativem Gamma müssen Händler in Bewegungsrichtung absichern; gehebelte ETFs
+    rebalancieren zum Schluss in Tagesrichtung. Beides verstärkt Bewegungen, die bereits
+    ungewöhnlich groß sind, und wirkt stärker bei hoher Volatilität.
+  quellen:
+    - "Zarattini, Aziz, Barbon (2024): Beat the Market, SSRN 4824172"
+    - "Baltussen, Da, Lammers, Martens (2021): Hedging Demand and Market Intraday Momentum, JFE 142"
+
+zustaende:
+  - familie: Z3
+    definition: >
+      fortschritt = (Mid_t / Anker − 1) / sigma_m; Anker = Session-Eröffnung (Gap-Korrektur:
+      oben max(Open, Vortagesschluss), unten min(Open, Vortagesschluss));
+      sigma_m = Mittelwert |Close(d, m)/Open(d) − 1| der letzten 14 Tage zur gleichen Session-Minute m.
+    einheit: sigma
+  - familie: Z1
+    definition: >
+      vola_pct = Perzentil der realisierten 20-Tage-Volatilität des Instruments im Vergleich
+      zu den letzten 250 Handelstagen, nur bis Vortag.
+    einheit: perzentil
+
+ort: "keiner (Bezug ist die Session-Eröffnung, nicht ein Level)"
+zeit: "Prüfzeitpunkte stündlich ab Session-Start + 60 Min; letzte Prüfung Session-Ende − 60 Min"
+ereignis_definition: >
+  Erster Prüfzeitpunkt des Tages mit |fortschritt| >= 1,0 (Kurs außerhalb der Noise Area).
+  Höchstens ein Ereignis je Instrument und Tag.
+richtung: "Vorwärtsrendite in Richtung des Fortschritts (Vorzeichen von fortschritt)"
+
+horizont_min: 240
+instrumente: [US100, US30, SP500, GER40]
+
+behauptung: >
+  Mittlere Brutto-Vorwärtsrendite (in Richtung) vom Ereignis bis Session-Ende (mindestens 60 Min)
+  ist >= min_effekt_bp, und die mittlere Netto-Rendite nach Kosten ist > 0, gepoolt über alle Instrumente.
+
+placebo: >
+  Gleiche Prüfzeitpunkte und gleiches vola_pct-Quintil, aber |fortschritt| < 0,5 (innerhalb der Noise Area);
+  Richtung = Vorzeichen von fortschritt. Misst, ob der Ausbruch selbst etwas bringt oder nur die Tagesrichtung.
+
+dosis_wirkung:
+  staerke_variable: "vola_pct (Quintile); zusätzlich berichtet: |fortschritt| in Quintilen"
+  erwartung: monoton_steigend
+
+s0:
+  kosten_rt_bp: 1.41          # median 1m spread, audit-correct frame, entry window (measured)
+  typische_bewegung_bp: 18.5  # median |move| over 240m (cost gate ratio x cost)
+  s0_quote: 0.076             # cost / move -> below the 0.10 limit
+  grenze: 0.10
+  min_effekt_bp: 2.82         # 2 x kosten_rt_bp
+  kurz_horizont_begruendung: ""
+
+kill_kriterien:
+  t_min: 3.0
+  placebo_mindestabstand: 0.5
+  dosis_rangkorrelation_min: 0.8
+  vorzeichen_jahre_min: 0.7
+  netto_effekt_min_bp: 0.0
+
+varianten:
+  - {name: basis, aenderung: "Schwelle |fortschritt| >= 1,0"}
+  - {name: schwelle_1_25, aenderung: "Schwelle 1,25"}
+  - {name: schwelle_1_5, aenderung: "Schwelle 1,5"}
+  - {name: lookback_60, aenderung: "sigma_m über 60 statt 14 Tage"}
+  - {name: ohne_gap, aenderung: "Anker nur Session-Eröffnung, ohne Vortagesschluss"}
+
+datenabschnitt: train
+ergebnis: >
+  Getestet am 2026-10-23 (registriert, direkte Minuten-Clock, Audit-Frame, Haltedauer
+  bis Session-Ende). basis: US100 med +0.062% (z 2.69, eff/cost 3.2, Placebo +0.044% =
+  71% des Effekts), SP500 +0.035% (z 2.79), US30 -0.006%, GER40 +0.005%.
+  nur_hohe_vola: US100 +0.183% (z 2.48, eff/cost 9.4, Quintile NICHT monoton:
+  -0.057/-0.116/+0.087/+0.292/+0.114), SP500 +0.087% (z 2.27).
+  Kein Fall erreicht z >= 3 mit Placebo-Abstand UND monotoner Dosis -> kill nach den
+  vorab festgelegten Kriterien. Der Hoch-Vola-Fall ist der staerkste Effekt des
+  Projekts, verfehlt die Gates aber klar (Dosis invertiert) - nur mit NEUER Karte
+  (andere Dosis-Variable oder Checkpoint-Regel) weiterverfolgen, nicht nachjustieren.
