@@ -109,6 +109,18 @@ def run_backtest(df: pd.DataFrame, cfg: DonchianConfig, *, verbose: bool = False
     }
 ```
 
+> **Before writing any code — two mandatory gates.**
+> **(0) Cost gate.** Run `studies/cost_gate.py` for the instrument and your
+> intended horizon. It reports `E|move| / round-trip cost`; a ratio below ~2
+> means **nothing built on that horizon can work** (no parameter search fixes
+> it). On our CFD data 5-minute horizons fail almost everywhere and 60-minute
+> horizons pass on the indices.
+> **(3) Calendar invariants.** Any session-based strategy must pass
+> `trading_lab.invariants.assert_invariants` (entries/exits inside the session,
+> no position spanning two days) and keep a test on a **full 24 h frame**
+> (`tests/test_invariants.py`) — this is the bug class that made an ORB strategy
+> look profitable.
+>
 > **Watch out — index spaces.** If your strategy trades session/day slices (RTH,
 > opening range, session hours) built from a boolean mask, the slices must index
 > the **full** frame. Open-coding `np.flatnonzero(mask)` + `unique(...)` and then
