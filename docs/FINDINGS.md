@@ -22,6 +22,26 @@ Also audited: the repo's own stored verdicts already said nothing passed
 `all_go: []`), and both evolution "promotions" are flagged in their own metadata
 as unvalidated (one from an *asset-drift bug*).
 
+## The data layer was dirty (found last, and it touches everything)
+
+A data audit (`trading_lab/data_quality.py`, `studies/data_audit.py`) of the
+cached 1-minute bid+ask found **corrupt bars on all 11 instruments**: 33–741 bars
+per instrument move more than 50× the median, with the worst clustered in the
+daily roll window (21:00–01:00 UTC) — JP225 logged **+178 % in one minute**,
+Brent +21.9 %, copper +14 %. A single such bar fabricates a "profitable pattern"
+(one of them produced a fake "+4.5 %/day first-hour momentum" in the research
+engine).
+
+Measured impact: the gold Supertrend baseline's gross P&L falls from **+59.3 % to
++47.1 %** once the corrupt bars and roll hours are masked — about a fifth of what
+was reported was data artifact. **Every earlier result in this repo ran on
+uncleaned data** and must be re-checked with `clean()` before being quoted.
+
+Consequence for the process: the data layer (plan step 1) is a *prerequisite*,
+not a formality — `clean()` (corrupt bars + roll window) is now applied in the
+research engine, and the spread-by-hour table shows US-hours spreads are 2–3×
+tighter than Asia (part of why trading Asia hours never worked).
+
 ## The structural lesson
 
 Every rejection has the same cause: **the average move per trade is of the same
