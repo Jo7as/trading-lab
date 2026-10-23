@@ -10,6 +10,7 @@ included.
 | Strategy | Status | Instruments tested | Headline | File |
 |---|---|---|---|---|
 | **ORB Rejection Fade** (`orb_fade`) | **REJECTED** | US100, SP500, GER40 + 8 more (2019–2026) | earlier positives were a day-slicing bug; corrected: −0.29…−1.18 R on all 11 markets, 7–8/8 negative years | [orb_rejection_fade.md](orb_rejection_fade.md) · [source spec](orb_rejection_ifvg_SPEC.yaml) |
+| Pair spreads (ES/NQ, gold/silver, Brent/WTI, DAX/FTSE) | rejected | US100/SP500, US30/SP500, GER40/UK100, XAU/XAG (2019–2026) | gross PF ≈ 1.0 (no edge), net −141…−691 % with real spreads | [pair_spreads_REJECTED.md](pair_spreads_REJECTED.md) |
 | Fair Pricing (JJ Simon) | rejected | US100 (2016–2026) | −0.15…−0.30 R, acceptance FAIL | [fair_pricing_REJECTED.md](fair_pricing_REJECTED.md) |
 | NY-Open EMA12 | rejected | US100 (2016–2026) | −0.15…−0.30 R, all 20 parameter combos negative | [ny_open_ema12_REJECTED.md](ny_open_ema12_REJECTED.md) |
 

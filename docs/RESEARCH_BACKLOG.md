@@ -29,10 +29,9 @@ Ordered by expected value / effort:
 
 1. **Audit the existing strategies with the new rigour** (24 h frames, per-year,
    random-direction baseline, cost stress, then the prop sim). Zero new code.
-2. **Market-neutral spreads** — ES/NQ, gold/silver, Brent/WTI, DAX/FTSE (all
-   cached). Mean-reverting cointegration spreads are what non-institutional
-   professional desks actually trade; low beta and small drawdowns suit prop
-   rules. Highest-value untested direction.
+2. ~~**Market-neutral spreads**~~ — **TESTED, REJECTED**: gross PF ≈ 1.0 (no
+   edge), net −141…−691 % with real spreads. See
+   `docs/strategies/pair_spreads_REJECTED.md`.
 3. **Overnight vs intraday decomposition** — the overnight drift is a robust,
    documented anomaly and our 1 m caches have 24 h sessions. Constraint: many
    prop firms forbid overnight/weekend holds; check per firm, or use it as a
