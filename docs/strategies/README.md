@@ -21,6 +21,15 @@ after a day-slicing bug in its engine was found and fixed.
 mean reversion inside the noise area, FX strength) with a regime and portfolio
 layer. Not started; build module by module with a go/no-go after each.
 
+## Audit of the pre-existing strategies
+
+See [EXISTING_STRATEGIES_AUDIT.md](EXISTING_STRATEGIES_AUDIT.md): nothing in the
+repo passed its own gates (`orb_2r.json` → `passed: []`,
+`mean_reversion_candidates.json` → `all_go: []`), the two evolution promotions
+are flagged unvalidated (one from an asset-drift bug), and the one positive gross
+lead (gold Supertrend `hf_ls01`, +59 % gross) turns **negative** once the gold
+spread is applied (avg gross move 0.29 USD vs 0.37 USD spread).
+
 ## How the verdict is produced
 
 | step | command |
