@@ -1,70 +1,72 @@
 id: H-005
-titel: "London-16:00-Fix (WMR): Drift vor dem Fix, Rücknahme danach"
-status: entwurf
+titel: 'London-16:00-Fix (WMR): Drift vor dem Fix, Rücknahme danach'
+status: kill
 erstellt: 2026-10-24
-autor: ""
-
-beobachtung: >
-  Der WM/Refinitiv-4-Uhr-Fix (16:00 London = 11:00 New York) ist ein Zeitpunkt, zu dem
-  täglich große, vorab platzierte Orders abgearbeitet werden. Vor dem Fix entsteht
+autor: ''
+beobachtung: 'Der WM/Refinitiv-4-Uhr-Fix (16:00 London = 11:00 New York) ist ein Zeitpunkt,
+  zu dem täglich große, vorab platzierte Orders abgearbeitet werden. Vor dem Fix entsteht
   gerichteter Druck, nach dem Fix fehlt der Abnehmer, und ein Teil der Bewegung wird
   zurückgenommen.
 
+  '
 mechanismus:
-  wer: "Fonds mit Fix-Vorgabe (Benchmark-Abrechnung), Banken als Ausführer"
-  warum: >
-    Orders, die auf den Fix benchmarkt sind, müssen in einem 5-Minuten-Fenster um 16:00 London
-    ausgeführt werden, egal wie der Kurs steht. Das erzeugt vor dem Fix gerichteten Druck
-    (und Manipulationsanreize), der danach wegfällt.
+  wer: Fonds mit Fix-Vorgabe (Benchmark-Abrechnung), Banken als Ausführer
+  warum: 'Orders, die auf den Fix benchmarkt sind, müssen in einem 5-Minuten-Fenster
+    um 16:00 London ausgeführt werden, egal wie der Kurs steht. Das erzeugt vor dem
+    Fix gerichteten Druck (und Manipulationsanreize), der danach wegfällt.
+
+    '
   quellen:
-    - "Literatur zu WMR-Fix und Benchmark-Orders (z. B. Melvin/Roos; BIS FX Benchmark Reforms)"
-
+  - Literatur zu WMR-Fix und Benchmark-Orders (z. B. Melvin/Roos; BIS FX Benchmark
+    Reforms)
 zustaende:
-  - familie: Z4
-    definition: "Fenster um 11:00 New York: Pre-Fix 10:00-11:00, Post-Fix 11:00-12:00"
-    einheit: session_min
-  - familie: Z2
-    definition: "Abstand des Kurses um 10:59 NY zur Session-Eröffnung, in Spread-Einheiten (Richtung des Pre-Fix-Flows)"
-    einheit: spread
-
-ort: "Session-Eröffnung als Bezug"
-zeit: "Entry 11:00 NY (Fix), Exit 12:00 NY; Placebo derselbe Aufbau um 09:00 NY"
-ereignis_definition: "Pre-Fix-Drift 10:00-11:00 >= 1,0 in Spread-Einheiten; ein Ereignis je Tag"
-richtung: "gegen den Pre-Fix-Flow (Rücknahme)"
-
+- familie: Z4
+  definition: 'Fenster um 11:00 New York: Pre-Fix 10:00-11:00, Post-Fix 11:00-12:00'
+  einheit: session_min
+- familie: Z2
+  definition: Abstand des Kurses um 10:59 NY zur Session-Eröffnung, in Spread-Einheiten
+    (Richtung des Pre-Fix-Flows)
+  einheit: spread
+ort: Session-Eröffnung als Bezug
+zeit: Entry 11:00 NY (Fix), Exit 12:00 NY; Placebo derselbe Aufbau um 09:00 NY
+ereignis_definition: Pre-Fix-Drift 10:00-11:00 >= 1,0 in Spread-Einheiten; ein Ereignis
+  je Tag
+richtung: gegen den Pre-Fix-Flow (Rücknahme)
 horizont_min: 60
-instrumente: [EURUSD, GBPUSD, USDJPY, AUDUSD]
+instrumente:
+- EURUSD
+- GBPUSD
+- USDJPY
+- AUDUSD
+behauptung: 'Mittlere Vorwärtsrendite in Rücknahmerichtung über die Stunde nach dem
+  Fix ist >= min_effekt_bp und netto > 0; das Placebo zur gleichen Uhrzeit an einem
+  anderen Tag zeigt keinen Effekt.
 
-behauptung: >
-  Mittlere Vorwärtsrendite in Rücknahmerichtung über die Stunde nach dem Fix ist >=
-  min_effekt_bp und netto > 0; das Placebo zur gleichen Uhrzeit an einem anderen Tag zeigt
-  keinen Effekt.
-
-placebo: "Gleicher Aufbau, aber Fix-Zeitpunkt um 09:00 NY statt 11:00 NY (kein Benchmark-Flow)"
-
+  '
+placebo: Gleicher Aufbau, aber Fix-Zeitpunkt um 09:00 NY statt 11:00 NY (kein Benchmark-Flow)
 dosis_wirkung:
-  staerke_variable: "Pre-Fix-Drift in Spread-Einheiten, in Quintilen"
+  staerke_variable: Pre-Fix-Drift in Spread-Einheiten, in Quintilen
   erwartung: monoton_steigend
-
 s0:
-  kosten_rt_bp: null
-  typische_bewegung_bp: null
-  s0_quote: null
-  grenze: 0.10
-  min_effekt_bp: null
-  kurz_horizont_begruendung: ""
-
+  kosten_rt_bp: 0.533
+  typische_bewegung_bp: 4.42
+  s0_quote: 0.1206
+  grenze: 0.1
+  min_effekt_bp: 1.066
+  kurz_horizont_begruendung: ''
 kill_kriterien:
   t_min: 3.0
   placebo_mindestabstand: 0.5
   dosis_rangkorrelation_min: 0.8
   vorzeichen_jahre_min: 0.7
   netto_effekt_min_bp: 0.0
-
 varianten:
-  - {name: basis, aenderung: "Entry 11:00 NY, Exit 12:00 NY"}
-  - {name: nur_fix_tage, aenderung: "nur Monats-/Quartalsenden (groessere Fix-Orders)"}
-  - {name: fenster_30, aenderung: "Exit nach 30 Minuten"}
-
+- name: basis
+  aenderung: Entry 11:00 NY, Exit 12:00 NY
+- name: nur_fix_tage
+  aenderung: nur Monats-/Quartalsenden (groessere Fix-Orders)
+- name: fenster_30
+  aenderung: Exit nach 30 Minuten
 datenabschnitt: train
-ergebnis: null
+ergebnis: 'S0 gate: quote 0.1206 > 0.1 -> kill before testing (S0 quote above limit
+  -> not testable).'

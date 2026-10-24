@@ -1,0 +1,81 @@
+id: H-007
+titel: Supertrend-Flip auf FX-Majors setzt den Trend bis zum Flip/Stop fort
+status: kill
+erstellt: 2026-10-24
+autor: ''
+beobachtung: 'Die Gold-Supertrend-Variante war das einzige Modul mit positivem Brutto.
+  FX-Majors haben 3-7x kleinere relative Spreads als die Indizes; im London/NY-Overlap
+  ist die Bewegung je Zeiteinheit am groessten (S0 bis 38). Zu pruefen ist, ob der
+  Supertrend-Flip auf FX netto traegt.
+
+  '
+mechanismus:
+  wer: Trendfolge- und CTA-Flow, Absicherung im London/NY-Overlap
+  warum: 'Nach einem bestaetigten Richtungswechsel (Flip) folgt ein Teil des Order-Flows
+    der Bewegung; FX-Majors zeigen im Overlap die hoechste Persistenz.
+
+    '
+  quellen:
+  - Literatur zu Intraday-Momentum/Trendfolge in FX-Sessions
+  - 'eigene Messung: S0-Gate je Instrument x Timeframe (studies/fx_prep.py)'
+zustaende:
+- familie: Z10
+  definition: Supertrend-Richtungswechsel (period 7, mult 1.5) auf dem Signal-Timeframe
+  einheit: verhaeltnis
+- familie: Z4
+  definition: Session-Phase; Varianten mit Beschraenkung auf den London/NY-Overlap
+    (08:00-11:00 NY)
+  einheit: session_min
+ort: Supertrend-Linie als Trailing-Level
+zeit: Entry am Open der Folgeminute nach dem Flip-Close; Exit Stop/TP1(2R,60%)/Flip/Zeitstopp
+ereignis_definition: ein Flip je Richtung; eine Position gleichzeitig
+richtung: in Richtung des Flips
+horizont_min: 60
+instrumente:
+- EURUSD
+- USDJPY
+behauptung: 'Netto-Erwartung je Trade nach Spread und Slippage > 0 und Brutto >= min_effekt_bp,
+  gepoolt ueber EURUSD und USDJPY, und die Netto-Erwartung schlaegt die Zufallsrichtung
+  mit gleicher Signalzeit und gleichen Exits.
+
+  '
+placebo: gleiche Signal-Bars, Zufallsrichtung (random_entry=True), gleiche Exits
+dosis_wirkung:
+  staerke_variable: '|Close - Supertrend-Linie| beim Flip in ATR-Einheiten, in Quintilen'
+  erwartung: monoton_steigend
+s0:
+  kosten_rt_bp: 0.278
+  typische_bewegung_bp: 3.82
+  s0_quote: 0.0729
+  grenze: 0.1
+  min_effekt_bp: 0.557
+  kurz_horizont_begruendung: ''
+kill_kriterien:
+  t_min: 3.0
+  placebo_mindestabstand: 0.5
+  dosis_rangkorrelation_min: 0.8
+  vorzeichen_jahre_min: 0.7
+  netto_effekt_min_bp: 0.0
+varianten:
+- name: basis_1h
+  aenderung: 1h, EURUSD+USDJPY, long+short
+- name: 30m
+  aenderung: Signal auf 30m (S0-grenzwertig fuer GBPUSD/AUDUSD -> exploratory)
+- name: 15m
+  aenderung: Signal auf 15m (verfehlt die strenge S0-Grenze -> exploratory)
+- name: 4h
+  aenderung: Signal auf 4h
+- name: nur_overlap
+  aenderung: nur Flips im Fenster 08:00-11:00 NY
+- name: long_only
+  aenderung: nur Long-Flips
+datenabschnitt: train
+ergebnis: 'Registriert und getestet 2026-10-24 (fester Motor: Entry am naechsten Open
+  mit Slippage, Gap-Stops, Zeitstopp in Bars, audit-korrekter Frame, echte Bid/Ask-Kosten).
+  Primaerhypothese (1h, EURUSD+USDJPY): EURUSD n=1804 netto -30.6% (Zufallsrichtung
+  -26.7%, 1/8 positive Jahre); USDJPY n=1686 netto +2.1% (Zufall +17.6%, 4/8). ->
+  kill: die 1h-Erwartung ist nicht positiv und schlaegt die Zufallsrichtung nicht.
+  Explorative Varianten: 15m/30m klar negativ (bis -76%) und schlechter als Zufall;
+  4h positiv (EURUSD +7.3% netto, 6/8 Jahre, n=548; USDJPY +4.9%, 5/8, Zufall +1.1%)
+  - zu duenn, und datenseitig jetzt ''verbraucht''; nur mit NEUER Karte auf unberuehrten
+  Daten weiterverfolgen.'

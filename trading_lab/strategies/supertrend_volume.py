@@ -79,6 +79,8 @@ class SupertrendVolumeConfig:
     # ── Execution model (added 2026-10, reviewed) ──────────────────
     timeframe: str = "1h"            # bar size of `df`; drives the time stop
     slippage_pct: float = 0.00002    # adverse slippage per fill (2 bp, as elsewhere)
+    random_entry: bool = False       # baseline: same signal bars, random direction
+    random_seed: int = 7
 
     # ── Searchable parameter space for hill-climb optimizer ────────
     @staticmethod
@@ -407,6 +409,7 @@ def run_backtest(
         }
 
     pending: str | None = None       # direction armed at the previous close
+    rng = np.random.default_rng(cfg.random_seed)
 
     for i in range(len(df)):
         row = df.iloc[i]
@@ -458,7 +461,10 @@ def run_backtest(
 
         # ── Arm a new signal at this bar's close (filled next bar's open) ──
         if open_pos is None and pending is None:
-            if row["long_signal"] > 0:
+            has_signal = row["long_signal"] > 0 or row["short_signal"] > 0
+            if has_signal and cfg.random_entry:
+                pending = "long" if rng.random() < 0.5 else "short"
+            elif row["long_signal"] > 0:
                 pending = "long"
             elif row["short_signal"] > 0 and not cfg.long_only:
                 pending = "short"

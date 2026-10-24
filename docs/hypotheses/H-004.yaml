@@ -1,75 +1,82 @@
 id: H-004
-titel: "Asian-Range-Breakout setzt sich in der London-Session fort"
-status: entwurf
+titel: Asian-Range-Breakout setzt sich in der London-Session fort
+status: registriert
 erstellt: 2026-10-24
-autor: ""
+autor: ''
+beobachtung: 'Dokumentierte Intraday-Saisonalität der FX-Majors: In der asiatischen
+  Session ist die Bewegung klein und richtungslos, mit dem Londoner Open steigt Liquidität
+  und Volatilität sprunghaft; das Verlassen der Asien-Range (Vortagesschluss bis London-Open)
+  fällt mit diesem Liquiditätswechsel zusammen.
 
-beobachtung: >
-  Dokumentierte Intraday-Saisonalität der FX-Majors: In der asiatischen Session ist die
-  Bewegung klein und richtungslos, mit dem Londoner Open steigt Liquidität und Volatilität
-  sprunghaft; das Verlassen der Asien-Range (Vortagesschluss bis London-Open) fällt mit
-  diesem Liquiditätswechsel zusammen.
-
+  '
 mechanismus:
-  wer: "Londoner Bank-Desks und Corporate-Flow, die zur europäischen Eröffnung ihre Tagesorders ausführen"
-  warum: >
-    In Asien fehlt der ausführende Flow (dünne Bücher, weite Spannen). Mit dem Londoner Open
-    kommen die großen Aufträge; wer die Asien-Range verlässt, signalisiert Ungleichgewicht,
-    und die Orders werden über die Session abgearbeitet statt zurückgenommen.
+  wer: Londoner Bank-Desks und Corporate-Flow, die zur europäischen Eröffnung ihre
+    Tagesorders ausführen
+  warum: 'In Asien fehlt der ausführende Flow (dünne Bücher, weite Spannen). Mit dem
+    Londoner Open kommen die großen Aufträge; wer die Asien-Range verlässt, signalisiert
+    Ungleichgewicht, und die Orders werden über die Session abgearbeitet statt zurückgenommen.
+
+    '
   quellen:
-    - "Intraday seasonality in FX (Literatur zu Session-Effekten, z. B. Breedon/Tradable Liquidity)"
-    - "Marktstruktur: Anteil des London-Fensters am Tagesvolumen (BIS Triennial Survey)"
-
+  - Intraday seasonality in FX (Literatur zu Session-Effekten, z. B. Breedon/Tradable
+    Liquidity)
+  - 'Marktstruktur: Anteil des London-Fensters am Tagesvolumen (BIS Triennial Survey)'
 zustaende:
-  - familie: Z2
-    definition: >
-      asien_hoch/tief = max/min der Mids von 00:00 bis 02:59 New York; Durchbruch, wenn der
-      erste Mid-Close nach dem London-Open (03:00 NY) außerhalb dieser Range liegt.
-    einheit: spread
-  - familie: Z4
-    definition: "Ereignis nur im Fenster London-Open bis +180 Minuten"
-    einheit: session_min
+- familie: Z2
+  definition: 'asien_hoch/tief = max/min der Mids von 00:00 bis 02:59 New York; Durchbruch,
+    wenn der erste Mid-Close nach dem London-Open (03:00 NY) außerhalb dieser Range
+    liegt.
 
-ort: "Asien-Range (Hoch/Tief)"
-zeit: "Entry beim ersten Durchbruch nach 03:00 NY; Exit Session-Ende 17:00 NY oder Zeitstopp"
-ereignis_definition: "erster Durchbruch je Instrument und Tag; Tage mit thin_day-Markierung ausgeschlossen"
-richtung: "in Richtung des Durchbruchs"
-
+    '
+  einheit: spread
+- familie: Z4
+  definition: Ereignis nur im Fenster London-Open bis +180 Minuten
+  einheit: session_min
+ort: Asien-Range (Hoch/Tief)
+zeit: Entry beim ersten Durchbruch nach 03:00 NY; Exit Session-Ende 17:00 NY oder
+  Zeitstopp
+ereignis_definition: erster Durchbruch je Instrument und Tag; Tage mit thin_day-Markierung
+  ausgeschlossen
+richtung: in Richtung des Durchbruchs
 horizont_min: 180
-instrumente: [EURUSD, GBPUSD, USDJPY, AUDUSD]
+instrumente:
+- EURUSD
+- GBPUSD
+- USDJPY
+- AUDUSD
+behauptung: 'Mittlere Vorwärtsrendite in Durchbruchsrichtung bis Session-Ende ist
+  >= min_effekt_bp und netto > 0, gepoolt über die Majors; Placebo (Durchbruch derselben
+  Größe außerhalb der London-Range) zeigt keinen Effekt.
 
-behauptung: >
-  Mittlere Vorwärtsrendite in Durchbruchsrichtung bis Session-Ende ist >= min_effekt_bp und
-  netto > 0, gepoolt über die Majors; Placebo (Durchbruch derselben Größe außerhalb der
-  London-Range) zeigt keinen Effekt.
+  '
+placebo: 'Zufällige Zeitpunkte in der NY-Session mit gleicher Bewegungsschwelle (kein
+  Asien-Range-Bezug).
 
-placebo: >
-  Zufällige Zeitpunkte in der NY-Session mit gleicher Bewegungsschwelle (kein Asien-Range-Bezug).
-
+  '
 dosis_wirkung:
-  staerke_variable: "Durchbruchweite in ATR(Tag)-Einheiten, in Quintilen"
+  staerke_variable: Durchbruchweite in ATR(Tag)-Einheiten, in Quintilen
   erwartung: monoton_steigend
-
 s0:
-  kosten_rt_bp: null
-  typische_bewegung_bp: null
-  s0_quote: null
-  grenze: 0.10
-  min_effekt_bp: null
-  kurz_horizont_begruendung: ""
-
+  kosten_rt_bp: 0.533
+  typische_bewegung_bp: 7.96
+  s0_quote: 0.0669
+  grenze: 0.1
+  min_effekt_bp: 1.066
+  kurz_horizont_begruendung: ''
 kill_kriterien:
   t_min: 3.0
   placebo_mindestabstand: 0.5
   dosis_rangkorrelation_min: 0.8
   vorzeichen_jahre_min: 0.7
   netto_effekt_min_bp: 0.0
-
 varianten:
-  - {name: basis, aenderung: "Durchbruch der Asien-Range, Exit 17:00 NY"}
-  - {name: zeitstopp_60, aenderung: "Exit nach 60 Minuten"}
-  - {name: mit_retest, aenderung: "Entry erst nach Retest der Range-Grenze"}
-  - {name: nur_london_ny, aenderung: "nur wenn der Durchbruch im London/NY-Overlap (08:00-11:00 NY) liegt"}
-
+- name: basis
+  aenderung: Durchbruch der Asien-Range, Exit 17:00 NY
+- name: zeitstopp_60
+  aenderung: Exit nach 60 Minuten
+- name: mit_retest
+  aenderung: Entry erst nach Retest der Range-Grenze
+- name: nur_london_ny
+  aenderung: nur wenn der Durchbruch im London/NY-Overlap (08:00-11:00 NY) liegt
 datenabschnitt: train
 ergebnis: null
