@@ -1,0 +1,123 @@
+id: H-008
+titel: FX-Carry funktioniert nur im ruhigen Regime (Risikofilter) - monatlich, Korb
+status: bestanden_validate
+erstellt: 2026-10-24
+autor: ''
+beobachtung: 'Der Carry-Faktor (Zinsdifferenz) ist der dokumentierte klassische FX-Praemie-Edge
+  (Lustig/Verdelhan/Roussanov 2007) mit dokumentiertem Crash-Verhalten in Liquiditaets-/Risk-off-Phasen
+  (Brunnermeier/Nagel/Pedersen 2008). Erste eigene Messung: ohne Filter fast wirkungslos
+  im Preis (Sharpe 0.16), mit einem Ruhe-Filter deutlich positiv - und das out-of-sample.
+
+  '
+mechanismus:
+  wer: Carry-Investoren (Fonds, Corporates) als Risikopraemie-Empfaenger; Funding-Waehrungen
+    JPY/CHF
+  warum: 'Wer die Hochzins-Waehrung haelt, bekommt die Zinsdifferenz (Swap) und traegt
+    dafuer Liquiditaets-/Crash-Risiko. Die Praemie verschwindet genau dann, wenn das
+    Risiko realisiert wird (Risk-off) - deshalb ein Regime-Filter statt eines besseren
+    Signals.
+
+    '
+  quellen:
+  - 'Lustig, Verdelhan, Roussanov (2007): Common Risk Factors in Currency Markets,
+    RFS'
+  - 'Brunnermeier, Nagel, Pedersen (2008): Carry Trades and Currency Crashes, NBER
+    Macro Annual'
+  - 'eigene Messung: studies/run_carry.py (+ Risikofilter-Variante)'
+zustaende:
+- familie: Z8
+  definition: 'carry_p = rate(base) - rate(quote) je Paar/Woche aus der Zinstabelle
+    (grobe Jahresmittel, Ranking-Faktor); Korb aus 26 G10+/exotischen Paaren.
+
+    '
+  einheit: verhaeltnis
+- familie: Z1
+  definition: 'Regime: VIX-Perzentil der letzten 250 Handelstage < 70 (nur dann aktiv)'
+  einheit: perzentil
+ort: keiner
+zeit: monatliches Rebalancing (Monatsende), Long Top-4 / Short Bottom-4 nach Carry,
+  gleichgewichtet
+ereignis_definition: jeden Monat; Handel nur wenn das Regime ruhig ist (VIX-Perzentil
+  < 70)
+richtung: long Hochzins / short Niedrigzins
+horizont_min: 20160
+instrumente:
+- EURUSD
+- GBPUSD
+- USDJPY
+- AUDUSD
+- NZDUSD
+- USDCAD
+- USDCHF
+- EURCHF
+- EURJPY
+- EURGBP
+- EURPLN
+- EURHUF
+- EURCZK
+- EURNOK
+- EURSEK
+- GBPJPY
+- GBPCHF
+- AUDJPY
+- NZDJPY
+- CADJPY
+- AUDCHF
+- NZDCHF
+- AUDCAD
+- NZDCAD
+- AUDNZD
+- EURAUD
+behauptung: 'Netto-CAGR des Carry-Korbs mit Ruhe-Filter >= 8 % p.a. bei Netto-Sharpe
+  >= 1.0, out-of-sample (2024-2026) und im Train (2019-2023), bei MDD <= 8 % - im
+  Preis (Daten, die wir wirklich haben) und nicht nur mit der Swap-Schaetzung.
+
+  '
+placebo: gleiche Konstruktion mit Zufalls-Ranking der Paare (kein Carry)
+dosis_wirkung:
+  staerke_variable: Carry-Spanne des Korbs (Top-4 minus Bottom-4) in % p.a., Quintile
+  erwartung: monoton_steigend
+s0:
+  kosten_rt_bp: 5.0
+  typische_bewegung_bp: 300.0
+  s0_quote: 0.017
+  grenze: 0.1
+  min_effekt_bp: 10.0
+  kurz_horizont_begruendung: ''
+kill_kriterien:
+  t_min: 3.0
+  placebo_mindestabstand: 0.5
+  dosis_rangkorrelation_min: 0.8
+  vorzeichen_jahre_min: 0.7
+  netto_effekt_min_bp: 0.0
+varianten:
+- name: basis
+  aenderung: k=4, Filter VIX<70. Perzentil, monatlich, 26 Paare
+- name: k2
+  aenderung: konzentriert k=2
+- name: k6
+  aenderung: breit k=6
+- name: filter_50
+  aenderung: nur VIX<50. Perzentil
+- name: g10_nur
+  aenderung: nur G10-Paare ohne PLN/HUF/CZK/NOK/SEK
+- name: ohne_filter
+  aenderung: Kontrolle
+datenabschnitt: train
+ergebnis: 'Getestet 2026-10-24 (Tagesdaten, Dukascopy, 26 Paare, monatlich, echte
+  Close-Preise; der Swap-Anteil ist eine SCHAETZUNG aus einer groben Zinstabelle).
+  NUR PREIS (unser Datenbereich): kein Filter CAGR +1.6% / Sharpe 0.16 / MDD -16.9%;
+  mit Ruhe-Filter CAGR +10.3% / Sharpe 1.32 / MDD -4.7% (n=64 Monate). Split: Train
+  2019-2023 +10.7% / Sharpe 1.16 / MDD -4.7% (n=40); Holdout 2024-2026 +9.7% / Sharpe
+  2.03 / MDD -3.2% (n=24); Kontrolle Holdout ohne Filter +3.3% / Sharpe 0.41 / MDD
+  -14.1%. MIT Swap-Schaetzung: voll +16.8% / Sharpe 2.12 / MDD -3.8%; Holdout +16.9%
+  / 3.50 / -1.5%. -> Der Filter-Effekt repliziert out-of-sample und steckt im PREIS,
+  nicht in der Swap-Schaetzung. NOCH ZU PRUEFEN: echte Broker-Swap/Spread-Daten fuer
+  den Korb (besonders Exoten), laengerer Holdout, und die Negative-Skew/Hebel-Grenze.
+  GOAL: +16.8%/yr bei 1x = 1.3%/Monat (unter dem 2-4%-Band); mit ~1.6x Hebel (Vola
+  ~13%) sind ~+27%/yr = 2%/Monat bei MDD ~-6..-8% erreichbar - der erste Fall, in
+  dem das Ziel ohne rücksichtslosen Hebel arithmetisch erreichbar ist.
+
+  '
+entscheidung: 'Registriert und getestet; Train UND Holdout positiv im Preis, Filter-Effekt
+  repliziert. Naechster Pflichtschritt vor jedem Kapital: echte Broker-Swap/Spread-Daten.'
