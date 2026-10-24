@@ -1,0 +1,74 @@
+id: H-006
+titel: "Relative Bewegung zwischen eng verbundenen Majors kehrt intraday zurück"
+status: entwurf
+erstellt: 2026-10-24
+autor: ""
+
+beobachtung: >
+  EURUSD, GBPUSD und die Dollar-Majors bewegen sich überwiegend gemeinsam (Dollar-Faktor).
+  Weicht ein Paar intraday stark vom gemeinsamen Faktor ab, kehrt ein Teil der Abweichung
+  innerhalb der Session zurück (verzögerte Informationsverarbeitung, unterschiedliche
+  Liquidität in den Paaren).
+
+mechanismus:
+  wer: "Marktteilnehmer, die relativ preisen (Cross-Paare, Stat-Arb-Desks, Options-Hedger)"
+  warum: >
+    Bei eng verbundenen Paaren mit gemeinsamem Risikofaktor ist eine große relative Abweichung
+    meist Liquidität, nicht Information; Market Maker und Cross-Arb stellen die Verbindung
+    wieder her.
+  quellen:
+    - "Literatur zu FX-Faktorstruktur und Cross-Pair-Relative-Value (Dollar-Faktor, Carry-Faktor)"
+
+zustaende:
+  - familie: Z8
+    definition: >
+      relative Rendite seit Session-Start (03:00 NY) von Paar A gegen Paar B, z-Normierung
+      mit der 14-Tage-Verteilung derselben Uhrzeit; Family A={EURUSD, GBPUSD}, B={USDJPY, AUDUSD}
+      (Dollar-neutral gewichtet).
+    einheit: sigma
+  - familie: Z4
+    definition: "Ereignis nur ab London-Open + 60 Minuten"
+    einheit: session_min
+
+ort: "keiner"
+zeit: "Entry beim ersten |z| >= 2 in der London/NY-Session, Exit bei |z| <= 0,5 oder Session-Ende"
+ereignis_definition: "ein Ereignis je Paar und Tag; thin_days ausgeschlossen"
+richtung: "gegen die relative Abweichung"
+
+horizont_min: 60
+instrumente: [EURUSD, GBPUSD, USDJPY, AUDUSD]
+
+behauptung: >
+  Mittlere Vorwärtsrendite in Rücknahmerichtung der relativen Abweichung ist >= min_effekt_bp
+  und netto > 0 (beide Legs zu echten Bid/Ask bewertet).
+
+placebo: >
+  Dieselbe z-Schwelle auf geshuffelte Paar-Zuordnungen (A gegen einen unabhängigen Major),
+  wo kein gemeinsamer Faktor existiert.
+
+dosis_wirkung:
+  staerke_variable: "|z| der relativen Abweichung, in Quintilen"
+  erwartung: monoton_steigend
+
+s0:
+  kosten_rt_bp: null
+  typische_bewegung_bp: null
+  s0_quote: null
+  grenze: 0.10
+  min_effekt_bp: null
+  kurz_horizont_begruendung: ""
+
+kill_kriterien:
+  t_min: 3.0
+  placebo_mindestabstand: 0.5
+  dosis_rangkorrelation_min: 0.8
+  vorzeichen_jahre_min: 0.7
+  netto_effekt_min_bp: 0.0
+
+varianten:
+  - {name: basis, aenderung: "|z| >= 2, Exit bei |z| <= 0,5"}
+  - {name: dollar_korb, aenderung: "B = gewichteter Dollar-Korb statt Einzelpaar"}
+  - {name: nur_overlap, aenderung: "nur 08:00-11:00 NY (tiefste Spreads)"}
+
+datenabschnitt: train
+ergebnis: null

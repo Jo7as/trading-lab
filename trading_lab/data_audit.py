@@ -36,6 +36,15 @@ SESSIONS: dict[str, dict[str, Any]] = {
     "COPPER": {"tz": "America/New_York", "open": "08:00", "close": "13:00", "proxy": "HG=F", "cal": "nyse"},
     "BRENT": {"tz": "America/New_York", "open": "09:00", "close": "14:30", "proxy": "BZ=F", "cal": "nyse"},
     "UST10Y": {"tz": "America/New_York", "open": "08:20", "close": "15:00", "proxy": "ZN=F", "cal": "nyse"},
+    "EURUSD": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "EURUSD=X", "cal": "nyse"},
+    "GBPUSD": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "GBPUSD=X", "cal": "nyse"},
+    "USDJPY": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "JPY=X", "cal": "nyse"},
+    "AUDUSD": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "AUDUSD=X", "cal": "nyse"},
+    "USDCAD": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "CAD=X", "cal": "nyse"},
+    "NZDUSD": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "NZDUSD=X", "cal": "nyse"},
+    "EURGBP": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "EURGBP=X", "cal": "nyse"},
+    "EURJPY": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "EURJPY=X", "cal": "nyse"},
+    "GBPJPY": {"tz": "America/New_York", "open": "03:00", "close": "17:00", "proxy": "GBPJPY=X", "cal": "nyse"},
 }
 
 # the "volume/volatility peak at the local open" check is only meaningful where a
@@ -126,10 +135,11 @@ def classify(df: pd.DataFrame, asset: str) -> tuple[pd.Series, AuditReport]:
 
     minutes = (local.hour * 60 + local.minute).to_numpy()
     open_m, close_m = _minutes(sess["open"]), _minutes(sess["close"])
-    utc_hour = df.index.hour + df.index.minute / 60.0
+    ny = df.index.tz_convert("America/New_York")
+    roll = ((ny.hour * 60 + ny.minute).to_numpy() >= 17 * 60) & \
+           ((ny.hour * 60 + ny.minute).to_numpy() <= 17 * 60 + 5)   # 17:00-17:05 NY daily roll
     edge = ((minutes >= open_m) & (minutes < open_m + 5)) | \
-           ((minutes > close_m - 5) & (minutes <= close_m)) | \
-           (np.abs(utc_hour.to_numpy() - ROLL_UTC) <= 5 / 60)
+           ((minutes > close_m - 5) & (minutes <= close_m)) | roll
 
     candidate = (ratio >= RANGE_RATIO) | (sig_ratio >= SIGMA_MULT)
     spread_event = candidate & (spread_ratio >= SPREAD_MULT) & ~edge
