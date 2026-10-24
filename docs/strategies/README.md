@@ -38,6 +38,13 @@ headline, three pre-registered hypotheses on ≥60m horizons (all nine cells
 FAIL), and the pre-committed decision to change the data foundation (crypto L1 or
 real futures) instead of searching more patterns on these CFDs.
 
+## Design principles
+
+`docs/DESIGN_PRINCIPLES.md`: why "everything fails" is normal here, where edges
+are demonstrably not (sub-15 m CFDs, single-instrument intraday patterns), and
+what a strategy should look like instead (horizon >=1 h, 1-10 trades/week, cheap
+instruments, overlap session, structural edge classes, breadth over leverage).
+
 ## Goal
 
 `docs/GOAL.md`: **2–4 % per month** ⇒ net Sharpe ~1.8–4.0 (27–60 % p.a.). Selections

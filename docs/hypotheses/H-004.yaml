@@ -1,6 +1,6 @@
 id: H-004
 titel: Asian-Range-Breakout setzt sich in der London-Session fort
-status: registriert
+status: kill
 erstellt: 2026-10-24
 autor: ''
 beobachtung: 'Dokumentierte Intraday-Saisonalität der FX-Majors: In der asiatischen
@@ -79,4 +79,11 @@ varianten:
 - name: nur_london_ny
   aenderung: nur wenn der Durchbruch im London/NY-Overlap (08:00-11:00 NY) liegt
 datenabschnitt: train
-ergebnis: null
+ergebnis: 'Registriert und getestet 2026-10-24 (1h, EURUSD+USDJPY, Audit-Frame, Entry
+  am naechsten Open mit Slippage, Exit Session-Ende, echte Bid/Ask). EURUSD: n=2021
+  netto -12.61%, long -19.05%, short +6.44% (z 1.63), Placebo -20.31%, 2/8 positive
+  Jahre. USDJPY: netto -13.95% (long -7.38%, short -6.57%), Placebo -25.29%, 2/8.
+  Kein Fall erreicht z >= 3 mit Placebo-Abstand und monotoner Dosis -> kill. Der Short-Vorteil
+  bei EURUSD spiegelt die Dollar-Staerke des Zeitraums, nicht den Mechanismus. GOAL-GATE:
+  netto -1.6%/yr bzw. -1.8%/yr gegen das noetige Band +27..+60%/yr -> Groessenordnungen
+  entfernt.'
