@@ -38,6 +38,11 @@ headline, three pre-registered hypotheses on ≥60m horizons (all nine cells
 FAIL), and the pre-committed decision to change the data foundation (crypto L1 or
 real futures) instead of searching more patterns on these CFDs.
 
+## Goal
+
+`docs/GOAL.md`: **2–4 % per month** ⇒ net Sharpe ~1.8–4.0 (27–60 % p.a.). Selections
+are measured against that, not against "positive".
+
 ## Method (for the next candidates)
 
 - `docs/PATTERN_RESEARCH.md` — measurable-state catalogue and protocol (no shape scanning).
