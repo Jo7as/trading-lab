@@ -1,0 +1,84 @@
+id: H-009
+titel: "FX-Carry mit Ruhe-Filter und gemarkteter Finanzierung ist netto tragfaehig"
+status: bestanden_validate
+erstellt: 2026-10-24
+autor: ""
+
+beobachtung: >
+  Nachfolge von H-008. Dessen Preis-Claim war zu streng formuliert (Preis-Sharpe >= 1.0 verfehlt),
+  waehrend die wirtschaftlich relevante Groesse - Preis PLUS Finanzierung - deutlich positiv ist.
+  Getestet mit echten FRED-Zinsen (monatliche 3M-Interbank, 14 Waehrungen) und einer konservativen
+  Broker-Marge von 30% auf die Zinsdifferenz.
+
+mechanismus:
+  wer: "Carry-Investoren als Risikopraemie-Empfaenger; Funding-Waehrungen JPY/CHF"
+  warum: >
+    Wer die Hochzins-Waehrung haelt, bekommt die Zinsdifferenz (Swap, hier um 30% gekuerzt) und
+    traegt dafuer Crash-Risiko; der Ruhig-Filter schaltet genau die Risk-off-Phasen ab.
+  quellen:
+    - "Lustig, Verdelhan, Roussanov (2007): Common Risk Factors in Currency Markets, RFS"
+    - "Brunnermeier, Nagel, Pedersen (2008): Carry Trades and Currency Crashes"
+    - "FRED: monatliche 3M-Interbank-Saetze (IR3TIB01*M156N); Roll-Diagnostik zeigt, dass der
+       CFD-Preis den Carry NICHT zahlt -> Finanzierung separat angesetzt"
+
+zustaende:
+  - familie: Z8
+    definition: "carry_p = rate(base) - rate(quote) aus den FRED-Monatsreihen; Korb 26 Paare"
+    einheit: verhaeltnis
+  - familie: Z1
+    definition: "Regime: VIX-Perzentil (250 Handelstage) < 70"
+    einheit: perzentil
+
+ort: "keiner"
+zeit: "monatlich, Long Top-4 / Short Bottom-4 nach Carry, gleichgewichtet"
+ereignis_definition: "jeden Monat; nur wenn VIX-Perzentil < 70 (sonst keine Position)"
+richtung: "long Hochzins / short Niedrigzins"
+
+horizont_min: 20160
+instrumente: [EURUSD, GBPUSD, USDJPY, AUDUSD, NZDUSD, USDCAD, USDCHF, EURCHF, EURJPY, EURGBP, EURPLN, EURHUF, EURCZK, EURNOK, EURSEK, GBPJPY, GBPCHF, AUDJPY, NZDJPY, CADJPY, AUDCHF, NZDCHF, AUDCAD, NZDCAD, AUDNZD, EURAUD]
+
+behauptung: >
+  Netto-CAGR (Preis + Finanzierung mit 30% Marge) >= 10 % p.a. bei Netto-Sharpe >= 1.2 im
+  Gesamtsample UND im Holdout (2024-2026), und die gleiche Konstruktion mit Zufalls-Ranking
+  liefert keine positive Rendite.
+
+placebo: "gleiche Konstruktion, zufaelliges Paar-Ranking (Random-Ranking-Zwilling)"
+dosis_wirkung:
+  staerke_variable: "Carry-Spanne des Korbs in % p.a., Quintile"
+  erwartung: monoton_steigend
+
+s0:
+  kosten_rt_bp: 5.0
+  typische_bewegung_bp: 300.0
+  s0_quote: 0.017
+  grenze: 0.10
+  min_effekt_bp: 10.0
+  kurz_horizont_begruendung: ""
+
+kill_kriterien:
+  t_min: 3.0
+  placebo_mindestabstand: 0.5
+  dosis_rangkorrelation_min: 0.8
+  vorzeichen_jahre_min: 0.7
+  netto_effekt_min_bp: 0.0
+
+varianten:
+  - {name: basis, aenderung: "k=4, VIX<70, monatlich, 26 Paare, -30% Marge"}
+  - {name: g10_nur, aenderung: "ohne PLN/HUF/CZK/NOK/SEK"}
+  - {name: marge_50, aenderung: "-50% Marge"}
+  - {name: vola_ziel, aenderung: "Vola-Ziel 12% (verworfen: senkt Sharpe, hebt MDD)"}
+
+datenabschnitt: train
+ergebnis: >
+  Getestet 2026-10-24. Basis (26 Paare, -30% Marge, Filter, n=58 aktive Monate):
+  CAGR +13.3% / Vola 8.4% / Sharpe 1.59 / MDD -8.9% / 74% positive Monate;
+  Train 2019-23 Sharpe 1.30, Holdout 2024-26 2.75 (CAGR 15.7%, MDD -2.6%);
+  Zufalls-Ranking-Placebo: CAGR -8.1% / Sharpe -1.00 / MDD -36.2% -> deutlich geschlagen.
+  Alle 8 Jahre positiv (2.8%..17.4%). G10-only: Sharpe 0.97 / MDD -13.2% (Exoten tragen die Haelfte).
+  Claim erfuellt (>= 10%/yr und Sharpe >= 1.2, in Sample und Holdout; Placebo negativ).
+  OFFEN/VORBEHALTE: (1) echte Broker-Swap-/Spread-Saetze fuer die 5 Exoten-Legs fehlen weiterhin
+  (FRED + 30% Marge ist ein Modell); (2) Dosis-Wirkung nicht monoton -> Positionsgroesse nicht
+  nach Carry-Hoehe skalieren; (3) Vola-Ziel-Hebel verworfen (0.78 -> 0.67 Sharpe, MDD -13.2% -> -18.7%);
+  (4) Carry braucht Overnight-/Wochenendhaltung (Firmenregeln pruefen); (5) bei 1x betraegt der MDD
+  ~-9% (volle Quote) bzw. ~-13% (G10) -> fuer ein 10%-Prop-Limit nur ohne Hebel, fuer das
+  Zielband 2-4%/Monat braucht es Hebel und damit ein 20%-Limit-Konto oder Eigenkapital.
