@@ -76,6 +76,10 @@ class SupertrendVolumeConfig:
     max_concurrent_positions: int = 1
     long_only: bool = True           # shorts enabled only via OOS gate
 
+    # ── Execution model (added 2026-10, reviewed) ──────────────────
+    timeframe: str = "1h"            # bar size of `df`; drives the time stop
+    slippage_pct: float = 0.00002    # adverse slippage per fill (2 bp, as elsewhere)
+
     # ── Searchable parameter space for hill-climb optimizer ────────
     @staticmethod
     def search_space() -> list[tuple[str, float, float, float]]:
@@ -101,6 +105,22 @@ class SupertrendVolumeConfig:
             ("max_hold_hours",        4,    48,   2),
             ("cooldown_hours",        0,    8,    1),
         ]
+
+    # ── Derived: the time stop must not depend on the bar size ─────
+    _BARS_PER_HOUR = {"1m": 60.0, "5m": 12.0, "15m": 4.0, "30m": 2.0,
+                      "1h": 1.0, "4h": 0.25, "1d": 1.0 / 24.0}
+
+    @property
+    def bars_per_hour(self) -> float:
+        if self.timeframe not in self._BARS_PER_HOUR:
+            raise ValueError(f"unknown timeframe {self.timeframe!r}; "
+                             f"known: {sorted(self._BARS_PER_HOUR)}")
+        return self._BARS_PER_HOUR[self.timeframe]
+
+    @property
+    def max_hold_bars(self) -> int:
+        """``max_hold_hours`` converted to bars of ``timeframe``."""
+        return max(1, int(round(self.max_hold_hours * self.bars_per_hour)))
 
 
 def _compute_volume_filter(
@@ -284,15 +304,19 @@ def manage_position(
          - Exit on Supertrend flip against position
       4. Time stop (max_hold_hours candles after entry)
     """
-    # 1. Stop loss (intrabar check using high/low)
+    slip = cfg.slippage_pct
+
+    # 1. Stop loss (intrabar; a gap fills at the bar's open, not at the stop)
     if pos.direction == "long":
         if current_low <= pos.stop_loss:
-            rm.close_position(pos, pos.stop_loss, "stop_loss", current_ts)
+            fill = min(pos.stop_loss, float(row["open"])) * (1 - slip)
+            rm.close_position(pos, fill, "stop_loss", current_ts)
             trades.append(_pos_to_dict(pos))
             return
     else:
         if current_high >= pos.stop_loss:
-            rm.close_position(pos, pos.stop_loss, "stop_loss", current_ts)
+            fill = max(pos.stop_loss, float(row["open"])) * (1 + slip)
+            rm.close_position(pos, fill, "stop_loss", current_ts)
             trades.append(_pos_to_dict(pos))
             return
 
@@ -319,7 +343,7 @@ def manage_position(
             pos.stop_loss = max(pos.stop_loss, st_line)
             if st_dir < 0:
                 rm.close_position(
-                    pos, current_price, "supertrend_exit", current_ts
+                    pos, current_price * (1 - slip), "supertrend_exit", current_ts
                 )
                 trades.append(_pos_to_dict(pos))
                 return
@@ -328,15 +352,16 @@ def manage_position(
             pos.stop_loss = min(pos.stop_loss, st_line)
             if st_dir > 0:
                 rm.close_position(
-                    pos, current_price, "supertrend_exit", current_ts
+                    pos, current_price * (1 + slip), "supertrend_exit", current_ts
                 )
                 trades.append(_pos_to_dict(pos))
                 return
 
-    # 4. Time stop
+    # 4. Time stop (bars of the configured timeframe)
     candles_held = idx - pos.entry_idx
-    if candles_held >= cfg.max_hold_hours:
-        rm.close_position(pos, current_price, "time_stop", current_ts)
+    if candles_held >= cfg.max_hold_bars:
+        fill = current_price * (1 - slip) if pos.direction == "long" else current_price * (1 + slip)
+        rm.close_position(pos, fill, "time_stop", current_ts)
         trades.append(_pos_to_dict(pos))
         return
 
@@ -381,6 +406,8 @@ def run_backtest(
             "signals_df": df,
         }
 
+    pending: str | None = None       # direction armed at the previous close
+
     for i in range(len(df)):
         row = df.iloc[i]
         current_ts = (
@@ -388,9 +415,30 @@ def run_backtest(
             if hasattr(row.name, "timestamp")
             else float(i)
         )
+        open_price = float(row["open"])
         current_price = float(row["close"])
         current_high = float(row["high"])
         current_low = float(row["low"])
+
+        # ── Fill a pending entry at THIS bar's open (signal was the prev close) ──
+        if open_pos is None and pending is not None:
+            direction = pending
+            pending = None
+            allowed, _ = rm.can_trade(current_ts)
+            atr_val = float(row["atr"])
+            if allowed and atr_val > 0:
+                slip = cfg.slippage_pct
+                fill = open_price * (1 + slip) if direction == "long" else open_price * (1 - slip)
+                pos = rm.open_position(
+                    entry_price=fill, atr=atr_val, direction=direction,
+                    entry_time=current_ts, entry_idx=i,
+                )
+                if pos:
+                    pos.meta = {"signal_idx": i - 1}
+                    open_pos = pos
+                    if verbose:
+                        print(f"  [trade] OPEN {direction} @ {fill:.2f} "
+                              f"SL={pos.stop_loss:.2f} TP1={pos.tp1:.2f}")
 
         if verbose and i % 500 == 0 and i > 0:
             pct = i / len(df) * 100
@@ -408,42 +456,12 @@ def run_backtest(
             if open_pos.status == "closed":
                 open_pos = None
 
-        # ── Check for new entry ──────────────────────────────────
-        if open_pos is None:
-            allowed, reason = rm.can_trade(current_ts)
-            if allowed:
-                atr_val = float(row["atr"])
-                if atr_val > 0:
-                    if row["long_signal"] > 0:
-                        pos = rm.open_position(
-                            entry_price=current_price,
-                            atr=atr_val,
-                            direction="long",
-                            entry_time=current_ts,
-                            entry_idx=i,
-                        )
-                        if pos:
-                            open_pos = pos
-                            if verbose:
-                                print(
-                                    f"  [trade] OPEN long @ {current_price:.2f} "
-                                    f"SL={pos.stop_loss:.2f} TP1={pos.tp1:.2f}"
-                                )
-                    elif row["short_signal"] > 0 and not cfg.long_only:
-                        pos = rm.open_position(
-                            entry_price=current_price,
-                            atr=atr_val,
-                            direction="short",
-                            entry_time=current_ts,
-                            entry_idx=i,
-                        )
-                        if pos:
-                            open_pos = pos
-                            if verbose:
-                                print(
-                                    f"  [trade] OPEN short @ {current_price:.2f} "
-                                    f"SL={pos.stop_loss:.2f} TP1={pos.tp1:.2f}"
-                                )
+        # ── Arm a new signal at this bar's close (filled next bar's open) ──
+        if open_pos is None and pending is None:
+            if row["long_signal"] > 0:
+                pending = "long"
+            elif row["short_signal"] > 0 and not cfg.long_only:
+                pending = "short"
 
         equity_curve.append(rm.current_equity)
 
