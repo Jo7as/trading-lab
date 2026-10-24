@@ -104,20 +104,21 @@ varianten:
 - name: ohne_filter
   aenderung: Kontrolle
 datenabschnitt: train
-ergebnis: 'Getestet 2026-10-24 (Tagesdaten, Dukascopy, 26 Paare, monatlich, echte
-  Close-Preise; der Swap-Anteil ist eine SCHAETZUNG aus einer groben Zinstabelle).
-  NUR PREIS (unser Datenbereich): kein Filter CAGR +1.6% / Sharpe 0.16 / MDD -16.9%;
-  mit Ruhe-Filter CAGR +10.3% / Sharpe 1.32 / MDD -4.7% (n=64 Monate). Split: Train
-  2019-2023 +10.7% / Sharpe 1.16 / MDD -4.7% (n=40); Holdout 2024-2026 +9.7% / Sharpe
-  2.03 / MDD -3.2% (n=24); Kontrolle Holdout ohne Filter +3.3% / Sharpe 0.41 / MDD
-  -14.1%. MIT Swap-Schaetzung: voll +16.8% / Sharpe 2.12 / MDD -3.8%; Holdout +16.9%
-  / 3.50 / -1.5%. -> Der Filter-Effekt repliziert out-of-sample und steckt im PREIS,
-  nicht in der Swap-Schaetzung. NOCH ZU PRUEFEN: echte Broker-Swap/Spread-Daten fuer
-  den Korb (besonders Exoten), laengerer Holdout, und die Negative-Skew/Hebel-Grenze.
-  GOAL: +16.8%/yr bei 1x = 1.3%/Monat (unter dem 2-4%-Band); mit ~1.6x Hebel (Vola
-  ~13%) sind ~+27%/yr = 2%/Monat bei MDD ~-6..-8% erreichbar - der erste Fall, in
-  dem das Ziel ohne rücksichtslosen Hebel arithmetisch erreichbar ist.
-
-  '
+ergebnis: 'Getestet 2026-10-24. Teil 1 (Handtabelle, Jahresschaetzung): Preis+Filter
+  +10.3%/Sharpe 1.32, mit Swap +16.8%/2.12. Teil 2 (VALIDIERUNG mit echten Daten):
+  (a) Zinsen jetzt aus FRED (monatliche 3M-Interbank, 14 Waehrungen, bis 2026); (b)
+  Broker-Marge als Sensitivitaet; (c) Roll-Diagnostik. Ergebnis mit echten Zinsen
+  (n=64 Monate, Filter): NUR PREIS +8.7%/Sharpe 1.07/MDD -10.2%; +Swap volle Differenz
+  +15.8%/1.93/-8.4%; -30% Marge +13.6%/1.67/-8.9%; -50% Marge +12.2%/1.50/-9.3%; G10-only
+  (-30%) +9.5%/1.09/-13.2%. -> Der Edge ueberlebt selbst die Haelfte der Zinsdifferenz.
+  Die Handtabelle war zu optimistisch (Preis-Scharpe 1.32 vs 1.07, MDD -4.7% vs -10.2%);
+  massgeblich sind die FRED-Zahlen. ROLL-DIAGNOSTIK: Der CFD-Preis zahlt den Carry
+  NICHT (Median-Roll-Rendite -0.8..-2.3 bp fuer ALLE Paare, unabhaengig vom Vorzeichen
+  der Differenz = Roll-Fenster-Artefakt, das der Audit als session_edge ausschliesst).
+  -> Swap muss wie modelliert separat angesetzt werden. PROP/KORREKTUR: bei 1x MDD
+  -8.4..-10.2% -> bei 1.6x Hebel ~-13..-16% und damit UEBER einem 10%-Prop-Limit;
+  fuer FTMO-Standard nur <=1x (dann 1.0-1.3%/Monat, unter dem Zielband), oder ein
+  Konto mit 20%-Limit/Eigenkapital. Zusaetzlich: Carry verlangt Overnight-/Wochenend-Haltung
+  (Firmenregeln pruefen).'
 entscheidung: 'Registriert und getestet; Train UND Holdout positiv im Preis, Filter-Effekt
   repliziert. Naechster Pflichtschritt vor jedem Kapital: echte Broker-Swap/Spread-Daten.'
