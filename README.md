@@ -58,6 +58,18 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 > your system interpreter, which does not have the dependencies — you will get
 > `ModuleNotFoundError`.
 
+## Eine Strategie prüfen (geführter Ablauf)
+
+```bash
+uv run python studies/pruefen.py
+```
+
+Jede Strategie läuft durch **dieselben 12 Schritte**: Daten, Basis-Backtest, Suchraum,
+Optimierung auf Train, dann der Trichter S1 Brutto/Placebo -> S2 Kosten -> S3 Robustheit ->
+S4 Signifikanz -> S5 Holdout (nur mit Bestätigung) und eine Prop-Firm-Einschätzung. Nach
+jedem Schritt: Erklärung, Zwischenergebnis, Rückfrage. Details:
+[docs/PRUEFABLAUF.md](docs/PRUEFABLAUF.md).
+
 ## Quickstart
 
 ```bash

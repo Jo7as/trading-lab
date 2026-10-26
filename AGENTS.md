@@ -42,6 +42,15 @@ trading strategies**. Paper/signal only, no live broker execution. Python 3.11.
 | `scripts/`, `mt5/`, `tests/` | Ops helpers, MT5 demo EA, test suite |
 | `artifacts/` | Generated reports/caches — **git-ignored, don't commit** |
 
+## Testing a strategy (the fixed procedure)
+
+`uv run python studies/pruefen.py` is **the** way to test a strategy: 12 fixed steps,
+interactive, identical for every strategy (`trading_lab/guided.py`, docs:
+`docs/PRUEFABLAUF.md`). Batch over all strategies: `studies/optimize_all.py` +
+`studies/optimize_report.py` - same stages, same thresholds (`trading_lab/screening.py`,
+`trading_lab/optimizer.py`, adapters in `trading_lab/registry.py`). Never open the holdout
+(2025+) outside these paths, and never change a stage threshold without a test.
+
 ## Adding a strategy
 
 Follow **[docs/ADD_STRATEGY.md](docs/ADD_STRATEGY.md)** — it has a copy-paste
