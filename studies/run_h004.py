@@ -4,7 +4,8 @@ Direct clock computation on the audit-correct frame (1h bars), entry at the next
 bar's open with adverse slippage, exit at the London/NY session end (17:00 NY) or
 a time stop. Reports gross/net (real bid/ask), a random-breakout placebo, the
 dose-response over breakout width, per-year stability — and the *goal gate*
-(annualised net return in the 27-60 % band that 2-4 %/month requires).
+(annualised net return against the 1-2 %/month band, i.e. +12.7..+26.8 %/yr;
+the gate sits at the lower edge).
 
   .venv/bin/python studies/run_h004.py
 """
@@ -15,10 +16,16 @@ import sys
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, ".")
 sys.path.insert(0, "studies")
+
 from pass_speed import load_cached  # noqa: E402
 
 from trading_lab.data_audit import build_study_frame  # noqa: E402
+from trading_lab.goal import (  # noqa: E402
+    TARGET_RETURN_YEAR_HIGH,
+    TARGET_RETURN_YEAR_LOW,
+)
 
 PAIRS = ("EURUSD", "USDJPY")
 SLIP = 0.00002
@@ -111,8 +118,10 @@ def main() -> None:
         print(report("short only", t[t["direction"] < 0], weeks))
         print(report("placebo (random brk)", run(a, random_entry=True), weeks))
         net_yr = float((t["move"] - t["cost"]).sum()) / ((b.index[-1] - b.index[0]).days / 365.25)
-        print(f"  goal gate: net {net_yr*100:+.2f}%/yr  (needed band: +27% to +60%/yr) -> "
-              f"{'PASS' if net_yr >= 0.27 else 'FAIL'}")
+        print(f"  goal gate: net {net_yr*100:+.2f}%/yr  "
+              f"(band {TARGET_RETURN_YEAR_LOW*100:.1f} to {TARGET_RETURN_YEAR_HIGH*100:.1f}%/yr "
+              f"= 1-2%/month, gate at the lower edge) -> "
+              f"{'PASS' if net_yr >= TARGET_RETURN_YEAR_LOW else 'FAIL'}")
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ Callers can also override ``run_acceptance`` with extra pass/fail criteria
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable, Sequence
 
 import numpy as np
@@ -119,6 +119,8 @@ def returns_from_trades(
 
     Uses the first available key (R for the ORB machine, account % for the
     Position-based strategies), so the same gate works for every strategy.
+    A closed trade carrying *none* of the keys contributes nothing — which is
+    why :func:`promotion_gate` distinguishes "no return series" from "no trades".
     """
     out: list[float] = []
     for t in trades or []:
@@ -174,6 +176,11 @@ def assess(
     )
 
 
+def _has_closed_trades(trades: Sequence[dict]) -> bool:
+    """True if the log contains at least one trade that counts as closed."""
+    return any(t.get("status") in (None, "closed") for t in trades)
+
+
 def promotion_gate(
     trades: Iterable[dict], *, null_samples: Sequence[float] | None = None, seed: int = 7
 ) -> tuple[bool, Significance, bool]:
@@ -187,17 +194,38 @@ def promotion_gate(
       promotes.
     * ``LAB_SIGNIFICANCE_MIN_PERCENTILE`` / ``_MAX_PVALUE`` / ``_MIN_TRADES``.
 
-    **Fail-open:** when there is nothing to evaluate (no closed trades) the gate
-    never blocks — ``evaluated`` is ``False`` and ``allowed`` is ``True``. This
-    avoids a silent, permanent block from a missing/empty trade log; the missing
-    evidence is surfaced in the meta as ``significant: null``.
+    Three outcomes, and the difference between them matters:
+
+    * **not evaluated** (``evaluated=False``, never blocks) — the log holds no
+      *closed* trade at all. A missing or empty OOS log must not become a silent,
+      permanent block; the meta record says ``significant: null``.
+    * **blocked, evidence gap** — 1..``MIN_TRADES``-1 usable returns. The test has
+      no power there, so ``enforce`` blocks with ``reason="n<10"``. That is an
+      *evidence* verdict, not a negative finding about the strategy: the fix is
+      more OOS trades (more history, more instruments, less selective rules),
+      never a lower ``MIN_TRADES`` — that guard is what stops a one-lucky-trade
+      promotion.
+    * **decided** — >= ``MIN_TRADES`` usable returns: pass/fail from the test.
+
+    A log with closed trades but *none* of the recognised return keys is a
+    logging/schema bug, not "nothing to evaluate": it is evaluated and failed, so
+    a mis-keyed log can never promote unchallenged.
     """
+    trades = list(trades or [])
     returns = returns_from_trades(trades)
     enabled = env("LAB_SIGNIFICANCE", "1").strip().lower() not in ("0", "false", "no", "off")
     if not enabled:
         return True, assess(returns, min_trades=0, seed=seed), False
     if not returns:
-        return True, assess(returns, min_trades=0, seed=seed), False
+        if not _has_closed_trades(trades):
+            return True, assess(returns, min_trades=0, seed=seed), False
+        sig = replace(
+            assess(returns, min_trades=0, seed=seed),
+            passed=False,
+            reason=f"no return series ({'/'.join(_RETURN_KEYS)})",
+        )
+        mode = (env("LAB_SIGNIFICANCE_MODE", "enforce") or "enforce").strip().lower()
+        return (mode == "flag"), sig, True
 
     sig = assess(
         returns,

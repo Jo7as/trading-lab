@@ -44,6 +44,7 @@ from .reflect import (
 )
 
 from .exploration import RESEARCH_SEEDS, random_config
+from .goal import MAX_DRAWDOWN, MIN_SHARPE, TARGET_RETURN_30D, load_goal
 from .significance import promotion_gate
 
 # Annealing: reject clearly worse configs; cap acceptance probability
@@ -103,7 +104,7 @@ class STEvolutionWorker:
         self.explore_holdout_split = explore_holdout_split
         self.verbose = verbose
         self.adapter = get_market_adapter()
-        self.goal = load_yaml(self.state_dir / "goal.yaml")
+        self.goal = load_goal(self.state_dir)
         self.evolution_round = 0
         self.stagnation_rounds = 0
         self._last_version: str | None = None
@@ -359,9 +360,9 @@ class STEvolutionWorker:
             yaml.dump({"remaining": remaining}, f, default_flow_style=False)
 
     def _baseline_path(self) -> Path:
-        env = env("LAB_BASELINE_PATH", "").strip()
-        if env:
-            p = Path(env)
+        override = env("LAB_BASELINE_PATH", "").strip()
+        if override:
+            p = Path(override)
             if p.exists():
                 return p
         for candidate in (
@@ -857,9 +858,9 @@ class STEvolutionWorker:
     def _check_goal(
         self, metrics: dict, label: str = "", period_days: float = 730
     ) -> bool:
-        target = self.goal.get("target_return_30d", 0.06) * 100
-        max_dd = self.goal.get("max_drawdown", 0.08) * 100
-        min_sharpe = self.goal.get("min_sharpe", 0.8)
+        target = self.goal.get("target_return_30d", TARGET_RETURN_30D) * 100
+        max_dd = self.goal.get("max_drawdown", MAX_DRAWDOWN) * 100
+        min_sharpe = self.goal.get("min_sharpe", MIN_SHARPE)
         total_pnl = metrics.get("total_pnl_pct", 0)
         est_30d = total_pnl / (period_days / 30) if period_days > 0 else 0
         actual_dd = abs(metrics.get("max_drawdown_pct", 0))

@@ -1,7 +1,7 @@
 asset: "USD/JPY"
 asset_label: "USD/JPY"
-target_return_30d: 0.06      # 6% per 30 days
-max_drawdown:      0.08      # 8% max drawdown
+target_return_30d: 0.015     # 1.5% — midpoint of the 1-2%/month band (trading_lab/goal.py)
+max_drawdown:      0.20      # DD gate of docs/GOAL.md; the binding constraint of the band
 min_sharpe:        0.8       # quality bar
 min_trades_per_week:  3       # evolution penalises below this
 target_trades_per_week: 4     # JPY OOS ~4.1/week

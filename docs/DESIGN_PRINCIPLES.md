@@ -2,7 +2,8 @@
 
 Written after 8 tested-and-rejected directions (fair pricing, NY-open EMA12, ORB
 fade, pair spreads, gold Supertrend, FX Supertrend, Asian-range breakout) and the
-audit of the pre-existing repo strategies. Read with `docs/GOAL.md` (2–4 %/month).
+audit of the pre-existing repo strategies. Read with `docs/GOAL.md` (1–2 %/month,
++12.7 … +26.8 %/yr; `trading_lab/goal.py` is the single source of the numbers).
 
 ## 1. Is "everything fails" normal? Yes — and our sample makes it likely
 
@@ -44,14 +45,15 @@ day-slicing artifact).
 | Edge class | **structural beats predictive**: carry/basis/funding, calendar/forced flow (fix, rebalancing, CB days), cross-sectional breadth, slow session seasonality | not a prediction game; moves span many spreads |
 | Portfolio | **breadth, not leverage**: N low-correlation edges | Sharpe ≈ s·√N — to reach 2.0 from s≈0.7 needs ~8 edges |
 
-## 4. The honest route to 2–4 %/month
+## 4. The honest route to 1–2 %/month
 
-A single retail edge with net Sharpe 2–4 is not realistic. A **basket of ~6–10
-low-correlation edges at net Sharpe 0.5–1.0** reaches portfolio Sharpe ~2, which
-is what the target requires. That changes the research question from "find the
-strategy" to "collect small, cost-surviving, uncorrelated edges and combine
-them" — carry/basis, calendar flow, cross-sectional FX, slow trend, and
-session-conditional mean reversion are the candidate families (in that order).
+A single retail edge with net Sharpe 2–4 is not realistic. A **basket of ~4–8
+low-correlation edges at net Sharpe 0.5–1.0** reaches portfolio Sharpe ~1.3, which
+is what the band's upper half requires (1 %/month needs only ~0.8 at 15 % vol). That
+changes the research question from "find the strategy" to "collect small,
+cost-surviving, uncorrelated edges and combine them" — carry/basis, calendar flow,
+cross-sectional FX, slow trend, and session-conditional mean reversion are the
+candidate families (in that order).
 
 ## 5. What we do not do
 

@@ -4,7 +4,7 @@
 Fetches DAILY bars for a G10+ basket from Dukascopy (cheap), forms a monthly
 long-top / short-bottom carry portfolio, and reports price P&L, the estimated
 swap accrual, a random-ranking placebo, skew (carry-crash), per-year stability
-and the goal gate (2-4 %/month needs +27..+60 %/yr).
+and the goal gate (1-2 %/month needs +12.7..+26.8 %/yr).
 
   .venv/bin/python studies/run_carry.py
 """

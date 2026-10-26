@@ -1,5 +1,11 @@
 # Multi-Strategie-Daytrading-Algo (Datenbasis: Dukascopy + yfinance)
 
+> **Ziel aktualisiert (2026-10-26):** Das Renditeziel dieses Plans ist nicht mehr
+> 2–4 %/Monat, sondern **1–2 %/Monat** (`docs/GOAL.md`, Zahlen in
+> `trading_lab/goal.py`). Die Portfolio-Gates weiter unten (Portfolio-Sharpe ≥ 2.0,
+> Median-Monatsrendite ≥ 2 %) stammen aus der alten Vorgabe und sind entsprechend
+> zu lesen: unten im Band sind es Portfolio-Sharpe ~1.3 und Median ≥ 1 %.
+
 **Ein Algo, vier Strategien, eine Portfolio-Steuerung.** Ohne Chartmuster und ohne ereignisbasierte Zeitpunkte, ausschließlich intraday.
 
 | Modul | Strategie | Verdient an … | Instrumente |

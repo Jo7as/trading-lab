@@ -13,6 +13,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from .goal import MIN_TRADES_PER_WEEK, TARGET_RETURN_30D, TARGET_TRADES_PER_WEEK
+
 
 def trades_per_week(
     trades: list[dict[str, Any]], period_days: float | None = None
@@ -35,8 +37,8 @@ def trades_per_week(
 
 def _frequency_component(tpw: float, goal: dict[str, Any]) -> float:
     """Reward configs in the min–target trades/week band."""
-    min_tpw = goal.get("min_trades_per_week", 3)
-    target = goal.get("target_trades_per_week", 5)
+    min_tpw = goal.get("min_trades_per_week", MIN_TRADES_PER_WEEK)
+    target = goal.get("target_trades_per_week", TARGET_TRADES_PER_WEEK)
     if tpw < min_tpw:
         return max(-1.0, -1.0 + (tpw / min_tpw if min_tpw > 0 else 0.0))
     if tpw <= target:
@@ -79,7 +81,7 @@ def score(
     sharpe = (mean / std) * math.sqrt(252 * 24) if std > 0 else 0.0
 
     # normalise components to [-1, +1]
-    target = goal.get("target_return_30d", 0.08) * 100  # as %
+    target = goal.get("target_return_30d", TARGET_RETURN_30D) * 100  # as %
     max_dd_limit = goal.get("max_drawdown", 0.05) * 100
     min_sharpe = goal.get("min_sharpe", 1.2)
 

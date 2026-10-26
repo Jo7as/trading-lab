@@ -18,12 +18,15 @@ from __future__ import annotations
 
 import argparse
 import html
+import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.minute_data import load_minute_bid_ask
 from trading_lab.prop_sim import FIRMS, daily_pnl, evaluate, risk_usd_for, simulate_funded

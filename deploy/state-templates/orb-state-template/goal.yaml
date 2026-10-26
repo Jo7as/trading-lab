@@ -1,7 +1,7 @@
 asset: "NQ"
 asset_label: "NAS100"
-target_return_30d: 0.02      # ~2%/30d after costs — realistic for ORB
-max_drawdown:      0.10
+target_return_30d: 0.015     # 1.5% — midpoint of the 1-2%/month band (trading_lab/goal.py)
+max_drawdown:      0.20      # DD gate of docs/GOAL.md; the binding constraint of the band
 min_sharpe:        0.5
 min_trades_per_week:  1.5
 target_trades_per_week: 2.5   # ~1 trade/day × ~half sessions

@@ -1,8 +1,8 @@
 asset: "US100"               # GER40 / XAUUSD service: set ORB2R_EVOLUTION_ASSET
 asset_label: "US100"
 risk_per_trade:    0.005     # account risk per 1R (prop plan: 0.5%)
-target_return_30d: 0.01      # 1% — ~2R/month at 0.5% risk
-max_drawdown:      0.08
+target_return_30d: 0.015     # 1.5% — midpoint of the 1-2%/month band (trading_lab/goal.py)
+max_drawdown:      0.20      # DD gate of docs/GOAL.md; the binding constraint of the band
 min_sharpe:        0.5
 min_trades_per_week:  2
 target_trades_per_week: 5    # one trade per day at most

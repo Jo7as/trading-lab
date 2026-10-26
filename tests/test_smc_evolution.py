@@ -189,7 +189,7 @@ def test_worker_load_save_strategy(tmp_path: Path) -> None:
     # Copy minimal goal/strategy
     (tmp_path / "goal.yaml").write_text(
         "asset: EUR/USD\nasset_label: EUR/USD\nmin_trades_per_week: 1\n"
-        "target_trades_per_week: 3\ntarget_return_30d: 0.04\nmax_drawdown: 0.08\n"
+        "target_trades_per_week: 3\ntarget_return_30d: 0.015\nmax_drawdown: 0.20\n"
         "min_sharpe: 0.5\n"
     )
     baseline = SmcIctConfig(

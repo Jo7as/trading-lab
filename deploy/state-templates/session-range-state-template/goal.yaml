@@ -1,7 +1,7 @@
 asset: "XAU/USD"
 asset_label: "XAU/USD"
-target_return_30d: 0.02      # 2% — middle of the 1-3%/month band
-max_drawdown:      0.10
+target_return_30d: 0.015     # 1.5% — midpoint of the 1-2%/month band (trading_lab/goal.py)
+max_drawdown:      0.20      # DD gate of docs/GOAL.md; the binding constraint of the band
 min_sharpe:        0.5       # MR carries less Sharpe per trade than trend
 min_trades_per_week:  2
 target_trades_per_week: 5

@@ -52,10 +52,19 @@ The evolution gate reads them from the environment:
 | `LAB_SIGNIFICANCE_MAX_PVALUE` | `0.05` | sign-flip threshold |
 | `LAB_SIGNIFICANCE_MIN_TRADES` | `10` | minimum trades to trust |
 
-**Fail-open.** When there is nothing to evaluate — no closed trades in the OOS
-log, or the gate disabled — it never blocks. That avoids a silent, permanent
-block from a missing/empty trade log; the missing evidence shows up in the meta
-as `significant: null`.
+**Fail-open, but only for an empty log.** Three outcomes, and the difference
+between them matters:
+
+| OOS log | `evaluated` | `enforce` mode | why |
+|---|---|---|---|
+| no closed trade at all | `False` | **allowed** (fail-open) | a missing/empty log must not become a silent, permanent block; the meta records `significant: null` |
+| 1 … 9 usable returns | `True` | **blocked**, `reason="n<10"` | the test has no power there. This is an *evidence* verdict, not a finding against the strategy: the fix is more OOS trades (history, instruments, less selective rules), never a lower `MIN_TRADES` — that guard is what stops a one-lucky-trade promotion |
+| closed trades, none of `r`/`pnl_pct`/`equity_pnl_pct` | `True` | **blocked**, `reason="no return series …"` | a logging/schema bug is not "nothing to evaluate"; a mis-keyed log must never promote unchallenged |
+
+Note the second row: a low-frequency strategy can be permanently unable to promote
+if its OOS window holds fewer than `MIN_TRADES` trades. That is deliberate — the
+remedy is a larger OOS sample, not a weaker test. `studies/pipeline_power.py`
+measures the power the gate actually has at a given sample size.
 
 ## Where it is enforced
 

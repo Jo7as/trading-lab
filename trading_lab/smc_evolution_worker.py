@@ -28,6 +28,7 @@ import yaml
 from .backtest import print_metrics
 from .exploration import SMC_RESEARCH_SEEDS, random_smc_config
 from .score import score, trades_per_week
+from .goal import MAX_DRAWDOWN, MIN_SHARPE, TARGET_RETURN_30D, load_goal
 from .significance import promotion_gate
 from .strategies.smc_ict import SmcIctConfig, run_backtest
 
@@ -138,19 +139,13 @@ class SmcEvolutionWorker:
             self.forward_eval_days = int(self.goal["forward_eval_days"])
 
     def _load_goal(self) -> dict:
-        path = self.state_dir / "goal.yaml"
-        if not path.exists():
-            return {
-                "asset": "EUR/USD",
-                "asset_label": "EUR/USD",
-                "target_return_30d": 0.04,
-                "max_drawdown": 0.08,
-                "min_sharpe": 0.5,
-                "min_trades_per_week": 1.0,
-                "target_trades_per_week": 3.0,
-            }
-        with open(path) as f:
-            return yaml.safe_load(f) or {}
+        return load_goal(
+            self.state_dir,
+            asset="EUR/USD",
+            asset_label="EUR/USD",
+            min_trades_per_week=1.0,
+            target_trades_per_week=3.0,
+        )
 
     def _goal_asset(self) -> tuple[str, str]:
         asset = str(self.goal.get("asset", "EUR/USD"))
@@ -549,9 +544,9 @@ class SmcEvolutionWorker:
         )
 
     def _check_goal(self, metrics: dict, label: str, period_days: float) -> bool:
-        target = self.goal.get("target_return_30d", 0.04) * 100
-        max_dd = self.goal.get("max_drawdown", 0.08) * 100
-        min_sharpe = self.goal.get("min_sharpe", 0.5)
+        target = self.goal.get("target_return_30d", TARGET_RETURN_30D) * 100
+        max_dd = self.goal.get("max_drawdown", MAX_DRAWDOWN) * 100
+        min_sharpe = self.goal.get("min_sharpe", MIN_SHARPE)
         total_pnl = metrics.get("total_pnl_pct", 0)
         est_30d = total_pnl / (period_days / 30) if period_days > 0 else 0
         actual_dd = abs(metrics.get("max_drawdown_pct", 0))

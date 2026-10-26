@@ -27,6 +27,7 @@ from . import reflect
 from .backtest import print_metrics
 from .mr_common import load_bid_ask, period_days, resample_ohlc
 from .score import score, trades_per_week
+from .goal import MAX_DRAWDOWN, MIN_SHARPE, TARGET_RETURN_30D, load_goal
 from .significance import promotion_gate
 
 _MAX_ANNEAL_DROP = 0.05
@@ -85,7 +86,7 @@ class MrEvolutionBase:
         self.explore_every = explore_every
         self.max_rounds = max_rounds
         self.verbose = verbose
-        self.goal = reflect.load_yaml(self.state_dir / "goal.yaml") or {}
+        self.goal = load_goal(self.state_dir)
         if asset:
             self.goal["asset"] = asset
             self.goal["asset_label"] = asset
@@ -197,7 +198,9 @@ class MrEvolutionBase:
         days = period_days(frames[cfg.timeframe])
         # goal target is per 30 days — scale it to the window being scored
         goal = dict(self.goal)
-        goal["target_return_30d"] = float(goal.get("target_return_30d", 0.02)) * days / 30.0
+        goal["target_return_30d"] = (
+            float(goal.get("target_return_30d", TARGET_RETURN_30D)) * days / 30.0
+        )
         return score(closed, goal, period_days=days), len(closed), result
 
     def rank_frames(self, frames: Frames, cfg: Any) -> tuple[tuple[float, float], int]:
@@ -406,9 +409,9 @@ class MrEvolutionBase:
 
     def _check_goal(self, result: dict[str, Any], label: str, days: float) -> None:
         metrics = result["metrics"]
-        target = self.goal.get("target_return_30d", 0.02) * 100
-        max_dd = self.goal.get("max_drawdown", 0.10) * 100
-        min_sharpe = self.goal.get("min_sharpe", 0.5)
+        target = self.goal.get("target_return_30d", TARGET_RETURN_30D) * 100
+        max_dd = self.goal.get("max_drawdown", MAX_DRAWDOWN) * 100
+        min_sharpe = self.goal.get("min_sharpe", MIN_SHARPE)
         min_tpw = self.goal.get("min_trades_per_week", 2)
         est_30d = float(metrics.get("total_pnl_pct", 0)) / (days / 30) if days > 0 else 0.0
         dd = abs(float(metrics.get("max_drawdown_pct", 0)))

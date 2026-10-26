@@ -26,12 +26,12 @@ from .backtest import print_metrics
 from .reflect import (
     STATE_DIR,
     append_hypothesis,
-    load_yaml,
     next_version,
     prune_state_volume,
     save_prior,
 )
 from .score import score, trades_per_week
+from .goal import MAX_DRAWDOWN, MIN_SHARPE, TARGET_RETURN_30D, load_goal
 from .significance import promotion_gate
 from .strategies.opening_range_breakout import (
     OpeningRangeBreakoutConfig,
@@ -125,7 +125,7 @@ class OrbEvolutionWorker:
         self.adapter = get_market_adapter(
             env("LAB_DATA_SOURCE", "dukascopy")
         )
-        self.goal = load_yaml(self.state_dir / "goal.yaml")
+        self.goal = load_goal(self.state_dir)
         self.evolution_round = 0
         self.stagnation_rounds = 0
 
@@ -453,9 +453,9 @@ class OrbEvolutionWorker:
         print(f"  {label} trades/week: {tpw:.2f}")
 
     def _check_goal(self, metrics: dict, label: str, days: float) -> None:
-        target = self.goal.get("target_return_30d", 0.02) * 100
-        max_dd = self.goal.get("max_drawdown", 0.10) * 100
-        min_sharpe = self.goal.get("min_sharpe", 0.5)
+        target = self.goal.get("target_return_30d", TARGET_RETURN_30D) * 100
+        max_dd = self.goal.get("max_drawdown", MAX_DRAWDOWN) * 100
+        min_sharpe = self.goal.get("min_sharpe", MIN_SHARPE)
         total = float(metrics.get("total_pnl_pct_net", metrics.get("total_pnl_pct", 0)))
         est_30d = total / (days / 30) if days > 0 else 0
         dd = abs(float(metrics.get("max_drawdown_pct", 0)))

@@ -1,5 +1,11 @@
 # Strategie-Agent: Plan für die Backtest-Umgebung
 
+> **Ziel aktualisiert (2026-10-26):** Gültig ist **1–2 %/Monat** (`docs/GOAL.md`,
+> Zahlen in `trading_lab/goal.py`). Die alten „2–4 %/Monat"-Vorgaben weiter unten
+> (u.a. das Portfolio-Gate in Abschnitt 8: Portfolio-Sharpe ≥ 2.0, Median ≥ 2 %)
+> stammen aus der früheren Vorgabe; für das untere Ende des neuen Bands genügt
+> Portfolio-Sharpe ~1.3, Median ≥ 1 %.
+
 Grundlage: der 10-stufige Prozess aus dem QNTFRAME-Video („Lab Notes 001 – From ideas to systems“), übersetzt in einen **Agenten mit festen Stufen, Datenformaten und Prüfschranken**. Er arbeitet die Hypothesen aus dem [Multi-Strategie-Plan](Multi_Strategie_Algo_Dukascopy.md) ab und kann später eigene Hypothesen ergänzen.
 
 ---

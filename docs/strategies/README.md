@@ -47,8 +47,9 @@ instruments, overlap session, structural edge classes, breadth over leverage).
 
 ## Goal
 
-`docs/GOAL.md`: **2–4 % per month** ⇒ net Sharpe ~1.8–4.0 (27–60 % p.a.). Selections
-are measured against that, not against "positive".
+`docs/GOAL.md`: **1–2 % per month** ⇒ net Sharpe ~0.8–1.8 (12.7–26.8 % p.a.).
+Selections are measured against that, not against "positive". The numbers live in
+`trading_lab/goal.py`; the retired 2–4 % band needed Sharpe 2.7–6.0.
 
 ## Method (for the next candidates)
 

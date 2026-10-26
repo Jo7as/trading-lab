@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,6 +36,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.minute_data import load_minute_bid_ask
 from trading_lab.significance import percentile_of

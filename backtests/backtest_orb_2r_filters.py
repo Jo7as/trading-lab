@@ -18,10 +18,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from backtest_orb_2r import PERIODS, in_period, stats
 from trading_lab.minute_data import load_minute_bid_ask

@@ -86,6 +86,25 @@ def test_promotion_gate_fails_open_without_trades():
     assert allowed is True and evaluated is False
 
 
+def test_promotion_gate_fails_open_without_any_closed_trade():
+    allowed, sig, evaluated = promotion_gate([{"status": "open", "r": 9.0}] * 5)
+    assert allowed is True and evaluated is False
+
+
+def test_promotion_gate_blocks_a_log_without_a_return_series():
+    # Closed trades, but none of r/pnl_pct/equity_pnl_pct: a logging/schema bug,
+    # not "nothing to evaluate" — it must not promote unchallenged.
+    allowed, sig, evaluated = promotion_gate([{"status": "closed", "pnl_usd": -3.0}] * 20)
+    assert allowed is False and evaluated is True and not sig.passed
+    assert "no return series" in sig.reason
+
+
+def test_promotion_gate_flag_mode_records_a_missing_return_series(monkeypatch):
+    monkeypatch.setenv("LAB_SIGNIFICANCE_MODE", "flag")
+    allowed, sig, evaluated = promotion_gate([{"status": "closed", "pnl_usd": 1.0}])
+    assert allowed is True and evaluated is True and not sig.passed
+
+
 def test_promotion_gate_can_be_disabled(monkeypatch):
     monkeypatch.setenv("LAB_SIGNIFICANCE", "0")
     allowed, sig, evaluated = promotion_gate([{"status": "closed", "pnl_pct": 0.1}] * 5)

@@ -17,9 +17,9 @@ from trading_lab.strategies.supertrend_volume import run_backtest
 
 
 def _default_state_dir() -> Path:
-    env = env("LAB_STATE")
-    if env:
-        return Path(env)
+    override = env("LAB_STATE")
+    if override:
+        return Path(override)
     for candidate in (
         Path("live-state-template"),
         Path.home() / "trading-lab" / "state",
@@ -30,9 +30,9 @@ def _default_state_dir() -> Path:
 
 
 def _default_strategy(state_dir: Path) -> Path:
-    env = env("LAB_STRATEGY_PATH")
-    if env:
-        return Path(env)
+    override = env("LAB_STRATEGY_PATH")
+    if override:
+        return Path(override)
     for candidate in (state_dir / "hf_baseline.yaml", Path("hf_baseline.yaml")):
         if candidate.exists():
             return candidate

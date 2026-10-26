@@ -10,10 +10,10 @@ and after every 15 closed trades runs a Hill-Climb reflection:
 Runs in a loop: when the full 2-year backtest completes, it starts over
 with the evolved strategy, allowing continuous improvement.
 
-The goal is to evolve the strategy until it meets:
-  - 6% return per 30 days
-  - 8% max drawdown
-  - 0.8 Sharpe ratio
+The goal comes from ``trading_lab.goal`` (the 1-2 %/month band, read from the
+state dir's ``goal.yaml``):
+  - ~1.5 % return per 30 days (band 1-2 %)
+  - max drawdown and the Sharpe floor per ``goal.yaml``
 
 Usage (in Railway):
   uv run python -m trading_lab.evolution_worker
@@ -40,6 +40,7 @@ from .adapters.yfinance_adapter import YFinanceAdapter
 from .indicators import compute_all_indicators
 from .signals import generate_entry_signals
 from .risk import RiskManager, Position
+from .goal import MAX_DRAWDOWN, MIN_SHARPE, TARGET_RETURN_30D, load_goal
 from .score import score
 from .backtest import _manage_position, _pos_to_dict, _compute_metrics, print_metrics
 from .reflect import load_yaml, load_trades, save_prior, append_hypothesis, write_strategy, next_version, STATE_DIR, HYPOTHESES_PATH, TRADES_PATH, HISTORY_DIR
@@ -68,7 +69,7 @@ class EvolutionWorker:
         self.adapter = YFinanceAdapter()
 
         # Load goal
-        self.goal = load_yaml(self.state_dir / "goal.yaml")
+        self.goal = load_goal(self.state_dir)
 
         # Evolution stats
         self.evolution_round = 0
@@ -458,9 +459,9 @@ class EvolutionWorker:
 
     def _check_goal(self, metrics: dict) -> bool:
         """Check if the strategy meets all goals."""
-        target = self.goal.get("target_return_30d", 0.06) * 100
-        max_dd = self.goal.get("max_drawdown", 0.08) * 100
-        min_sharpe = self.goal.get("min_sharpe", 0.8)
+        target = self.goal.get("target_return_30d", TARGET_RETURN_30D) * 100
+        max_dd = self.goal.get("max_drawdown", MAX_DRAWDOWN) * 100
+        min_sharpe = self.goal.get("min_sharpe", MIN_SHARPE)
 
         # Estimate 30d return from total (rough: scale by 30/total_days)
         # Assuming 730 days of data
