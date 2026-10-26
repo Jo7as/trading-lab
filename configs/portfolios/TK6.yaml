@@ -1,0 +1,413 @@
+# Portfolio TK6 - Trendkorb 6. EINGEFROREN: nicht ändern (siehe TK6.lock).
+id: TK6
+name: Trendkorb 6
+rolle: primaer
+beschreibung: Alle 6 Varianten, die S1-S3 bestanden haben, beim Placebo klar vorne
+  liegen (> +0.05 R) und PBO <= 0.25 haben. Der Haupttest.
+erstellt: '2026-10-26'
+quelle: 'studies/optimize_all.py (Budget 150, Train 2019-01-01..2024-12-31), Auswahl:
+  studies/portfolio_build.py'
+auswahlregel:
+  stage: S3
+  min_placebo_edge: 0.05
+  max_pbo: 0.25
+risiko_je_trade_pct: 0.25
+holdout_kriterien:
+  t_min: 1.645
+  max_dd_pct: 10.0
+  max_tag_pct: 5.0
+  erklaerung: 'Vorab festgelegt. Bestanden, wenn im Holdout (ab 2025-01-01): Tages-t
+    >= 1,645 (einseitig 5 %, eine Hypothese, keine Deflation), Monatsmittel > 0, max.
+    Drawdown <= 10 %, schlechtester Tag <= 5 % - alles beim festen Risiko.'
+komponenten:
+- strategy: momentum
+  asset: US100
+  params:
+    entry: momentum
+    entry_lookback: 40
+    exit: time
+    max_hold_minutes: 480
+    regime: adx
+    regime_min: 0.45
+    session: ny
+    stop: atr
+    stop_atr: 1.5
+    target_r: 3.0
+  regeln:
+    zeitrahmen: Signal auf 15min-Kerzen (nur abgeschlossene Kerzen, um eine Kerze
+      verzögert), Ausführung, Stop und Ziel auf 1-Minuten-Kerzen
+    session: New York 09:30-15:55 (NY-Zeit); Einstiege von Minute 0 bis 300 nach Session-Beginn;
+      höchstens 1 Trade pro Tag
+    filter: ADX(14) >= 29; Spread <= 1.5 x Tagesmedian; Kosten <= 0.1 R; Stop mindestens
+      0.3 x ATR
+    entry: Rendite der letzten 40 15min-Kerzen positiv UND Mid über deren Hoch ->
+      Long (negativ und unter dem Tief -> Short); Fill zum Mid (ruhende Order)
+    stop_loss: Einstieg -/+ 1.5 x ATR(14, 15min)
+    take_profit_und_ausstieg: 'KEIN festes Ziel: Ausstieg zum Mid nach 480 Minuten
+      oder bei Session-Ende, vorher nur über den Stop (target_r hat hier keine Wirkung)'
+    kosten: 'Einstieg zum Mid (Market-/Breakout-Typen: Long zum Ask, Short zum Bid),
+      Stop und Ziel zum jeweiligen Kurslevel; je Trade wird ein voller gemessener
+      Spread (beim Einstieg) abgezogen. Stop gewinnt, wenn Stop und Ziel in derselben
+      Minute liegen.'
+    risiko_einheit: 1 R = Abstand Einstieg -> Stop; Positionsgröße so, dass 1 R =
+      festes Risiko je Trade
+  voll_config:
+    asset: US100
+    regime: adx
+    regime_lookback: 20
+    regime_min: 0.45
+    session: ny
+    trade_minute_start: 0
+    trade_minute_end: 300
+    entry: momentum
+    entry_lookback: 40
+    entry_buffer_atr: 0.05
+    stop: atr
+    stop_atr: 1.5
+    stop_min_atr: 0.3
+    exit: time
+    target_r: 3.0
+    trail_atr: 2.0
+    be_trigger_r: 1.0
+    max_hold_minutes: 480
+    max_cost_r: 0.1
+    spread_filter: 1.5
+    allow_reentry: false
+    tf: 15min
+  kosten_modell:
+    spread_von_engine: true
+    einstieg_versatz_min: 0
+  herkunft:
+    variante: momentum:US100#0
+    train_n: 803
+    train_netto_R: 0.299
+    dsr: 0.937
+    pbo: 0.17
+    placebo_vorsprung: 0.167
+- strategy: momentum
+  asset: SP500
+  params:
+    entry: momentum
+    entry_lookback: 40
+    exit: time
+    max_hold_minutes: 240
+    regime: adx
+    regime_min: 0.2
+    session: ny
+    stop: atr
+    stop_atr: 1.0
+    target_r: 3.0
+  regeln:
+    zeitrahmen: Signal auf 15min-Kerzen (nur abgeschlossene Kerzen, um eine Kerze
+      verzögert), Ausführung, Stop und Ziel auf 1-Minuten-Kerzen
+    session: New York 09:30-15:55 (NY-Zeit); Einstiege von Minute 0 bis 300 nach Session-Beginn;
+      höchstens 1 Trade pro Tag
+    filter: ADX(14) >= 24; Spread <= 1.5 x Tagesmedian; Kosten <= 0.1 R; Stop mindestens
+      0.3 x ATR
+    entry: Rendite der letzten 40 15min-Kerzen positiv UND Mid über deren Hoch ->
+      Long (negativ und unter dem Tief -> Short); Fill zum Mid (ruhende Order)
+    stop_loss: Einstieg -/+ 1.0 x ATR(14, 15min)
+    take_profit_und_ausstieg: 'KEIN festes Ziel: Ausstieg zum Mid nach 240 Minuten
+      oder bei Session-Ende, vorher nur über den Stop (target_r hat hier keine Wirkung)'
+    kosten: 'Einstieg zum Mid (Market-/Breakout-Typen: Long zum Ask, Short zum Bid),
+      Stop und Ziel zum jeweiligen Kurslevel; je Trade wird ein voller gemessener
+      Spread (beim Einstieg) abgezogen. Stop gewinnt, wenn Stop und Ziel in derselben
+      Minute liegen.'
+    risiko_einheit: 1 R = Abstand Einstieg -> Stop; Positionsgröße so, dass 1 R =
+      festes Risiko je Trade
+  voll_config:
+    asset: SP500
+    regime: adx
+    regime_lookback: 20
+    regime_min: 0.2
+    session: ny
+    trade_minute_start: 0
+    trade_minute_end: 300
+    entry: momentum
+    entry_lookback: 40
+    entry_buffer_atr: 0.05
+    stop: atr
+    stop_atr: 1.0
+    stop_min_atr: 0.3
+    exit: time
+    target_r: 3.0
+    trail_atr: 2.0
+    be_trigger_r: 1.0
+    max_hold_minutes: 240
+    max_cost_r: 0.1
+    spread_filter: 1.5
+    allow_reentry: false
+    tf: 15min
+  kosten_modell:
+    spread_von_engine: true
+    einstieg_versatz_min: 0
+  herkunft:
+    variante: momentum:SP500#0
+    train_n: 847
+    train_netto_R: 0.26
+    dsr: 0.692
+    pbo: 0.027
+    placebo_vorsprung: 0.07
+- strategy: supertrend
+  asset: USDJPY
+  params:
+    ema_fast: 9
+    ema_slow: 50
+    max_hold_hours: 48
+    pullback_entry: false
+    sl_atr_mult: 2.4
+    supertrend_mult: 1.4
+    supertrend_period: 14
+    tp1_r: 3.5
+    volume_mult: 0.8
+  regeln:
+    zeitrahmen: 1h-Kerzen
+    filter: max. Tagesverlust 3 %, Pause 0 h nach Verlust; nur Long
+    entry: 'Signal am Kerzenschluss: Supertrend(14, 1.4) dreht auf Long (bzw. Short)
+      UND Schluss über (unter) der Linie UND Volumen > Median(20) x 0.8 UND EMA(9)
+      > EMA(50) (Short: <) UND ATR/Kurs > 0.0. Einstieg zur ERÖFFNUNG der nächsten
+      Kerze (+0 bp Slippage).'
+    stop_loss: Einstieg -/+ 2.4 x ATR(14)
+    take_profit_und_ausstieg: TP1 = Einstieg +/- 3.5 x Stop-Abstand, dort 60% schließen
+      und Stop auf Einstand; Rest wird an der Supertrend-Linie nachgezogen und bei
+      Supertrend-Wechsel geschlossen; Zeitstopp nach 48 h
+    kosten: Engine rechnet nur auf dem Bid; der gemessene Spread wird je Trade vom
+      Optimierer abgezogen
+    risiko_einheit: 1 R = Abstand Einstieg -> Stop; Positionsgröße so, dass 1 R =
+      festes Risiko je Trade
+  voll_config:
+    asset: USDJPY
+    asset_label: USDJPY
+    supertrend_period: 14
+    supertrend_mult: 1.4
+    volume_ma_period: 20
+    volume_mult: 0.8
+    ema_fast: 9
+    ema_slow: 50
+    atr_period: 14
+    min_atr_pct: 0.0
+    pullback_entry: false
+    pullback_tolerance: 0.002
+    account_size: 10000.0
+    risk_per_trade: 0.01
+    sl_atr_mult: 2.4
+    tp1_r: 3.5
+    tp1_close_pct: 0.6
+    max_hold_hours: 48
+    max_daily_loss: 0.03
+    cooldown_hours: 0
+    max_concurrent_positions: 1
+    long_only: true
+    timeframe: 1h
+    slippage_pct: 2.0e-05
+    random_entry: false
+    random_seed: 7
+  kosten_modell:
+    spread_von_engine: false
+    einstieg_versatz_min: 0
+  herkunft:
+    variante: supertrend:USDJPY#0
+    train_n: 301
+    train_netto_R: 0.09
+    dsr: 0.608
+    pbo: 0.234
+    placebo_vorsprung: 0.059
+- strategy: orb_classic
+  asset: US100
+  params:
+    breakout_buffer: 5.0
+    long_only: true
+    max_orb_pct: 0.008
+    orb_minutes: 15
+    sl_buffer: 2.0
+    tp_range_mult: 2.0
+  regeln:
+    zeitrahmen: 5-Minuten-Kerzen, NY-Zeit
+    filter: Tag auslassen, wenn Spanne/Mitte > 0.80%; nur Long; höchstens 1 Trade
+      pro Tag
+    entry: 'Opening Range = Hoch/Tief der ersten 15 Minuten ab 09:30. Erster Kerzenschluss
+      über Hoch + 5.0 Punkte (Short: unter Tief - Puffer) vor 11:00 -> Einstieg zum
+      Schlusskurs dieser Kerze.'
+    stop_loss: gegenüberliegende Seite der Range -/+ 2.0 Punkte
+    take_profit_und_ausstieg: Ziel = Einstieg +/- 2.0 x Range-Breite (ganze Position);
+      spätestens 16:00 glattstellen
+    kosten: Engine rechnet nur auf dem Bid; der gemessene Spread wird je Trade vom
+      Optimierer abgezogen
+    risiko_einheit: 1 R = Abstand Einstieg -> Stop; Positionsgröße so, dass 1 R =
+      festes Risiko je Trade
+  voll_config:
+    asset: US100
+    asset_label: US100
+    rth_open: 09:30
+    orb_minutes: 15
+    entry_cutoff: '11:00'
+    eod_flat: '16:00'
+    max_orb_pct: 0.008
+    tp_range_mult: 2.0
+    tp2_range_mult: 0.0
+    tp1_close_pct: 1.0
+    sl_buffer: 2.0
+    breakout_buffer: 5.0
+    long_only: true
+    short_only: false
+    atr_period: 14
+    sl_atr_mult: 1.0
+    tp1_r: 1.0
+    account_size: 10000.0
+    risk_per_trade: 0.01
+    max_daily_loss: 0.03
+    cooldown_hours: 0
+    max_concurrent_positions: 1
+    bar_minutes: 5
+  kosten_modell:
+    spread_von_engine: false
+    einstieg_versatz_min: 0
+  herkunft:
+    variante: orb_classic:US100#0
+    train_n: 665
+    train_netto_R: 0.058
+    dsr: 0.492
+    pbo: 0.082
+    placebo_vorsprung: 0.095
+- strategy: supertrend
+  asset: GER40
+  params:
+    ema_fast: 50
+    ema_slow: 150
+    max_hold_hours: 48
+    pullback_entry: false
+    sl_atr_mult: 2.4
+    supertrend_mult: 1.4
+    supertrend_period: 10
+    tp1_r: 3.5
+    volume_mult: 1.3
+  regeln:
+    zeitrahmen: 1h-Kerzen
+    filter: max. Tagesverlust 3 %, Pause 0 h nach Verlust; nur Long
+    entry: 'Signal am Kerzenschluss: Supertrend(10, 1.4) dreht auf Long (bzw. Short)
+      UND Schluss über (unter) der Linie UND Volumen > Median(20) x 1.3 UND EMA(50)
+      > EMA(150) (Short: <) UND ATR/Kurs > 0.0. Einstieg zur ERÖFFNUNG der nächsten
+      Kerze (+0 bp Slippage).'
+    stop_loss: Einstieg -/+ 2.4 x ATR(14)
+    take_profit_und_ausstieg: TP1 = Einstieg +/- 3.5 x Stop-Abstand, dort 60% schließen
+      und Stop auf Einstand; Rest wird an der Supertrend-Linie nachgezogen und bei
+      Supertrend-Wechsel geschlossen; Zeitstopp nach 48 h
+    kosten: Engine rechnet nur auf dem Bid; der gemessene Spread wird je Trade vom
+      Optimierer abgezogen
+    risiko_einheit: 1 R = Abstand Einstieg -> Stop; Positionsgröße so, dass 1 R =
+      festes Risiko je Trade
+  voll_config:
+    asset: GER40
+    asset_label: GER40
+    supertrend_period: 10
+    supertrend_mult: 1.4
+    volume_ma_period: 20
+    volume_mult: 1.3
+    ema_fast: 50
+    ema_slow: 150
+    atr_period: 14
+    min_atr_pct: 0.0
+    pullback_entry: false
+    pullback_tolerance: 0.002
+    account_size: 10000.0
+    risk_per_trade: 0.01
+    sl_atr_mult: 2.4
+    tp1_r: 3.5
+    tp1_close_pct: 0.6
+    max_hold_hours: 48
+    max_daily_loss: 0.03
+    cooldown_hours: 0
+    max_concurrent_positions: 1
+    long_only: true
+    timeframe: 1h
+    slippage_pct: 2.0e-05
+    random_entry: false
+    random_seed: 7
+  kosten_modell:
+    spread_von_engine: false
+    einstieg_versatz_min: 0
+  herkunft:
+    variante: supertrend:GER40#0
+    train_n: 308
+    train_netto_R: 0.125
+    dsr: 0.395
+    pbo: 0.205
+    placebo_vorsprung: 0.081
+- strategy: supertrend
+  asset: SP500
+  params:
+    ema_fast: 9
+    ema_slow: 150
+    max_hold_hours: 24
+    pullback_entry: true
+    sl_atr_mult: 2.4
+    supertrend_mult: 1.4
+    supertrend_period: 7
+    tp1_r: 3.5
+    volume_mult: 0.8
+  regeln:
+    zeitrahmen: 1h-Kerzen
+    filter: max. Tagesverlust 3 %, Pause 0 h nach Verlust; nur Long
+    entry: 'Signal am Kerzenschluss: Supertrend(7, 1.4) dreht auf Long (bzw. Short)
+      UND Schluss über (unter) der Linie UND Volumen > Median(20) x 0.8 UND EMA(9)
+      > EMA(150) (Short: <) UND ATR/Kurs > 0.0; zusätzlich Rücksetzer-Einstieg an
+      die Linie (Toleranz 0.002). Einstieg zur ERÖFFNUNG der nächsten Kerze (+0 bp
+      Slippage).'
+    stop_loss: Einstieg -/+ 2.4 x ATR(14)
+    take_profit_und_ausstieg: TP1 = Einstieg +/- 3.5 x Stop-Abstand, dort 60% schließen
+      und Stop auf Einstand; Rest wird an der Supertrend-Linie nachgezogen und bei
+      Supertrend-Wechsel geschlossen; Zeitstopp nach 24 h
+    kosten: Engine rechnet nur auf dem Bid; der gemessene Spread wird je Trade vom
+      Optimierer abgezogen
+    risiko_einheit: 1 R = Abstand Einstieg -> Stop; Positionsgröße so, dass 1 R =
+      festes Risiko je Trade
+  voll_config:
+    asset: SP500
+    asset_label: SP500
+    supertrend_period: 7
+    supertrend_mult: 1.4
+    volume_ma_period: 20
+    volume_mult: 0.8
+    ema_fast: 9
+    ema_slow: 150
+    atr_period: 14
+    min_atr_pct: 0.0
+    pullback_entry: true
+    pullback_tolerance: 0.002
+    account_size: 10000.0
+    risk_per_trade: 0.01
+    sl_atr_mult: 2.4
+    tp1_r: 3.5
+    tp1_close_pct: 0.6
+    max_hold_hours: 24
+    max_daily_loss: 0.03
+    cooldown_hours: 0
+    max_concurrent_positions: 1
+    long_only: true
+    timeframe: 1h
+    slippage_pct: 2.0e-05
+    random_entry: false
+    random_seed: 7
+  kosten_modell:
+    spread_von_engine: false
+    einstieg_versatz_min: 0
+  herkunft:
+    variante: supertrend:SP500#2
+    train_n: 910
+    train_netto_R: 0.045
+    dsr: 0.371
+    pbo: 0.151
+    placebo_vorsprung: 0.057
+risiko_begruendung: so gewählt, dass der maximale Drawdown auf Train ~8 % beträgt
+train_ergebnis:
+  von: '2019-01-01'
+  bis: '2024-12-31'
+  monate: 71.9
+  pct_pro_monat_mittel: 2.113
+  pct_pro_monat_median: 1.494
+  schlechtester_monat_pct: -3.14
+  positive_monate: 0.681
+  max_drawdown_pct: 7.97
+  schlechtester_tag_pct: 1.4
+  t_taeglich: 4.897
+  hinweis: in-sample (auf diesen Daten optimiert) - optimistisch, kein Beweis

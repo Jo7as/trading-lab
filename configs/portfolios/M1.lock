@@ -1,0 +1,13 @@
+{
+ "id": "M1",
+ "sha256": "da7f3da058e6658392598926de96f1c4c61315363487f688d055e941b238a3bb",
+ "eingefroren": "2026-10-26T22:59:23",
+ "code_sha256": {
+  "trading_lab/indicators.py": "109df2e4ec60925a3a8d4bdd5829a7b9225151ebf14185352b9a48cf3b7b4ed0",
+  "trading_lab/mr_common.py": "e206c72ca3f8f31156a247b1f1b9fcff46c8c5ade261bbd221e3132ac2aea6b3",
+  "trading_lab/optimizer.py": "403f64186b8c0e95515958e44837428c19dd5cb7fe80774c03db15c46bcfe797",
+  "trading_lab/registry.py": "972b17140360f216da1ec82281fa8e1bb82db75ef9688260c3ea6bca08143a8b",
+  "trading_lab/risk.py": "419415891280b01a011473f76fc37c4ba30720a207ef6bb02bcb1e98740bb763",
+  "trading_lab/strategies/momentum.py": "aba631a04ef887a3b350096bcf4ed9218143bbd9f2c3e7deb0b07afc855c6fa8"
+ }
+}

@@ -1,0 +1,98 @@
+# Portfolio M1 - Momentum solo. EINGEFROREN: nicht ändern (siehe M1.lock).
+id: M1
+name: Momentum solo
+rolle: sekundaer
+beschreibung: Nur Momentum US100. Nur zur Information - bestätigend ist allein TK6.
+erstellt: '2026-10-26'
+quelle: 'studies/optimize_all.py (Budget 150, Train 2019-01-01..2024-12-31), Auswahl:
+  studies/portfolio_build.py'
+auswahlregel:
+  stage: S3
+  min_placebo_edge: 0.05
+  max_pbo: 0.25
+risiko_je_trade_pct: 0.35
+holdout_kriterien:
+  t_min: 1.645
+  max_dd_pct: 10.0
+  max_tag_pct: 5.0
+  erklaerung: 'Vorab festgelegt. Bestanden, wenn im Holdout (ab 2025-01-01): Tages-t
+    >= 1,645 (einseitig 5 %, eine Hypothese, keine Deflation), Monatsmittel > 0, max.
+    Drawdown <= 10 %, schlechtester Tag <= 5 % - alles beim festen Risiko.'
+komponenten:
+- strategy: momentum
+  asset: US100
+  params:
+    entry: momentum
+    entry_lookback: 40
+    exit: time
+    max_hold_minutes: 480
+    regime: adx
+    regime_min: 0.45
+    session: ny
+    stop: atr
+    stop_atr: 1.5
+    target_r: 3.0
+  regeln:
+    zeitrahmen: Signal auf 15min-Kerzen (nur abgeschlossene Kerzen, um eine Kerze
+      verzögert), Ausführung, Stop und Ziel auf 1-Minuten-Kerzen
+    session: New York 09:30-15:55 (NY-Zeit); Einstiege von Minute 0 bis 300 nach Session-Beginn;
+      höchstens 1 Trade pro Tag
+    filter: ADX(14) >= 29; Spread <= 1.5 x Tagesmedian; Kosten <= 0.1 R; Stop mindestens
+      0.3 x ATR
+    entry: Rendite der letzten 40 15min-Kerzen positiv UND Mid über deren Hoch ->
+      Long (negativ und unter dem Tief -> Short); Fill zum Mid (ruhende Order)
+    stop_loss: Einstieg -/+ 1.5 x ATR(14, 15min)
+    take_profit_und_ausstieg: 'KEIN festes Ziel: Ausstieg zum Mid nach 480 Minuten
+      oder bei Session-Ende, vorher nur über den Stop (target_r hat hier keine Wirkung)'
+    kosten: 'Einstieg zum Mid (Market-/Breakout-Typen: Long zum Ask, Short zum Bid),
+      Stop und Ziel zum jeweiligen Kurslevel; je Trade wird ein voller gemessener
+      Spread (beim Einstieg) abgezogen. Stop gewinnt, wenn Stop und Ziel in derselben
+      Minute liegen.'
+    risiko_einheit: 1 R = Abstand Einstieg -> Stop; Positionsgröße so, dass 1 R =
+      festes Risiko je Trade
+  voll_config:
+    asset: US100
+    regime: adx
+    regime_lookback: 20
+    regime_min: 0.45
+    session: ny
+    trade_minute_start: 0
+    trade_minute_end: 300
+    entry: momentum
+    entry_lookback: 40
+    entry_buffer_atr: 0.05
+    stop: atr
+    stop_atr: 1.5
+    stop_min_atr: 0.3
+    exit: time
+    target_r: 3.0
+    trail_atr: 2.0
+    be_trigger_r: 1.0
+    max_hold_minutes: 480
+    max_cost_r: 0.1
+    spread_filter: 1.5
+    allow_reentry: false
+    tf: 15min
+  kosten_modell:
+    spread_von_engine: true
+    einstieg_versatz_min: 0
+  herkunft:
+    variante: momentum:US100#0
+    train_n: 803
+    train_netto_R: 0.299
+    dsr: 0.937
+    pbo: 0.17
+    placebo_vorsprung: 0.167
+risiko_begruendung: so gewählt, dass der maximale Drawdown auf Train ~8 % beträgt
+train_ergebnis:
+  von: '2019-01-01'
+  bis: '2024-12-31'
+  monate: 71.9
+  pct_pro_monat_mittel: 1.166
+  pct_pro_monat_median: 0.638
+  schlechtester_monat_pct: -4.46
+  positive_monate: 0.653
+  max_drawdown_pct: 7.92
+  schlechtester_tag_pct: 0.38
+  t_taeglich: 3.742
+  hinweis: in-sample (auf diesen Daten optimiert) - optimistisch, kein Beweis
