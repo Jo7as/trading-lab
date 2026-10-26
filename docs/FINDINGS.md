@@ -410,6 +410,13 @@ real and shows up as that excursion, which `_resolve` only partly captures (it
 checks the fill bar's own extreme). Queue position and partial fills remain
 unmodelled: the study's number is an upper bound.
 
+The fill side is **asset-dependent**, and gold is the bad case: XAUUSD flags
+adverse selection in both sessions (R_fill −0.15 vs R_nofill +0.02 in ny, −0.05 vs
++0.05 in london — the *unfilled* signals would have done better), while US100
+(+0.03 vs −0.45) and GER40 (+0.09, +0.11) do not. Fill rates are 93–97 %
+everywhere, median 1 bar. So "a touched limit fills at its own price" is a
+reasonable assumption for the indices and a generous one for gold.
+
 **The session-bounded forward window mattered more than the cost fix.** The event
 studies used to read the response at `mid[i + horizon]` on a *session-filtered*
 frame, so a window that ran past the close booked the **overnight gap** as the
