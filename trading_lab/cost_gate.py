@@ -14,6 +14,8 @@ Two uses:
 Costs are taken from the data's own bid/ask. Two cost levels are reported: a
 taker exit (both legs cross the spread) and a limit exit (only the entry crosses)
 — the truth is between them, and the "Vary costs" Monte Carlo later scales them.
+The per-leg rule behind those two levels is written down once below
+(``leg_cost`` / ``round_trip_spread``) and every study should use it.
 """
 from __future__ import annotations
 
@@ -24,6 +26,46 @@ import pandas as pd
 
 DEFAULT_K = 3.0          # required E|move| / cost ratio
 NEAR_K = 2.0             # below this: hopeless; between NEAR_K and K: marginal
+
+# ── The cost convention (single source for the whole repo) ──────────────
+#
+# Everything is measured in the **mid** space: the move (R numerator, E|Δmid|) is
+# mid-to-mid, and a leg costs half a spread when it crosses the book and nothing
+# when it rests in it:
+#
+#   entry \ exit   limit / TP   market / stop / time
+#   limit              0.0              0.5
+#   market             0.5              1.0        (units of the FULL spread)
+#
+# So a resting entry *and* a resting exit are free in this model, and a both-legs
+# market trade pays one full spread. Two consequences to keep in mind:
+#
+# * A limit strategy must report its **fill rate** — the spread it saves is paid
+#   for in fills and adverse selection (`studies/h010_fill_rate.py` measures it).
+# * If a study instead measures the move on the **bid** series, the same trade
+#   needs a different charge (a long pays 1.0 spread for a market entry and 0 for
+#   the exit, because both of its exits are already bid-side). Mixing the two
+#   spaces is how a study ends up charging two spreads for one round trip, which
+#   is what `run_h001`, `mfe_mae` and `first_passage_grid` used to do.
+LEG_MARKET = 0.5
+LEG_LIMIT = 0.0
+_LIMIT_KINDS = ("limit", "tp", "target", "tp1", "tp2")
+_MARKET_KINDS = ("market", "stop", "taker", "session", "time", "eod", "flat")
+
+
+def leg_cost(kind: str) -> float:
+    """Cost of one leg in units of the full spread (see the table above)."""
+    k = str(kind).strip().lower()
+    if k in _LIMIT_KINDS:
+        return LEG_LIMIT
+    if k in _MARKET_KINDS:
+        return LEG_MARKET
+    raise ValueError(f"unknown order type {kind!r}: add it to the convention table")
+
+
+def round_trip_spread(entry: str = "market", exit_: str = "market") -> float:
+    """Round-trip cost in units of the full spread, from the two leg types."""
+    return leg_cost(entry) + leg_cost(exit_)
 
 
 @dataclass(frozen=True)
@@ -70,8 +112,9 @@ def horizon_gate(m1: pd.DataFrame, minutes: int) -> GateResult:
     sp = spread_pct(m1).dropna()
     move = float(mv.median())
     move_p25 = float(mv.quantile(0.25))
-    cost_taker = float(sp.median())
-    cost_limit = cost_taker / 2.0
+    med_spread = float(sp.median())
+    cost_taker = med_spread * round_trip_spread("market", "market")
+    cost_limit = med_spread * round_trip_spread("market", "limit")
     return GateResult(
         minutes=minutes, move_pct=move * 100, move_p25_pct=move_p25 * 100,
         cost_taker_pct=cost_taker * 100, cost_limit_pct=cost_limit * 100,
@@ -91,8 +134,13 @@ def trades_move_gate(trades: list[dict], m1: pd.DataFrame) -> dict:
     idx = m1.index.as_unit("ns").asi8
     pos = np.searchsorted(idx, (t["entry_time"].astype(float) * 1e9).astype("int64"), "left")
     sp = spread_pct(m1).to_numpy()[np.clip(pos, 0, len(idx) - 1)]
-    taker = ~t["exit_reason"].astype(str).str.lower().str.contains("tp|target")
-    cost = np.where(taker, sp, sp / 2.0)
+    limit_exit = t["exit_reason"].astype(str).str.lower().str.contains("tp|target")
+    per_trade = np.where(
+        limit_exit.to_numpy(),
+        round_trip_spread("market", "limit"),
+        round_trip_spread("market", "market"),
+    )
+    cost = sp * per_trade
     return {
         "trades": len(t),
         "move_pct_median": round(float(move.median()) * 100, 4),

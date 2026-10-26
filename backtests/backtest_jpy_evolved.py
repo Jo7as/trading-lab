@@ -2,6 +2,10 @@
 """Validate jpy_evolved_v48831 vs jpy_ls01 on Dukascopy USD/JPY 1h from 2020."""
 from __future__ import annotations
 
+import sys
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from trading_lab.env import env
 
 import argparse

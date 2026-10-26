@@ -19,6 +19,9 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, "studies")
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from pass_speed import load_cached  # noqa: E402
 
 from trading_lab.cost_gate import horizon_gate  # noqa: E402
@@ -36,8 +39,9 @@ TZ = {"US100": "America/New_York", "US30": "America/New_York", "SP500": "America
 
 
 def cleaned(asset: str) -> pd.DataFrame:
-    df = load_cached(asset)
-    return clean(df, tz=TZ.get(asset, "UTC")).dropna()
+    # clean() masks the roll window in UTC; the asset timezone is only used for
+    # the session clocks, not for the roll (see data_quality.ROLL_HOURS_UTC).
+    return clean(load_cached(asset)).dropna()
 
 
 def main() -> None:
@@ -77,11 +81,13 @@ def main() -> None:
     taker = ~t["exit_reason"].astype(str).str.lower().str.contains("tp")
     cost = (he + np.where(taker, hx, 0.0)) / t["entry_price"].astype(float) * t["size"] * 100
     g = float(t["pnl_pct"].astype(float).sum())
+    t["cost"] = cost                      # the per-trade cost, aligned with the rows
     t["year"] = pd.to_datetime(t["entry_time"], unit="s", utc=True).dt.year
     pos_years = sum(1 for _, gg in t.groupby("year")
-                    if gg["pnl_pct"].astype(float).sum() - gg["cost"].sum() > 0) if "cost" in t else 0
+                    if gg["pnl_pct"].astype(float).sum() - gg["cost"].sum() > 0)
     print(f"  trades {len(t)}  gross {g:+.1f}%  cost {cost.sum():.1f}%  "
-          f"net(0x) {g-cost.sum():+.1f}%  net(0.5x slip) {g-1.5*cost.sum():+.1f}%")
+          f"net(0x) {g-cost.sum():+.1f}%  net(0.5x slip) {g-1.5*cost.sum():+.1f}%  "
+          f"positive years {pos_years}/{t['year'].nunique()}")
 
     print("\n### ORB-fade (naive) on cleaned data, price-scaled stops, next-open")
     for a in ("US100", "SP500", "GER40"):

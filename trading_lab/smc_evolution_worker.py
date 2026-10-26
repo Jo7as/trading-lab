@@ -25,6 +25,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from . import promotion, walk_forward
 from .backtest import print_metrics
 from .exploration import SMC_RESEARCH_SEEDS, random_smc_config
 from .score import score, trades_per_week
@@ -131,6 +132,8 @@ class SmcEvolutionWorker:
         self.goal = self._load_goal()
         self.evolution_round = 0
         self.stagnation_rounds = 0
+        #: ``LAB_LEGACY_SPLIT=1`` restores the single 30 % holdout (old artefacts).
+        self.legacy_split = env("LAB_LEGACY_SPLIT", "0").strip().lower() in ("1", "true", "yes", "on")
 
         # Override candidates / forward days from goal when present
         if "candidates_per_round" in self.goal:
@@ -163,6 +166,62 @@ class SmcEvolutionWorker:
     @staticmethod
     def _config_snapshot(cfg: SmcIctConfig) -> tuple[tuple[str, Any], ...]:
         return tuple(sorted(asdict(cfg).items()))
+
+    # ── Splits ─────────────────────────────────────────────────────
+
+    def all_folds(self, df_1m: pd.DataFrame) -> list[walk_forward.Fold]:
+        return walk_forward.folds(df_1m.index[0], df_1m.index[-1])
+
+    def split(
+        self,
+        df_4h: pd.DataFrame,
+        df_15m: pd.DataFrame,
+        df_1m: pd.DataFrame,
+    ) -> tuple[
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame],
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame],
+        pd.Timestamp,
+    ]:
+        """Legacy single ``oos_split`` holdout at the end of the history.
+
+        Only used with ``LAB_LEGACY_SPLIT=1``; the default is the rolling split
+        in :meth:`round_split`.
+        """
+        split_i = int(len(df_1m) * (1 - self.oos_split))
+        split_ts = df_1m.index[split_i]
+        train = _slice_mtf(df_4h, df_15m, df_1m, df_1m.index[0], split_ts)
+        test = _slice_mtf(df_4h, df_15m, df_1m, split_ts)
+        return train, test, split_ts
+
+    def round_split(
+        self,
+        frames: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame],
+        round_index: int,
+    ) -> tuple[
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame],
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame],
+        str,
+        int | None,
+    ]:
+        """``(train, test, label, fold index)`` for this round.
+
+        Rolling walk-forward by default (see :mod:`trading_lab.walk_forward`):
+        the train window grows with the round and the test window moves with it,
+        so no single holdout is maximised over unbounded rounds.
+        """
+        df_4h, df_15m, df_1m = frames
+        if self.legacy_split:
+            train, test, split_ts = self.split(df_4h, df_15m, df_1m)
+            return (
+                train,
+                test,
+                f"legacy {1 - self.oos_split:.0%}/{self.oos_split:.0%} split at {split_ts}",
+                None,
+            )
+        fold = walk_forward.fold_for_round(self.all_folds(df_1m), round_index)
+        train = _slice_mtf(df_4h, df_15m, df_1m, df_1m.index[0], fold.train_end)
+        test = _slice_mtf(df_4h, df_15m, df_1m, fold.train_end, fold.test_end)
+        return train, test, fold.describe(), fold.index
 
     def _baseline_path(self) -> Path:
         return self.state_dir / "smc_baseline.yaml"
@@ -567,8 +626,22 @@ class SmcEvolutionWorker:
         return est_30d >= target and actual_dd <= max_dd and actual_sharpe >= min_sharpe
 
     def _update_best_oos(
-        self, cfg: SmcIctConfig, oos_pnl: float, trades: list[dict] | None = None
+        self,
+        cfg: SmcIctConfig,
+        oos_pnl: float,
+        trades: list[dict] | None = None,
+        *,
+        metrics: dict[str, Any] | None = None,
+        fold: int | None = None,
     ) -> None:
+        """Record ``cfg`` as ``best_oos`` — only if it clears every bar.
+
+        Three bars, in this order: the significance gate, the promotion bar
+        (trades/Sharpe/drawdown, :mod:`trading_lab.promotion`) and a higher OOS
+        PnL than the previous record. The meta record names the fold the result
+        came from and is labelled ``selection: holdout-max``: it is the best
+        result *on the windows that were looked at*, not a frozen-holdout claim.
+        """
         allowed, sig, evaluated = promotion_gate(trades or [])
         if evaluated and not sig.passed:
             print(
@@ -576,6 +649,12 @@ class SmcEvolutionWorker:
                 f"significance gate: {sig.summary()}"
             )
         if not allowed:
+            return
+        bar = promotion.PromotionBar.from_env()
+        ok, why = promotion.check(metrics or {}, trades, bar)
+        if not ok:
+            if self.verbose:
+                print(f"  [best-oos] below the promotion bar ({bar.describe()}): {why}")
             return
         meta_path = self.state_dir / "best_oos_meta.json"
         strat_path = self.state_dir / "best_oos.yaml"
@@ -599,6 +678,9 @@ class SmcEvolutionWorker:
                     "oos_pnl_pct": oos_pnl,
                     "evolution_round": self.evolution_round,
                     "version": d.get("version"),
+                    "fold": fold,
+                    "selection": "holdout-max",
+                    "promotion_bar": bar.describe(),
                     "significant": sig.passed if evaluated else None,
                     "significance": sig.as_dict() if evaluated else None,
                 },
@@ -606,7 +688,8 @@ class SmcEvolutionWorker:
             )
         )
         if self.verbose:
-            print(f"  [best-oos] new record: {oos_pnl:.2f}% OOS")
+            where = f", fold {fold}" if fold is not None else ""
+            print(f"  [best-oos] new record: {oos_pnl:.2f}% OOS{where}")
 
     async def run_forever(self) -> None:
         asset, _ = self._goal_asset()
@@ -615,14 +698,12 @@ class SmcEvolutionWorker:
             print("  ERROR: no 1m data")
             return
 
-        split_i = int(len(df_1m) * (1 - self.oos_split))
-        split_ts = df_1m.index[split_i]
-        train_4h, train_15m, train_1m = _slice_mtf(df_4h, df_15m, df_1m, df_1m.index[0], split_ts)
-        oos_4h, oos_15m, oos_1m = _slice_mtf(df_4h, df_15m, df_1m, split_ts)
-        print(
-            f"  Train 1m={len(train_1m)} | OOS 1m={len(oos_1m)} "
-            f"(split {split_ts})"
-        )
+        if self.legacy_split:
+            print("  Split: LEGACY single holdout (LAB_LEGACY_SPLIT=1)")
+        else:
+            print("  Split: rolling walk-forward (see trading_lab.walk_forward)")
+            for f in self.all_folds(df_1m):
+                print(f"    {f.describe()}")
 
         while True:
             self.evolution_round += 1
@@ -633,6 +714,15 @@ class SmcEvolutionWorker:
             print(f"\n{'=' * 60}")
             print(f"SMC EVOLUTION ROUND #{self.evolution_round}")
             print(f"{'=' * 60}")
+
+            (train_4h, train_15m, train_1m), (oos_4h, oos_15m, oos_1m), split_label, fold_index = (
+                self.round_split((df_4h, df_15m, df_1m), self.evolution_round)
+            )
+            print(f"  {split_label}")
+            print(
+                f"  Train 1m={len(train_1m)} | Test 1m={len(oos_1m)} "
+                f"(split {oos_1m.index[0]})"
+            )
 
             cfg, _ = self._enforce_goal_asset()
             round_start = self._config_snapshot(cfg)
@@ -692,6 +782,8 @@ class SmcEvolutionWorker:
                 evolved,
                 float(oos_result["metrics"].get("total_pnl_pct", 0)),
                 oos_result.get("trades"),
+                metrics=oos_result["metrics"],
+                fold=fold_index,
             )
 
             round_end = self._config_snapshot(evolved)

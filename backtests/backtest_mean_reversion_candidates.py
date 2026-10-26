@@ -17,6 +17,7 @@ import dataclasses
 import json
 import logging
 import random
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import yaml
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.backtest import _compute_metrics
 from trading_lab.mean_reversion_evolution_worker import MeanReversionEvolutionWorker

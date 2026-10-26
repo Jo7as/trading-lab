@@ -15,6 +15,9 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, "studies")
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from pass_speed import load_cached  # noqa: E402
 
 from trading_lab.cost_gate import horizon_gate  # noqa: E402

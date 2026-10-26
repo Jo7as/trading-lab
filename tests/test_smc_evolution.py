@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from trading_lab import walk_forward
 from trading_lab.exploration import SMC_RESEARCH_SEEDS, random_smc_config
 from trading_lab.smc_evolution_worker import SmcEvolutionWorker, _slice_mtf
 from trading_lab.strategies.smc.liquidity import LiquidityEngine
@@ -183,6 +184,39 @@ def test_slice_mtf_aligns() -> None:
     assert len(c) == 400
     assert a.index[0] >= idx_1m[100]
     assert c.index[-1] < idx_1m[500]
+
+
+def _mtf_frames():
+    """Six years of synthetic 4h/15m/1h frames (span matters, not density)."""
+    span = ("2020-01-01", "2026-01-01")
+
+    def _df(freq):
+        idx = pd.date_range(*span, freq=freq, tz="UTC")
+        return pd.DataFrame({"close": 1.0}, index=idx)
+
+    return _df("4h"), _df("15min"), _df("1h")
+
+
+def test_smc_worker_rolls_its_split_and_the_legacy_flag_restores_it(
+    tmp_path: Path, monkeypatch
+) -> None:
+    frames = _mtf_frames()
+
+    worker = SmcEvolutionWorker(state_dir=tmp_path, verbose=False)
+    (tr4, tr15, tr1), (te4, te15, te1), label, fold = worker.round_split(frames, 1)
+    assert fold == 0 and "fold 0" in label
+    assert len(tr1) and len(te1)
+    assert tr1.index[-1] < te1.index[0]
+
+    _, _, _, later = worker.round_split(frames, 2)
+    assert later == 1
+    _, _, _, wrapped = worker.round_split(frames, 1 + walk_forward.N_FOLDS)
+    assert wrapped == 0
+
+    monkeypatch.setenv("LAB_LEGACY_SPLIT", "1")
+    legacy = SmcEvolutionWorker(state_dir=tmp_path, verbose=False)
+    _, _, label, fold = legacy.round_split(frames, 3)
+    assert fold is None and "legacy" in label
 
 
 def test_worker_load_save_strategy(tmp_path: Path) -> None:

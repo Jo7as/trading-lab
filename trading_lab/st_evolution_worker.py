@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from . import promotion, walk_forward
 from .adapters.market_data import get_market_adapter
 from .config import load_config_from_yaml
 from .score import score, trades_per_week
@@ -50,7 +51,7 @@ from .significance import promotion_gate
 # Annealing: reject clearly worse configs; cap acceptance probability
 _MAX_ANNEAL_DROP = 0.05
 _MAX_ANNEAL_P = 0.25
-_MIN_SHORT_TRADES_OOS = 30
+_MIN_SHORT_TRADES = 30
 
 
 def _loc_in_df(df: pd.DataFrame, ts: Any) -> int:
@@ -109,11 +110,51 @@ class STEvolutionWorker:
         self.stagnation_rounds = 0
         self._last_version: str | None = None
         self._reflect_pause_remaining = self._load_reflect_pause()
+        #: ``LAB_LEGACY_SPLIT=1`` restores the single 30 % holdout (old artefacts).
+        self.legacy_split = env("LAB_LEGACY_SPLIT", "0").strip().lower() in ("1", "true", "yes", "on")
+        self._folds_printed = False
 
     @staticmethod
     def _config_snapshot(cfg: SupertrendVolumeConfig) -> tuple[tuple[str, Any], ...]:
         """Hashable config fingerprint (ignores YAML version field)."""
         return tuple(sorted(asdict(cfg).items()))
+
+    # ── Splits ─────────────────────────────────────────────────────
+
+    def all_folds(self, df: pd.DataFrame) -> list[walk_forward.Fold]:
+        return walk_forward.folds(df.index[0], df.index[-1])
+
+    def split(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Timestamp]:
+        """Legacy single ``oos_split`` holdout at the end of the history.
+
+        Only used with ``LAB_LEGACY_SPLIT=1``; the default is the rolling split
+        in :meth:`round_split`.
+        """
+        split_idx = int(len(df) * (1 - self.oos_split))
+        split_ts = df.index[split_idx]
+        return df.iloc[:split_idx].copy(), df.iloc[split_idx:].copy(), split_ts
+
+    def round_split(
+        self, df: pd.DataFrame, round_index: int
+    ) -> tuple[pd.DataFrame, pd.DataFrame, str, int | None]:
+        """``(train, test, label, fold index)`` for this round.
+
+        Rolling walk-forward by default (see :mod:`trading_lab.walk_forward`):
+        the train window grows with the round and the test window moves with it,
+        so no single holdout is maximised over unbounded rounds.
+        """
+        if self.legacy_split:
+            train, test, split_ts = self.split(df)
+            return (
+                train,
+                test,
+                f"legacy {1 - self.oos_split:.0%}/{self.oos_split:.0%} split at {split_ts}",
+                None,
+            )
+        fold = walk_forward.fold_for_round(self.all_folds(df), round_index)
+        train = df[df.index < fold.train_end].copy()
+        test = df[(df.index >= fold.train_end) & (df.index < fold.test_end)].copy()
+        return train, test, fold.describe(), fold.index
 
     def _goal_asset(self) -> tuple[str, str]:
         asset = str(self.goal.get("asset", "GC=F"))
@@ -209,7 +250,12 @@ class STEvolutionWorker:
             print(f"  period:      {self.period}")
             print(f"  reflect:     every {self.reflect_interval} trades")
             print(f"  candidates:  {self.num_candidates} per reflection")
-            print(f"  OOS holdout: {self.oos_split:.0%} of data (never used for evolution)")
+            split_desc = (
+                f"LEGACY {self.oos_split:.0%} holdout"
+                if self.legacy_split
+                else "rolling walk-forward"
+            )
+            print(f"  Split:       {split_desc} (test window never used for evolution)")
             print(f"  exploration: every {self.explore_every} stagnant rounds")
             reflect_frozen = force_hf or reset_applied or baseline_restored or asset_restored or self._reflect_pause_remaining > 0
             if force_hf:
@@ -241,12 +287,19 @@ class STEvolutionWorker:
 
             print(f"  Loaded {len(df)} candles ({df.index[0]} to {df.index[-1]})")
 
-            # Train / OOS split — evolution only sees in-sample data
-            split_idx = int(len(df) * (1 - self.oos_split))
-            df_train = df.iloc[:split_idx].copy()
-            df_oos = df.iloc[split_idx:].copy()
+            # Rolling train / test split — evolution only sees in-sample data
+            df_train, df_oos, split_label, fold_index = self.round_split(
+                df, self.evolution_round
+            )
+            if not self.legacy_split and not self._folds_printed:
+                print("  Split: rolling walk-forward (see trading_lab.walk_forward) "
+                      "— data is fetched per round, folds printed on first round")
+                for f in self.all_folds(df):
+                    print(f"    {f.describe()}")
+                self._folds_printed = True
+            print(f"  {split_label}")
             print(f"  Train:       {len(df_train)} candles (in-sample)")
-            print(f"  OOS:         {len(df_oos)} candles ({df_oos.index[0]} → {df_oos.index[-1]})")
+            print(f"  Test:        {len(df_oos)} candles ({df_oos.index[0]} → {df_oos.index[-1]})")
 
             # Exploration jump when stuck at local optimum (between-round stagnation)
             if not reflect_frozen and self.stagnation_rounds >= self.explore_every:
@@ -274,7 +327,9 @@ class STEvolutionWorker:
             )
             self._check_goal(oos_result["metrics"], label="OOS", period_days=len(df_oos) / 24)
             if not force_hf:
-                evolved_cfg = self._enforce_short_gate(evolved_cfg, oos_result["trades"])
+                # Decide on the TRAIN window — the test window must not steer the
+                # saved config (short gate reads train trades, not OOS trades).
+                evolved_cfg = self._enforce_short_gate(evolved_cfg, result["trades"])
             elif self.verbose and not evolved_cfg.long_only:
                 print(f"  [short-gate] SKIPPED — HF force lock (long+short)")
             result["oos_metrics"] = oos_result["metrics"]
@@ -311,6 +366,9 @@ class STEvolutionWorker:
                     float(oos_result["metrics"]["total_pnl_pct"]),
                     evolution_round=self.evolution_round,
                     significance=sig.as_dict() if evaluated else None,
+                    metrics=oos_result["metrics"],
+                    trades=oos_result.get("trades"),
+                    fold=fold_index,
                 ):
                     print(
                         f"  [best-oos] new record: "
@@ -663,21 +721,33 @@ class STEvolutionWorker:
         pnl = sum(t.get("pnl_pct", 0.0) or 0.0 for t in shorts)
         return len(shorts), pnl
 
-    def _shorts_allowed_oos(self, trades: list[dict]) -> tuple[bool, str]:
+    def _shorts_allowed_on_train(self, trades: list[dict]) -> tuple[bool, str]:
+        """Whether the train window justifies keeping shorts.
+
+        Too few shorts in train is *not* evidence against them — leave them
+        enabled rather than silently flipping to long-only (the old code read the
+        OOS window here, which leaked the test set into the saved config).
+        """
         n_short, short_pnl = self._short_side_stats(trades)
-        if n_short < _MIN_SHORT_TRADES_OOS:
-            return False, f"only {n_short} short trades (need {_MIN_SHORT_TRADES_OOS})"
+        if n_short < _MIN_SHORT_TRADES:
+            return True, (
+                f"only {n_short} train shorts (< {_MIN_SHORT_TRADES}) — keeping shorts"
+            )
         if short_pnl <= 0:
-            return False, f"short PnL {short_pnl:+.2f}% <= 0"
-        return True, f"{n_short} shorts, PnL {short_pnl:+.2f}%"
+            return False, f"train short PnL {short_pnl:+.2f}% <= 0"
+        return True, f"{n_short} train shorts, PnL {short_pnl:+.2f}%"
 
     def _enforce_short_gate(
-        self, cfg: SupertrendVolumeConfig, oos_trades: list[dict]
+        self, cfg: SupertrendVolumeConfig, train_trades: list[dict]
     ) -> SupertrendVolumeConfig:
-        """Keep shorts only when OOS short leg is profitable with enough samples."""
+        """Keep shorts only when the *train* short leg is profitable.
+
+        The decision must not see the test window: gating on OOS trades leaks the
+        holdout into the saved config. Too few train shorts keeps shorts on.
+        """
         if cfg.long_only:
             return cfg
-        allowed, reason = self._shorts_allowed_oos(oos_trades)
+        allowed, reason = self._shorts_allowed_on_train(train_trades)
         if allowed:
             if self.verbose:
                 print(f"  [short-gate] PASS — {reason}")

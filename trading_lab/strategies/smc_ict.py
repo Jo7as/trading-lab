@@ -789,8 +789,10 @@ def _setup_tags_at_fill(
 ) -> dict[str, Any]:
     """Causal setup features for TP attribution (no lookahead)."""
     ts = _ts(now)
+    # Every clock field comes from the market calendar the session logic uses
+    # (New York). Reading the weekday from Europe/Berlin put trades after 18:00 NY
+    # on the following day, and the session windows are NY-anchored anyway.
     ny = ts.tz_convert("America/New_York")
-    berlin = ts.tz_convert("Europe/Berlin")
     hour_ny = int(ny.hour)
     session = session_from_ny_hour(hour_ny)
 
@@ -835,8 +837,7 @@ def _setup_tags_at_fill(
         "liq_family": liq_family,
         "session": session,
         "hour_ny": hour_ny,
-        "hour_berlin": int(berlin.hour),
-        "weekday": int(berlin.weekday()),  # 0=Mon
+        "weekday": int(ny.weekday()),  # 0=Mon, market calendar (New York)
         "pd_side": pd_side,
         "eq": eq,
         "dealing_lo": lo,

@@ -6,12 +6,15 @@ import argparse
 import asyncio
 import dataclasses
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import yaml
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.adapters.market_data import get_market_adapter
 from trading_lab.backtest import _compute_metrics, _compute_side_metrics

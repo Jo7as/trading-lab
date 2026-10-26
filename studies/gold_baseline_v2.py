@@ -1,9 +1,15 @@
 """Gold Supertrend baseline, FIXED engine (next-open entry, slippage, gap stops,
-time stop in bars) on the audit-correct frame — before/after the code review."""
+time stop in bars) on the audit-correct frame — before/after the code review.
+
+Per-leg spread rule: :func:`trading_lab.cost_gate.round_trip_spread` (entry taker +
+taker exit = 1.0 full spread; TP exit pays nothing)."""
 from __future__ import annotations
 import sys
 import numpy as np, pandas as pd
 sys.path.insert(0, "studies")
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from pass_speed import load_cached
 from trading_lab.data_audit import build_study_frame
 from trading_lab.strategies.supertrend_volume import SupertrendVolumeConfig, run_backtest

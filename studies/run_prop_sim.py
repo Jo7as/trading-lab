@@ -14,11 +14,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Callable
 
 import pandas as pd
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.minute_data import load_minute_bid_ask
 from trading_lab.prop_sim import (
@@ -63,7 +66,8 @@ def main() -> int:
     ap.add_argument("--firm", default="ftmo", choices=sorted(FIRMS))
     ap.add_argument("--start-year", type=int, default=2024)
     ap.add_argument("--end-year", type=int, default=datetime.now(timezone.utc).year)
-    ap.add_argument("--risk-pct", type=float, default=0.5, help="risk per trade, % of account")
+    ap.add_argument("--risk-pct", type=float, default=0.5,
+                    help="risk per trade, in percent of the account")
     ap.add_argument("--runs", type=int, default=5000)
     ap.add_argument("--block", type=int, default=20)
     ap.add_argument("--json", type=Path, default=None)

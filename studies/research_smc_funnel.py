@@ -5,11 +5,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.adapters.dukascopy_adapter import DukascopyAdapter
 from trading_lab.indicators import atr as atr_indicator

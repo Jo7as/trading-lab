@@ -14,10 +14,13 @@ returns ``(trades, trading_days)`` (same shape as ``studies/run_prop_sim.py``).
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import date, datetime, timezone
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.minute_data import load_minute_bid_ask
 from trading_lab.prop_sim import FIRMS, daily_pnl, evaluate, get_firm, risk_usd_for, simulate_funded

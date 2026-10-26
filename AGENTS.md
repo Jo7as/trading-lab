@@ -75,6 +75,11 @@ with the idea.
   look profitable before it was caught. Use `trading_lab.mr_common.day_slices`
   and keep a test on a **full 24 h frame** (`tests/test_day_slices.py`); a
   synthetic RTH-only frame will not catch it.
+- **Two spaces decide whether a number means anything** — the clock (UTC index,
+  exchange-local sessions) and the cost space (mid, per-leg half-spread). Read
+  **[docs/TIME_CONVENTIONS.md](docs/TIME_CONVENTIONS.md)** before writing a study or
+  a strategy, and use `cost_gate.round_trip_spread(entry, exit_)` instead of a
+  hand-written spread multiple.
 - A backtest that looks too good is a bug signal: check the session mapping,
   per-year split, and the random-direction baseline before believing it.
 - Environment variables are read via `trading_lab.env.env` with the `LAB_`

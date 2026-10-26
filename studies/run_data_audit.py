@@ -14,6 +14,9 @@ import pandas as pd
 import yaml
 
 sys.path.insert(0, "studies")
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from pass_speed import load_cached  # noqa: E402
 
 from trading_lab.data_audit import (  # noqa: E402

@@ -21,6 +21,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from . import promotion, walk_forward
 from .adapters.market_data import get_market_adapter
 from .backtest import print_metrics
 from .reflect import (
@@ -128,6 +129,8 @@ class OrbEvolutionWorker:
         self.goal = load_goal(self.state_dir)
         self.evolution_round = 0
         self.stagnation_rounds = 0
+        #: ``LAB_LEGACY_SPLIT=1`` restores the single 30 % holdout (old artefacts).
+        self.legacy_split = env("LAB_LEGACY_SPLIT", "0").strip().lower() in ("1", "true", "yes", "on")
 
     def _goal_asset(self) -> tuple[str, str]:
         asset = str(self.goal.get("asset", "NQ"))
@@ -153,6 +156,43 @@ class OrbEvolutionWorker:
             return "orb_01"
         raw = yaml.safe_load(path.read_text()) or {}
         return str(raw.get("version", "orb_01"))
+
+    # ── Splits ─────────────────────────────────────────────────────
+
+    def all_folds(self, df: pd.DataFrame) -> list[walk_forward.Fold]:
+        return walk_forward.folds(df.index[0], df.index[-1])
+
+    def split(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Timestamp]:
+        """Legacy single ``oos_split`` holdout at the end of the history.
+
+        Only used with ``LAB_LEGACY_SPLIT=1``; the default is the rolling split
+        in :meth:`round_split`.
+        """
+        split_i = int(len(df) * (1 - self.oos_split))
+        split_ts = df.index[split_i]
+        return df.iloc[:split_i].copy(), df.iloc[split_i:].copy(), split_ts
+
+    def round_split(
+        self, df: pd.DataFrame, round_index: int
+    ) -> tuple[pd.DataFrame, pd.DataFrame, str, int | None]:
+        """``(train, test, label, fold index)`` for this round.
+
+        Rolling walk-forward by default (see :mod:`trading_lab.walk_forward`):
+        the train window grows with the round and the test window moves with it,
+        so no single holdout is maximised over unbounded rounds.
+        """
+        if self.legacy_split:
+            train, test, split_ts = self.split(df)
+            return (
+                train,
+                test,
+                f"legacy {1 - self.oos_split:.0%}/{self.oos_split:.0%} split at {split_ts}",
+                None,
+            )
+        fold = walk_forward.fold_for_round(self.all_folds(df), round_index)
+        train = df[df.index < fold.train_end].copy()
+        test = df[(df.index >= fold.train_end) & (df.index < fold.test_end)].copy()
+        return train, test, fold.describe(), fold.index
 
     def _save_strategy(self, cfg: OpeningRangeBreakoutConfig, *, increment: bool) -> None:
         path = self.state_dir / "strategy.yaml"
@@ -407,8 +447,22 @@ class OrbEvolutionWorker:
                 f.write(json.dumps(hyp, default=str) + "\n")
 
     def _update_best_oos(
-        self, cfg: OpeningRangeBreakoutConfig, oos_pnl_net: float, trades: list[dict] | None = None
+        self,
+        cfg: OpeningRangeBreakoutConfig,
+        oos_pnl_net: float,
+        trades: list[dict] | None = None,
+        *,
+        metrics: dict[str, Any] | None = None,
+        fold: int | None = None,
     ) -> None:
+        """Record ``cfg`` as ``best_oos`` — only if it clears every bar.
+
+        Three bars, in this order: the significance gate, the promotion bar
+        (trades/Sharpe/drawdown, :mod:`trading_lab.promotion`) and a higher OOS
+        PnL than the previous record. The meta record names the fold the result
+        came from and is labelled ``selection: holdout-max``: it is the best
+        result *on the windows that were looked at*, not a frozen-holdout claim.
+        """
         allowed, sig, evaluated = promotion_gate(trades or [])
         if evaluated and not sig.passed:
             print(
@@ -416,6 +470,12 @@ class OrbEvolutionWorker:
                 f"significance gate: {sig.summary()}"
             )
         if not allowed:
+            return
+        bar = promotion.PromotionBar.from_env()
+        ok, why = promotion.check(metrics or {}, trades, bar)
+        if not ok:
+            if self.verbose:
+                print(f"  [best-oos] below the promotion bar ({bar.describe()}): {why}")
             return
         meta_path = self.state_dir / "best_oos_meta.json"
         strat_path = self.state_dir / "best_oos.yaml"
@@ -437,6 +497,9 @@ class OrbEvolutionWorker:
                     "evolution_round": self.evolution_round,
                     "version": d["version"],
                     "cost_rt_points": self.cost_rt_points,
+                    "fold": fold,
+                    "selection": "holdout-max",
+                    "promotion_bar": bar.describe(),
                     "significant": sig.passed if evaluated else None,
                     "significance": sig.as_dict() if evaluated else None,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -446,7 +509,11 @@ class OrbEvolutionWorker:
             + "\n"
         )
         if self.verbose:
-            print(f"  [best-oos] new record: {oos_pnl_net:.2f}% OOS net (v{d['version']})")
+            where = f", fold {fold}" if fold is not None else ""
+            print(
+                f"  [best-oos] new record: {oos_pnl_net:.2f}% OOS net "
+                f"(v{d['version']}{where})"
+            )
 
     def _print_tpw(self, trades: list[dict], label: str, days: float) -> None:
         tpw = trades_per_week(trades, days)
@@ -499,13 +566,12 @@ class OrbEvolutionWorker:
             print("  ERROR: no data")
             return
 
-        split_i = int(len(df) * (1 - self.oos_split))
-        df_train = df.iloc[:split_i].copy()
-        df_oos = df.iloc[split_i:].copy()
-        print(
-            f"  Train={len(df_train)} | OOS={len(df_oos)} "
-            f"(split {df_oos.index[0]})"
-        )
+        if self.legacy_split:
+            print("  Split: LEGACY single holdout (LAB_LEGACY_SPLIT=1)")
+        else:
+            print("  Split: rolling walk-forward (see trading_lab.walk_forward)")
+            for f in self.all_folds(df):
+                print(f"    {f.describe()}")
         print(f"  Cost model: {self.cost_rt_points}pt round-trip")
 
         while True:
@@ -517,6 +583,15 @@ class OrbEvolutionWorker:
             print(f"\n{'=' * 60}")
             print(f"ORB EVOLUTION ROUND #{self.evolution_round}")
             print(f"{'=' * 60}")
+
+            df_train, df_oos, split_label, fold_index = self.round_split(
+                df, self.evolution_round
+            )
+            print(f"  {split_label}")
+            print(
+                f"  Train={len(df_train)} | Test={len(df_oos)} "
+                f"(split {df_oos.index[0]})"
+            )
 
             cfg = self._load_strategy()
             round_start = self._config_snapshot(cfg)
@@ -567,7 +642,11 @@ class OrbEvolutionWorker:
             )
             self._check_goal(oos_res["metrics"], "OOS", _period_days(df_oos))
             self._update_best_oos(
-                evolved, net_oos, oos_res.get("trades_net") or oos_res.get("trades")
+                evolved,
+                net_oos,
+                oos_res.get("trades_net") or oos_res.get("trades"),
+                metrics=oos_res["metrics"],
+                fold=fold_index,
             )
 
             if self._config_snapshot(evolved) != round_start:

@@ -10,6 +10,14 @@ Direct clock computation on the audit-correct frame (data_audit.build_study_fram
 gates as in the protocol (median effect, sign-test z >= 3, effect >= 2x cost,
 placebo, dose-response).
 
+Costs follow the single convention in ``trading_lab.cost_gate``: the move here is
+measured on the **bid** close, and the trade is a checkpoint entry + session-close
+exit, both taken as market legs. Both legs cross the book, so the round trip is
+``round_trip_spread("market", "market")`` = 1.0 x the full spread (per leg 0.5,
+charged against that leg's own local spread). This is a mid-space convention
+applied to a bid-measured move; it is the conservative, single-source reading and
+replaces the old ``sp_cp + sp_end`` (two full spreads).
+
   .venv/bin/python studies/run_h001.py
 """
 from __future__ import annotations
@@ -20,9 +28,13 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, "studies")
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from pass_speed import load_cached  # noqa: E402
 
 from trading_lab.data_audit import SESSIONS, build_study_frame  # noqa: E402
+from trading_lab.cost_gate import round_trip_spread  # noqa: E402
 
 CLOCK = {"US100": (570, 960), "US30": (570, 960), "SP500": (570, 960), "GER40": (540, 1050)}
 CHECK_EVERY = 60
@@ -67,7 +79,9 @@ def test(close: pd.DataFrame, spread: pd.DataFrame, open_m: int, close_m: int,
     sp_cp, sp_end = S[days, cp], S[days, last]
     d = np.sign(prog_star)
     move = d * (px_end - px_cp) / px_cp                 # signed forward return, in price %
-    return {"n": len(days), "move": move, "cost": sp_cp + sp_end, "mag": np.abs(prog_star) / sigma_star, "d": d}
+    # cost: market entry at the checkpoint + market exit at the close = 1.0 x spread
+    cost = round_trip_spread("market", "market") * (sp_cp + sp_end) / 2.0
+    return {"n": len(days), "move": move, "cost": cost, "mag": np.abs(prog_star) / sigma_star, "d": d}
 
 
 def report(label: str, r: dict, seed: int = 7) -> str:
@@ -98,6 +112,8 @@ def report(label: str, r: dict, seed: int = 7) -> str:
 
 def main() -> None:
     print("### H-001 (registered): noise-area progress at high volatility, hold to close")
+    print(f"    cost: market entry + market exit = "
+          f"{round_trip_spread('market', 'market'):.1f} x spread")
     for asset, (open_m, close_m) in CLOCK.items():
         df, info = build_study_frame(load_cached(asset), asset)
         close, spread, _ = matrices(df, asset)

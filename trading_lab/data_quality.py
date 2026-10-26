@@ -24,6 +24,20 @@ import pandas as pd
 
 OHLC = ("open", "high", "low", "close")
 
+#: The CFD/FX daily roll: 17:00 New York, i.e. 21:00 UTC in EDT and 22:00 UTC in
+#: EST. It is a **UTC** event, so every roll mask is built from UTC hours. Doing
+#: it in the asset timezone (until 2026-10-26) blanked the wrong hours and left
+#: the roll itself in the data: for a New York asset it masked 01:00-04:59 UTC.
+#: The window is deliberately generous (23:00/00:00 UTC included); narrowing it to
+#: (21, 22) needs a re-measurement of where the corrupt bars actually sit.
+ROLL_HOURS_UTC: tuple[int, ...] = (21, 22, 23, 0)
+
+
+def roll_mask(index: pd.DatetimeIndex, hours: tuple[int, ...] = ROLL_HOURS_UTC) -> pd.Series:
+    """Bars inside the daily roll window, evaluated in **UTC**."""
+    utc = index.tz_convert("UTC") if index.tz is not None else index.tz_localize("UTC")
+    return pd.Series(utc.hour, index=index).isin(hours)
+
 
 @dataclass
 class DataReport:
@@ -41,7 +55,7 @@ class DataReport:
     corrupt_bars: int          # hard: > 50 x median
     worst_move_pct: float
     worst_in_median_units: float
-    roll_window_outliers: int          # outliers inside 21:00-01:00 UTC (daily roll)
+    roll_window_outliers: int          # outliers inside the UTC roll window (see ROLL_HOURS_UTC)
     worst_bars: list[dict] = field(default_factory=list)
     spread_by_hour: dict[int, float] = field(default_factory=dict)
 
@@ -83,9 +97,7 @@ def audit(df: pd.DataFrame, asset: str, *, tz: str = "UTC", k: float = 12.0) -> 
 
     local = idx.tz_convert(tz)
     days = pd.Series(1, index=local.normalize()).groupby(level=0).size()
-    roll_hours = {21, 22, 23, 0}
-    roll_mask = pd.Series(local.hour, index=df.index).isin(roll_hours)
-    roll_outliers = int((outlier_mask & roll_mask).sum())
+    roll_outliers = int((outlier_mask & roll_mask(idx)).sum())
 
     spread_pct = (df["ask_close"] - mid) / mid
     by_hour = spread_pct.groupby(local.hour).median()
@@ -106,22 +118,25 @@ def audit(df: pd.DataFrame, asset: str, *, tz: str = "UTC", k: float = 12.0) -> 
     )
 
 
-def clean(df: pd.DataFrame, *, k: float = 50.0, tz: str = "UTC",
-          roll_hours: tuple[int, ...] = (21, 22, 23, 0)) -> pd.DataFrame:
+def clean(df: pd.DataFrame, *, k: float = 50.0,
+          roll_hours: tuple[int, ...] = ROLL_HOURS_UTC) -> pd.DataFrame:
     """Mask bars that no study may read: outliers and the daily roll window.
 
     The cached CFD series contains thousands of bars with 100-1000x the median
     move, concentrated at the daily roll (JP225 logged +178 % in one minute).
     Masked rows get NaN prices, so forward-return code skips them instead of
     inheriting a fabricated jump.
+
+    The roll window is applied in **UTC** (see :data:`ROLL_HOURS_UTC`); the
+    function used to take an asset timezone and apply the hours in it, which
+    masked the wrong window for every non-UTC asset.
     """
     mid = (df["close"] + df["ask_close"]) / 2.0
     r = mid.pct_change()
     scale = float(r.abs().median()) or 1e-12
     bad = (r.abs() > k * scale)
     if roll_hours:
-        local = df.index.tz_convert(tz)
-        bad = bad | pd.Series(local.hour, index=df.index).isin(roll_hours)
+        bad = bad | roll_mask(df.index, roll_hours)
     out = df.copy()
     out.loc[bad, list(OHLC) + ["ask_close"]] = np.nan
     return out

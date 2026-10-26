@@ -12,10 +12,13 @@ the portfolio, plus a block-bootstrap Monte Carlo of the *aligned* daily matrix
 from __future__ import annotations
 
 import glob
+import sys
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.prop_sim import FIRMS, evaluate, simulate_funded
 from trading_lab.strategies.orb_rejection_ifvg import OrbRejConfig, run_backtest

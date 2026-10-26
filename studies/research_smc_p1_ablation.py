@@ -12,12 +12,15 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 import time
 from dataclasses import fields, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.adapters.dukascopy_adapter import DukascopyAdapter
 from trading_lab.strategies.smc_ict import SmcIctConfig, run_backtest

@@ -2,6 +2,10 @@
 """Multi-asset hf_ls01 backtest for frequency research (Dukascopy)."""
 from __future__ import annotations
 
+import sys
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from trading_lab.env import env
 
 import argparse

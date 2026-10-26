@@ -23,7 +23,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from . import reflect
+from . import promotion, reflect, walk_forward
 from .backtest import print_metrics
 from .mr_common import load_bid_ask, period_days, resample_ohlc
 from .score import score, trades_per_week
@@ -92,6 +92,8 @@ class MrEvolutionBase:
             self.goal["asset_label"] = asset
         self.evolution_round = 0
         self.stagnation_rounds = 0
+        #: ``LAB_LEGACY_SPLIT=1`` restores the single 30 % holdout (old artefacts).
+        self.legacy_split = env("LAB_LEGACY_SPLIT", "0").strip().lower() in ("1", "true", "yes", "on")
 
     # ── Strategy hooks (subclasses) ────────────────────────────────
 
@@ -367,7 +369,23 @@ class MrEvolutionBase:
         }
         self._append_hypothesis(hyp)
 
-    def _update_best_oos(self, cfg: Any, oos_pnl: float, trades: list[dict] | None = None) -> None:
+    def _update_best_oos(
+        self,
+        cfg: Any,
+        oos_pnl: float,
+        trades: list[dict] | None = None,
+        *,
+        metrics: dict[str, Any] | None = None,
+        fold: int | None = None,
+    ) -> None:
+        """Record ``cfg`` as ``best_oos`` — only if it clears every bar.
+
+        Three bars, in this order: the significance gate, the promotion bar
+        (trades/Sharpe/drawdown, :mod:`trading_lab.promotion`) and a higher OOS PnL
+        than the previous record. The meta record names the fold the result came
+        from and is labelled ``selection: holdout-max``: it is the best result *on
+        the windows that were looked at*, not a frozen-holdout claim.
+        """
         allowed, sig, evaluated = promotion_gate(trades or [])
         if evaluated and not sig.passed:
             print(
@@ -375,6 +393,12 @@ class MrEvolutionBase:
                 f"significance gate: {sig.summary()}"
             )
         if not allowed:
+            return
+        bar = promotion.PromotionBar.from_env()
+        ok, why = promotion.check(metrics or {}, trades, bar)
+        if not ok:
+            if self.verbose:
+                print(f"  [best-oos] below the promotion bar ({bar.describe()}): {why}")
             return
         meta_path = self.state_dir / "best_oos_meta.json"
         prev = -1e18
@@ -396,6 +420,9 @@ class MrEvolutionBase:
                     "oos_pnl_pct": round(oos_pnl, 4),
                     "evolution_round": self.evolution_round,
                     "version": d["version"],
+                    "fold": fold,
+                    "selection": "holdout-max",
+                    "promotion_bar": bar.describe(),
                     "significant": sig.passed if evaluated else None,
                     "significance": sig.as_dict() if evaluated else None,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -405,7 +432,8 @@ class MrEvolutionBase:
             + "\n"
         )
         if self.verbose:
-            print(f"  [best-oos] new record: {oos_pnl:.2f}% OOS (v{d['version']})")
+            where = f", fold {fold}" if fold is not None else ""
+            print(f"  [best-oos] new record: {oos_pnl:.2f}% OOS (v{d['version']}{where})")
 
     def _check_goal(self, result: dict[str, Any], label: str, days: float) -> None:
         metrics = result["metrics"]
@@ -451,9 +479,33 @@ class MrEvolutionBase:
         }
 
     def split(self, frames: Frames) -> tuple[Frames, Frames, pd.Timestamp]:
+        """Legacy single split: a ``oos_split`` holdout at the end of the history.
+
+        Only used with ``LAB_LEGACY_SPLIT=1`` (and by the walk-forward report);
+        the default is the rolling split in :meth:`round_split`.
+        """
         start, end = frames_span(frames)
         split_ts = start + (end - start) * (1 - self.oos_split)
         return slice_frames(frames, None, split_ts), slice_frames(frames, split_ts, None), split_ts
+
+    def all_folds(self, frames: Frames) -> list[walk_forward.Fold]:
+        start, end = frames_span(frames)
+        return walk_forward.folds(start, end)
+
+    def round_split(self, frames: Frames, round_index: int) -> tuple[Frames, Frames, str, int | None]:
+        """``(train, test, label, fold index)`` for this round.
+
+        Rolling walk-forward by default: the train window grows with the round and
+        the test window moves with it, so no single holdout is maximised over
+        unbounded rounds. ``LAB_LEGACY_SPLIT=1`` restores the fixed split.
+        """
+        if self.legacy_split:
+            train, test, split_ts = self.split(frames)
+            return train, test, f"legacy {1 - self.oos_split:.0%}/{self.oos_split:.0%} split at {split_ts}", None
+        fold = walk_forward.fold_for_round(self.all_folds(frames), round_index)
+        train = slice_frames(frames, None, fold.train_end)
+        test = slice_frames(frames, fold.train_end, fold.test_end)
+        return train, test, fold.describe(), fold.index
 
     # ── Main loop ──────────────────────────────────────────────────
 
@@ -467,15 +519,13 @@ class MrEvolutionBase:
         if not frames:
             print("  ERROR: no data")
             return
-        train, oos, split_ts = self.split(frames)
         base_tf = self.TIMEFRAMES[0]
-        train_days = period_days(train[base_tf])
-        oos_days = period_days(oos[base_tf])
-        print(
-            f"  Train={len(train[base_tf])} | OOS={len(oos[base_tf])} {base_tf} bars "
-            f"(split {split_ts})"
-        )
-        fwd = self._forward_slice(train)
+        if self.legacy_split:
+            print("  Split: LEGACY single holdout (LAB_LEGACY_SPLIT=1)")
+        else:
+            print("  Split: rolling walk-forward (see trading_lab.walk_forward)")
+            for f in self.all_folds(frames):
+                print(f"    {f.describe()}")
 
         while True:
             self.evolution_round += 1
@@ -486,6 +536,13 @@ class MrEvolutionBase:
             print(f"\n{'=' * 60}")
             print(f"{self.MODE.upper()} ROUND #{self.evolution_round}")
             print(f"{'=' * 60}")
+
+            train, oos, split_label, fold_index = self.round_split(frames, self.evolution_round)
+            train_days = period_days(train[base_tf])
+            oos_days = period_days(oos[base_tf])
+            print(f"  {split_label}")
+            print(f"  Train={len(train[base_tf])} | Test={len(oos[base_tf])} {base_tf} bars")
+            fwd = self._forward_slice(train)
 
             cfg = self._load_strategy()
             round_start = self._config_snapshot(cfg)
@@ -525,6 +582,8 @@ class MrEvolutionBase:
                 evolved,
                 float(oos_res["metrics"].get("total_pnl_pct", 0)),
                 oos_res.get("trades"),
+                metrics=oos_res["metrics"],
+                fold=fold_index,
             )
 
             if self._config_snapshot(evolved) != round_start:

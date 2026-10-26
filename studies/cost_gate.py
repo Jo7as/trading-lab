@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import argparse
 import glob
+import sys
 
 import pandas as pd
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.cost_gate import DEFAULT_K, horizon_gate
 

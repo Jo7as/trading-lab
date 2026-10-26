@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from datetime import datetime, timezone
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.adapters.dukascopy_adapter import DukascopyAdapter
 from trading_lab.strategies.smc_ict import SmcIctConfig, run_backtest

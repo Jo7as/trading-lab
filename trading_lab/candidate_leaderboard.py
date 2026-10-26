@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from . import promotion
 from .adapters.market_data import get_market_adapter
 from .exploration import JPY_RESEARCH_SEEDS, RESEARCH_SEEDS
 from .strategies.supertrend_volume import SupertrendVolumeConfig, run_backtest
@@ -123,16 +124,31 @@ def update_best_oos_tracker(
     *,
     evolution_round: int | None = None,
     significance: dict[str, Any] | None = None,
+    metrics: dict[str, Any] | None = None,
+    trades: list[dict] | None = None,
+    fold: int | None = None,
 ) -> bool:
-    """Save strategy snapshot when OOS PnL beats the running best."""
+    """Save strategy snapshot when OOS PnL beats the running best.
+
+    The running best starts at ``-inf`` so a less-bad negative OOS PnL can still
+    be a record. When ``metrics``/``trades`` are supplied the promotion bar
+    (:mod:`trading_lab.promotion`) is enforced before anything is written.
+    """
     state_dir.mkdir(parents=True, exist_ok=True)
     meta_path = state_dir / BEST_OOS_META
     strat_path = state_dir / BEST_OOS_STRATEGY
 
-    prev = 0.0
+    bar = promotion.PromotionBar.from_env()
+    if metrics is not None or trades is not None:
+        ok, why = promotion.check(metrics or {}, trades, bar)
+        if not ok:
+            print(f"  [best-oos] below the promotion bar ({bar.describe()}): {why}")
+            return False
+
+    prev = -1e18
     existing = load_best_oos_meta(state_dir)
     if existing is not None:
-        prev = float(existing.get("oos_pnl_pct", 0))
+        prev = float(existing.get("oos_pnl_pct", -1e18))
 
     if oos_pnl_pct <= prev:
         return False
@@ -143,6 +159,9 @@ def update_best_oos_tracker(
         "oos_pnl_pct": round(float(oos_pnl_pct), 4),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "evolution_round": evolution_round,
+        "fold": fold,
+        "selection": "holdout-max",
+        "promotion_bar": bar.describe(),
         "significant": None if significance is None else significance.get("passed"),
         "significance": significance,
     }
@@ -394,10 +413,17 @@ async def build_leaderboard(
             None,
         )
         if evolved_row is not None:
+            asset_label = "XAU/USD" if profile.asset == "XAU/USD" else "USD/JPY"
+            pinned = dataclasses.replace(
+                evolved, asset=profile.asset, asset_label=asset_label
+            )
+            oos_res = run_backtest(df_oos, pinned, verbose=False)
             update_best_oos_tracker(
                 state_dir,
                 strat_raw,
                 float(evolved_row["oos_pnl_pct"]),
+                metrics=oos_res["metrics"],
+                trades=oos_res["trades"],
             )
     rows.sort(key=lambda r: r["oos_pnl_pct"], reverse=True)
     top_oos = rows[0]["oos_pnl_pct"] if rows else float("-inf")

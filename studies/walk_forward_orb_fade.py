@@ -11,9 +11,12 @@ loses. Nothing is optimised on train windows.
 from __future__ import annotations
 
 import glob
+import sys
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
 
 from trading_lab.strategies.orb_2r import skipped_days
 from trading_lab.strategies.orb_rejection_ifvg import OrbRejConfig, run_backtest

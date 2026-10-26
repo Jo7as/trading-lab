@@ -22,6 +22,9 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, "studies")
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from pass_speed import load_cached  # noqa: E402
 
 from trading_lab.data_quality import clean  # noqa: E402
@@ -33,7 +36,7 @@ CLOCK = {"US100": (570, 600, 900, 955), "SP500": (570, 600, 900, 955), "GER40": 
 def day_table(asset: str) -> pd.DataFrame:
     """One row per session: open/first-hour/15:00/15:55 closes + prior close (vectorised)."""
     tz = TZ[asset]
-    df = clean(load_cached(asset), tz=tz).dropna()
+    df = clean(load_cached(asset)).dropna()
     loc = df.index.tz_convert(tz)
     mins = (loc.hour * 60 + loc.minute).to_numpy()
     mi = pd.MultiIndex.from_arrays([loc.date, mins], names=["d", "m"])
@@ -77,7 +80,7 @@ def main() -> None:
         if len(t) < 200:
             print(f"{asset}: too few days")
             continue
-        raw = clean(load_cached(asset), tz=TZ[asset])
+        raw = clean(load_cached(asset))
         cost = float(((raw["ask_close"] - raw["close"]) / ((raw["close"] + raw["ask_close"]) / 2)).median()) * 100
         print(f"\n{asset}  days={len(t)}  median round-trip cost {cost:.4f}%")
         # H1: first-hour sign -> 10:00..15:00

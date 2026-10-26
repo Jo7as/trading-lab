@@ -1,10 +1,11 @@
 """Gold Supertrend baseline: net of the ACTUAL spread at each trade's minutes.
 
 Instead of one median spread, look up the real 1-minute ask-bid at every trade's
-entry and exit minute and charge it with the correct order-type logic:
-entry is always a taker (1 half-spread), an exit at a stop/time is a taker
-(1 half-spread), a limit (take-profit) exit pays nothing. Also reports a slippage
-band on stop exits and a per-year split after costs.
+entry and exit minute and charge it with the repo convention in
+:mod:`trading_lab.cost_gate` (0.5 full spreads per market/stop leg, 0 for a
+resting limit/take-profit leg): this strategy enters and exits with market orders,
+so a round trip costs 1.0 full spread. Also reports a slippage band on stop exits
+and a per-year split after costs.
 """
 from __future__ import annotations
 
@@ -14,7 +15,12 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, "studies")
+
+sys.path.insert(0, ".")  # runnable as a script from the repo root
+
 from pass_speed import load_cached  # noqa: E402
+
+from trading_lab.cost_gate import round_trip_spread  # noqa: E402
 
 from trading_lab.strategies.supertrend_volume import SupertrendVolumeConfig, run_backtest  # noqa: E402
 
@@ -45,7 +51,9 @@ def main() -> None:
     price = t["entry_price"].astype(float)
     size = t["size"].astype(float)
 
-    base_cost = (h_e + np.where(taker_x, h_x, 0.0)) / price * size * 100      # % of account
+    mult = np.where(taker_x, round_trip_spread("market", "market"),
+                    round_trip_spread("market", "limit"))
+    base_cost = (h_e * 2.0 * mult) / price * size * 100      # % of account
     # slippage band: each taker leg may additionally slip by k × half-spread
     band = {}
     for k in (0.0, 0.5, 1.0):

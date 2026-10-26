@@ -337,6 +337,95 @@ uncleaned data; `data_quality.clean(tz=…)` masking the roll in local time whil
 charge 2 spreads round-trip where `cost_gate` assumes 1 — which, per
 `AEP_STAGE0_K3.md`, is enough to flip 4/26 candidates into 15/26.
 
+## 2026-10-26 (later) — Phase 1/2: clocks, cost space, OOS discipline
+
+### Nothing reaches the new band either — and now the bar is the right one
+
+Every stored candidate, re-checked against **1–2 %/month** (band lower edge
++12.7 %/yr):
+
+| candidate | source | annualised, net | vs band |
+|---|---|---|---|
+| gold Supertrend `hf_ls01` / XAUUSD 1h | `net_of_costs`, 1 582 trades | +3.7 %/yr (0× slippage), **+1.7 %/yr (0.5×)**, −0.3 %/yr (1×) | FAIL, 3.5–7× short |
+| `opening_range_breakout` / US100 | −9.8 % gross over 7.8 y | −2.6 %/yr, negative *before* costs | FAIL |
+| `silver_bullet` / XAUUSD | +0.3 % gross, 269 trades | −2.1 %/yr (was −5.2 % before the limit-entry fix) | FAIL |
+| `orb_2r` US100/GER40/XAUUSD | its own six-check gate | `passed: []` | FAIL |
+| mean-reversion candidates | `all_go: []`; 0–1 of 10 walk-forward folds positive | negative | FAIL |
+| H-009 carry | corrected, no look-ahead | +2.4 %/yr, Sharpe 0.27 | FAIL |
+| H-004 Asian range | `studies/run_h004.py` | −1.6 %/yr | FAIL |
+
+Lowering the target did **not** turn anything into a pass. It changed the size of
+the gap from 10–30× to ~3.5–7× and made the band reachable *in principle*
+(Sharpe 0.8–1.8) — the honest outcome, since nothing in the repo is there.
+
+### Clocks (T1.1/T1.4/T1.7)
+
+* `data_quality.clean`/`audit` mask the daily roll in **UTC**
+  (`ROLL_HOURS_UTC`, `roll_mask`). The old mask applied the hours in the *asset*
+  timezone: for a New York asset it blanked 01:00–04:59 UTC and left the real
+  21:00 UTC roll in the data — i.e. exactly the fabricated jumps the gate exists
+  to remove.
+* `smc_ict` reads `weekday`/`hour` from the market calendar (New York), not
+  Berlin; the Berlin weekday pushed every trade after 18:00 NY onto the next day.
+* `docs/TIME_CONVENTIONS.md` writes the convention down: three clocks (UTC index,
+  exchange-local sessions, plan documents in local wall-clock notation), the
+  instrument→session map, the roll window, the cost space and a study checklist.
+* `recheck_cleaned`'s per-year branch was dead (`"cost" in t` could never be true,
+  so `pos_years` was always 0); the cost column is attached now and the metric
+  printed.
+
+### Cost space (T1.5)
+
+One rule, in code and tested: `cost_gate.leg_cost` / `round_trip_spread`
+(limit/TP leg = 0, market/stop/time leg = 0.5 full spreads → 0.0 / 0.5 / 1.0 for
+the three round-trip shapes). `cost_gate` derives its two reported levels from the
+helper; `net_of_costs` takes `entry_leg` per strategy — it charged half a spread on
+*every* entry, which over-charged `silver_bullet`'s resting limit (its net(0×)
+moves from −5.2 % to −2.1 %) — and `gold_baseline_net_costs`/`gold_baseline_v2`
+use it too.
+
+### OOS discipline (T2.1/T2.2/T2.3)
+
+* `trading_lab/walk_forward.py`: 5 rolling folds (20 % test, step capped so the
+  first fold still trains on ≥50 % of the history) instead of one fixed 30 %
+  holdout, chosen per round — so no single window is maximised continuously. Every
+  worker that had a split now splits per round; `LAB_LEGACY_SPLIT=1` restores the
+  old behaviour for old artefacts.
+* `trading_lab/promotion.py`: a promotion must also clear trades ≥ 10, Sharpe ≥ 0.5
+  and drawdown ≤ 20 % (env-tunable), and the meta record carries the fold plus
+  `selection: holdout-max`, so it cannot be read as a frozen-holdout claim. The
+  leaderboard's `prev` starts at −inf now (before, a negative OOS PnL could never
+  become a record).
+* The ST worker's short gate reads the **train** window; too few train shorts keeps
+  shorts on instead of silently forcing long-only.
+
+### Fill side (T1.6)
+
+`studies/h010_fill_rate.py` measures what a backtest cannot. First result (US100,
+2024): the resting limit fills **97 %** (ny) / **94 %** (london) of the time,
+median 1 bar, with a median **1.25–1.36 spread adverse excursion before the fill**
+— and the filled signals are *better* than the counterfactual (R +0.03 vs −0.45 in
+ny). So the fill assumption is not a free lunch, but the price of a limit entry is
+real and shows up as that excursion, which `_resolve` only partly captures (it
+checks the fill bar's own extreme). Queue position and partial fills remain
+unmodelled: the study's number is an upper bound.
+
+**The session-bounded forward window mattered more than the cost fix.** The event
+studies used to read the response at `mid[i + horizon]` on a *session-filtered*
+frame, so a window that ran past the close booked the **overnight gap** as the
+setup's reaction. `h010_variants` (H=240) showed 9 of 40 cells with |t| ≥ 2.5 and a
+positive net; bounded to the session day (479 926 / 482 371 samples dropped) it
+collapses to **1 of 40**, and London's 1.91 bp cell falls to 0.11 bp. For US100 ny
+the one surviving hit is exactly the 1.0 expected by chance among 20 cells, and
+`run_h010_pullback` finds **0 of 4** cells with |t| ≥ 2.5 and a positive net.
+H-010's apparent edge was largely the night.
+
+The cost fix on its own: `run_h001` 2 → 1 spread (eff/cost 3.3 → 6.5, verdict
+unchanged), `mfe_mae` a few pullback cells turn positive (E[R] −0.56 → +0.03),
+`first_passage_grid` 0 → 7 of 480 positive E[R] cells, `asymmetric_rr` numerically
+unchanged (it already used 0.5/1.0 through its own constants, now through the
+helper).
+
 ## Open options (not started)
 
 1. **Execution cost, not pattern search.** Everything died on CFD spreads. CME
