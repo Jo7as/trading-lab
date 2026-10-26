@@ -1,5 +1,12 @@
 """Iterative backtest with self-improving reflection loop.
 
+.. warning:: **Antipattern - not evidence.** This loop re-tunes the parameters
+   *during* the backtest on the same data it then reports, so its result is an
+   in-sample optimum, not a test. Never use its numbers for a go/no-go. Use
+   :mod:`trading_lab.optimizer` (train-only search, trial count, placebo,
+   neighbours, Deflated Sharpe, one-shot holdout) instead. Kept only for the
+   historical MCTFB experiments (audit F9, review 2026-10-26).
+
 Runs the MCTFB strategy on historical data, and after every N closed trades:
   1. Reflects on the results (score-guided random search)
   2. Updates the strategy parameters

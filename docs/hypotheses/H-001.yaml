@@ -1,6 +1,8 @@
 id: H-001
 titel: "Ungewöhnlicher Intraday-Fortschritt bei hoher Volatilität setzt sich bis Session-Ende fort"
 status: kill
+skript: studies/run_h001.py
+stufe: S1
 erstellt: 2026-10-23
 autor: ""
 

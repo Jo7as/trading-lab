@@ -1,6 +1,8 @@
 id: H-003
 titel: "Die Tagesrendite bis eine Stunde vor Schluss sagt die Richtung der letzten Stunde voraus"
 status: kill
+skript: studies/hypotheses_60m.py#H2
+stufe: S1
 erstellt: 2026-10-23
 autor: ""
 

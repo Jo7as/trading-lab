@@ -24,11 +24,21 @@ pass. The report (`AcceptanceReport.summary()`) prints all of it.
 
 Two models, chosen automatically:
 
-- **Generic (default).** A **sign-flip permutation** on the per-trade returns:
-  under "no edge" the returns are symmetric around zero, so the null is the
-  distribution of the mean with randomly flipped signs. One-sided p-value for
-  `mean > 0`. No strategy cooperation needed — it works on any trade log via
-  `significance.returns_from_trades()` (uses `r`, else `pnl_pct`).
+- **Generic (default).** When the trade log carries a clock, the decision is made
+  on the **daily** aggregate — `t_daily >= 3` on the calendar-day sums
+  (`significance.assess_trades`, the same criterion as funnel stage S4). The
+  daily series is used because same-day trades are not independent and an account
+  experiences days - it does **not** add power: with independent trades its t
+  equals the per-trade t (checked over 2,000 seeds, `tests/test_screening.py::
+  test_daily_aggregation_does_not_add_power`). The real fix for "rejected for lack
+  of power" is a bar that knows how much was searched: one pre-registered variant
+  needs t >= 1.645, the best of a broad search is judged by its **Deflated
+  Sharpe** (`screening.deflated_sharpe`, fed by `trading_lab/optimizer.py`), and
+  `t >= 3` is only the default when the number of trials is unknown. A **sign-flip permutation** on the per-trade
+  returns (one-sided p-value for `mean > 0`) is kept as the fallback for a log
+  with **no** clock at all — a series that cannot be aggregated cannot do better.
+  Both need no strategy cooperation (`significance.returns_from_trades()`, using
+  `r`, else `pnl_pct`).
 - **Random-entry (percentile).** The caller supplies a null sample of the same
   statistic (`null_samples`) and the test reports the percentile the strategy
   beats. Used by the ORB machine and the C1 harness, which build a true
@@ -49,8 +59,9 @@ The evolution gate reads them from the environment:
 | `LAB_SIGNIFICANCE` | `1` | `0` disables the gate (debug only) |
 | `LAB_SIGNIFICANCE_MODE` | `enforce` | `enforce` blocks a non-significant promotion; `flag` still promotes but records the result |
 | `LAB_SIGNIFICANCE_MIN_PERCENTILE` | `95` | random-entry threshold |
-| `LAB_SIGNIFICANCE_MAX_PVALUE` | `0.05` | sign-flip threshold |
+| `LAB_SIGNIFICANCE_MAX_PVALUE` | `0.05` | per-trade sign-flip threshold (clockless fallback) |
 | `LAB_SIGNIFICANCE_MIN_TRADES` | `10` | minimum trades to trust |
+| `LAB_SIGNIFICANCE_T_DAILY` | `3.0` | S4 bar on the **daily** t (clocked log) |
 
 **Fail-open, but only for an empty log.** Three outcomes, and the difference
 between them matters:

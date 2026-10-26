@@ -1,6 +1,8 @@
 id: H-007
 titel: Supertrend-Flip auf FX-Majors setzt den Trend bis zum Flip/Stop fort
 status: kill
+skript: trading_lab/st_evolution_worker.py
+stufe: S1
 erstellt: 2026-10-24
 autor: ''
 beobachtung: 'Die Gold-Supertrend-Variante war das einzige Modul mit positivem Brutto.

@@ -1,6 +1,8 @@
 id: H-004
 titel: Asian-Range-Breakout setzt sich in der London-Session fort
 status: kill
+skript: studies/multimarket_check.py
+stufe: S1
 erstellt: 2026-10-24
 autor: ''
 beobachtung: 'Dokumentierte Intraday-Saisonalität der FX-Majors: In der asiatischen

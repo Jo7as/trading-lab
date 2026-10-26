@@ -1,6 +1,8 @@
 id: H-009
 titel: FX-Carry mit Ruhe-Filter und gemarkteter Finanzierung ist netto tragfaehig
-status: bestanden_validate
+status: widerlegt
+skript: studies/carry_real_swaps.py
+stufe: S1
 erstellt: 2026-10-24
 autor: ''
 beobachtung: 'Nachfolge von H-008. Dessen Preis-Claim war zu streng formuliert (Preis-Sharpe
@@ -94,27 +96,4 @@ varianten:
 - name: vola_ziel
   aenderung: 'Vola-Ziel 12% (verworfen: senkt Sharpe, hebt MDD)'
 datenabschnitt: train
-ergebnis: "Getestet 2026-10-24. Basis (26 Paare, -30% Marge, Filter, n=58 aktive Monate):\
-  \ CAGR +13.3% / Vola 8.4% / Sharpe 1.59 / MDD -8.9% / 74% positive Monate; Train\
-  \ 2019-23 Sharpe 1.30, Holdout 2024-26 2.75 (CAGR 15.7%, MDD -2.6%); Zufalls-Ranking-Placebo:\
-  \ CAGR -8.1% / Sharpe -1.00 / MDD -36.2% -> deutlich geschlagen. Alle 8 Jahre positiv\
-  \ (2.8%..17.4%). G10-only: Sharpe 0.97 / MDD -13.2% (Exoten tragen die Haelfte).\
-  \ Claim erfuellt (>= 10%/yr und Sharpe >= 1.2, in Sample und Holdout; Placebo negativ).\
-  \ OFFEN/VORBEHALTE: (1) echte Broker-Swap-/Spread-Saetze fuer die 5 Exoten-Legs\
-  \ fehlen weiterhin (FRED + 30% Marge ist ein Modell); (2) Dosis-Wirkung nicht monoton\
-  \ -> Positionsgroesse nicht nach Carry-Hoehe skalieren; (3) Vola-Ziel-Hebel verworfen\
-  \ (0.78 -> 0.67 Sharpe, MDD -13.2% -> -18.7%); (4) Carry braucht Overnight-/Wochenendhaltung\
-  \ (Firmenregeln pruefen); (5) bei 1x betraegt der MDD ~-9% (volle Quote) bzw. ~-13%\
-  \ (G10) -> fuer ein 10%-Prop-Limit nur ohne Hebel, fuer das Zielband 2-4%/Monat\
-  \ braucht es Hebel und damit ein 20%-Limit-Konto oder Eigenkapital.\n MARGE-ASYMMETRIE\
-  \ + 3x-ROLLOVER (2026-10-24, studies/carry_margin_sensitivity.py): Selbstkontrolle\
-  \ bestanden (symmetrisch -30% reproduziert Sharpe 1.59/MDD -8.9%). asymmetrisch\
-  \ L10/S30: +14.0%/1.67/-8.8%; L20/S50: +13.0%/1.55/-9.1%; L20/S50 + 3x-Rollover:\
-  \ +14.2%/1.69/-8.8%; BRUTAL L30/S70 + 3x: +12.9%/1.54/-9.2%, alle 8 Jahre positiv\
-  \ (2020 +3.5%, 2022 +5.3%). -> Die Margen-Annahme von H-009 (-30% symmetrisch) war\
-  \ KONSERVATIV; die asymmetrische Realitaet verbessert das Ergebnis leicht. Der Edge\
-  \ ueberlebt selbst die brutalste realistische Marge; die verbleibende Unbekannte\
-  \ (echte Broker-Tabelle) verschiebt die Zahl innerhalb 1.5-1.7 Sharpe, nicht das\
-  \ Vorzeichen. ZIELBAND: +12.9..14.2%/yr bei 8.4% Vola -> fuer 2%/Monat braucht es\
-  \ ~2.0-2.1x Hebel (Vola ~17%, MDD ~-18..-19%) -> Eigenkapital oder 20%-Limit-Konto,\
-  \ nicht FTMO-Standard."
+ergebnis: "Getestet 2026-10-24, WIDERLEGT 2026-10-25.\n ANLASS: Der Prop-Firm-Test \ (studies/carry_prop_sim.py) brauchte einen taeglichen Pfad statt der Monatsreihe; \ dabei fiel auf, dass der VIX-Filter mit dem VIX am ENDE der Periode ausgewertet wurde, \ die er filtern soll. Das ist Look-ahead und erklaert den gesamten Edge.\n DER BUG \ (studies/carry_real_swaps.py, carry_final.py, carry_margin_sensitivity.py, \ carry_swap_validation.py - alle gleich): 'active' wurde aus vp.reindex(idx) gebildet, \ wobei idx die MonatsENDEN b sind, waehrend die Rendite von a nach b laeuft. Der VIX \ am Monatsende korreliert mit dem Monatsergebnis (Markt faellt -> VIX steigt), also \ waehlt der Filter genau die guten Monate aus.\n BEWEIS (26 Paare, FRED-Raten, \ gemessene Dukascopy-Marge, 2019-02..2026-09, 92 Monate): VIX-Ende<70 +13.8%/Sharpe \ 1.69/MDD -5.9%; Gegenprobe VIX-Ende>=70 -15.9%/Sharpe -1.48 - der Filter TRENNT \ perfekt. Korrekt ausgewertet VIX-ANFANG<70: +3.3%/0.37/-20.2%; Gegenprobe \ VIX-Anfang>=70: +4.9%/0.41/-11.5% - der Filter trennt NICHTS (0.1 Prozentpunkt \ Unterschied zwischen den Gruppen). Ganz ohne Filter: +3.8%/0.39/-16.5%. Der Preisteil \ allein: -0.6%/Jahr, Sharpe -0.07. Jahre mit korrektem Filter: 2019 -2.2, 2020 -8.6, \ 2021 -4.3, 2022 -5.5, 2023 +20.8, 2024 +10.3, 2025 +4.8, 2026 +3.7 (4/8 negativ). \ Placebo -2.4%/Sharpe -0.48, also kaum Abstand.\n WARUM DIE FRUEHEREN ZAHLEN FALSCH \ WAREN: Alle H-008/H-009-Ergebnisse (inkl. der gemessenen Dukascopy-Marge: +14.4%/1.71 \ 'Regular + 3x Rollover', Train 1.38, Holdout 3.03, Placebo -5.1%) stammen aus derselben \ look-ahead-verzerrten Auswertung und sind ungueltig. Die gemessene Margen-Tabelle \ selbst (trading_lab/duka_swaps.py, 349 Instrumente) bleibt gueltig - sie beschreibt \ die Finanzierung, nicht den Filter; nur die Strategie-Schlussfolgerung faellt.\n \ WAS UEBRIG BLEIBT: Cross-sectional FX-Carry (long Top-4 / short Bottom-4 nach \ Zinsdifferenz, monatlich, gleichgewichtet) liefert ueber 92 Monate +3.8%/Jahr bei \ 9.7% Vola (Sharpe 0.39, MDD -16.5%) und ohne Finanzierung -0.6%/Jahr. Das ist \ deutlich unter dem Zielband 2-4%/Monat (26.8-60%/Jahr) und unter jedem sinnvollen \ Prop-Kriterium. Die Finanzierung traegt den Grossteil, der Preis nichts.\n \ OFFEN / NAECHSTER SCHRITT: (1) die vier carry-Studien auf den korrekten \ Filterzeitpunkt umstellen; (2) pruefen, ob ein anderer, ex-ante messbarer Risiko-Filter \ (z.B. realisierte Vola des Korbs selbst, Drawdown-Status, Zinskurven-Slope) etwas \ beitraegt - der VIX-Perzentil-Ansatz ist es jedenfalls nicht; (3) pruefen, ob ein \ anderer Horizont (woechentlich statt monatlich) den Look-ahead-freien Edge hebt."

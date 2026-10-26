@@ -22,6 +22,11 @@ def lade(name):
 def registrierte_karte():
     karte = lade("H-001.yaml")
     karte["status"] = "registriert"
+    # Stufe deklarieren und deren Kill-Kriterium erfuellen - sonst warnt der
+    # Validator (fehlendes Kriterium -> Stufen-Default gilt), und der Test unten
+    # prueft "keine Warnungen".
+    karte["stufe"] = "S1"
+    karte["kill_kriterien"] = {"min_trades": 100}
     karte["s0"].update(kosten_rt_bp=2.0, typische_bewegung_bp=40.0, s0_quote=0.05, min_effekt_bp=4.0)
     return karte
 
@@ -63,11 +68,19 @@ def test_instrument_ohne_audit_freigabe():
     assert any("audit_passed" in m and "GER40" in m for m in erg.fehler)
 
 
-def test_s0_gate_nicht_bestanden():
+def test_s0_gate_warnt_statt_zu_blockieren():
+    """Die S0-Quote ist eine Prognose - sie darf den Test nicht verhindern.
+
+    Vorher: `s0_quote 0.2 > grenze 0.1` -> Fehler -> "Hypothese nicht testen".
+    Jetzt: Warnung. Der Kandidat geht in S1 (brutto); scheitert er, dann an S2 auf
+    echten Ergebnissen. Ein Vorhersage-Wert darf keine Strategie toeten.
+    """
     karte = registrierte_karte()
     karte["s0"].update(kosten_rt_bp=6.0, typische_bewegung_bp=30.0, s0_quote=0.2, min_effekt_bp=12.0)
     erg = validiere(karte, audit=AUDIT_OK)
-    assert any("S0-Gate nicht bestanden" in m for m in erg.fehler)
+    assert erg.gueltig, erg.fehler
+    assert any("S0-Quote" in w for w in erg.warnungen)
+    assert not any("nicht testen" in m for m in erg.fehler)
 
 
 def test_s0_quote_inkonsistent():
@@ -77,11 +90,13 @@ def test_s0_quote_inkonsistent():
     assert any("passt nicht" in m for m in erg.fehler)
 
 
-def test_min_effekt_zu_klein():
+def test_min_effekt_zu_klein_warnt_statt_zu_blockieren():
+    """Auch der Mindest-Effekt ist eine Schaetzung, kein Ergebnis - Warnung, kein Fehler."""
     karte = registrierte_karte()
     karte["s0"]["min_effekt_bp"] = 3.0
     erg = validiere(karte, audit=AUDIT_OK)
-    assert any("min_effekt_bp" in m for m in erg.fehler)
+    assert erg.gueltig, erg.fehler
+    assert any("min_effekt_bp" in w for w in erg.warnungen)
 
 
 def test_kurzer_horizont_ohne_begruendung():
@@ -99,31 +114,49 @@ def test_kurzer_horizont_mit_begruendung_erlaubt():
     assert erg.gueltig, erg.fehler
 
 
-@pytest.mark.parametrize("feld,wert", [
-    ("t_min", 2.0),
-    ("placebo_mindestabstand", 0.3),
-    ("dosis_rangkorrelation_min", 0.5),
-    ("vorzeichen_jahre_min", 0.6),
-    ("netto_effekt_min_bp", -1.0),
-])
-def test_kill_kriterien_duerfen_nicht_gelockert_werden(feld, wert):
+def test_kill_kriterium_ohne_begruendung_nicht_lockern():
+    """Ein lockereres Kriterium als der Stufen-Default braucht eine Begruendung.
+
+    Die Feldnamen sind jetzt stufenbezogen (S1: min_trades, S3: vorzeichen_jahre_min,
+    S4: t_daily_min) - vorher waren es globale Namen mit t_min auf der Trade-Reihe.
+    """
     karte = registrierte_karte()
-    karte["kill_kriterien"][feld] = wert
+    karte["kill_kriterien"]["min_trades"] = 10        # S1-Default ist 100
     erg = validiere(karte, audit=AUDIT_OK)
-    assert any(feld in m and "lockerer" in m for m in erg.fehler)
+    assert any("min_trades" in m and "lockerer" in m for m in erg.fehler)
+
+
+def test_kill_kriterium_lockerung_mit_begruendung_erlaubt():
+    """Vorher war jede Lockerung verboten - ein falsch gesetzter Wert war fuer immer falsch."""
+    karte = registrierte_karte()
+    karte["kill_kriterien"]["min_trades"] = 10
+    karte["abweichung_begruendung"] = "hochfrequenter Kandidat, 10 Trades je Fenster reichen"
+    erg = validiere(karte, audit=AUDIT_OK)
+    assert erg.gueltig, erg.fehler
 
 
 def test_kill_kriterien_verschaerfen_erlaubt():
     karte = registrierte_karte()
-    karte["kill_kriterien"]["t_min"] = 3.5
+    karte["kill_kriterien"]["min_trades"] = 500
     assert validiere(karte, audit=AUDIT_OK).gueltig
 
 
-def test_s0_grenze_darf_nicht_gelockert_werden():
+def test_kill_kriterien_je_stufe():
+    """S4 ist streng, S1 nicht - dieselbe Karte, zwei Stufen."""
+    karte = registrierte_karte()
+    karte["stufe"] = "S4"
+    karte["kill_kriterien"] = {"min_trades": 100}
+    erg = validiere(karte, audit=AUDIT_OK)
+    assert any("t_daily_min" in w for w in erg.warnungen)   # S4-Kriterium fehlt -> Default
+
+
+def test_s0_grenze_lockerung_nur_mit_begruendung():
+    """Eine lockerere S0-Grenze ist erlaubt, aber begruendungspflichtig."""
     karte = registrierte_karte()
     karte["s0"]["grenze"] = 0.2
-    erg = validiere(karte, audit=AUDIT_OK)
-    assert any("s0.grenze" in m for m in erg.fehler)
+    assert any("s0.grenze" in w for w in validiere(karte, audit=AUDIT_OK).warnungen)
+    karte["abweichung_begruendung"] = "Grenze auf dem korrigierten Datenrahmen neu kalibriert"
+    assert not any("s0.grenze" in w for w in validiere(karte, audit=AUDIT_OK).warnungen)
 
 
 def test_zu_viele_zustaende():
@@ -169,11 +202,20 @@ def test_fehlender_mechanismus():
     assert any("mechanismus.wer" in m for m in erg.fehler)
 
 
-def test_zu_viele_varianten():
+def test_varianten_budget_je_stufe():
+    """S1/S2 sind unbegrenzt - dort gehoert die Exploration hin, nicht in einen Deckel.
+
+    Vorher: `MAX_VARIANTEN = 10`, also hartes Limit fuer *jede* Karte. Das war das
+    Gegenteil von "hunderte Varianten testen".
+    """
     karte = registrierte_karte()
-    karte["varianten"] = [{"name": f"v{i}", "aenderung": "x"} for i in range(11)]
-    erg = validiere(karte, audit=AUDIT_OK)
-    assert any("Trial-Budget" in m for m in erg.fehler)
+    karte["varianten"] = [{"name": f"v{i}", "aenderung": "x"} for i in range(600)]
+    # S1: unbegrenzt
+    assert not any("Budget" in w for w in validiere(karte, audit=AUDIT_OK).warnungen)
+    # S3: Budget 500 -> 600 uebersteigt es (Warnung, kein Fehler)
+    karte["stufe"] = "S3"
+    karte["kill_kriterien"] = {"vorzeichen_jahre_min": 0.7, "nachbar_anteil_min": 0.5}
+    assert any("Budget" in w for w in validiere(karte, audit=AUDIT_OK).warnungen)
 
 
 def test_validate_abschnitt_nicht_erlaubt():

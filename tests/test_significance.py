@@ -1,19 +1,30 @@
 """Tests for the shared significance / acceptance path."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import numpy as np
 
 from trading_lab import acceptance, significance
 from trading_lab.significance import (
     MAX_PVALUE,
     MIN_PERCENTILE,
+    T_DAILY_MIN,
     assess,
+    assess_trades,
     bootstrap_ci,
     percentile_of,
     promotion_gate,
     returns_from_trades,
     sign_flip_pvalue,
 )
+
+
+def _daily_log(values) -> list[dict]:
+    """One closed trade per calendar day — the shape S4 judges."""
+    base = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    return [{"status": "closed", "exit_time": (base + timedelta(days=i)).isoformat(),
+             "r": float(v)} for i, v in enumerate(values)]
 
 
 def test_bootstrap_ci_of_constant_series_is_a_point():
@@ -139,3 +150,46 @@ def test_run_acceptance_requires_significance_and_extra_criteria():
     blocked = acceptance.run_acceptance(strong, extra={"oos_positive": True, "cost_ok": False})
     assert not blocked.passed
     assert blocked.significance.passed and not blocked.criteria["cost_ok"]
+
+
+# ── S4: a trade log with a clock is judged on the DAILY series ──────────────
+
+def test_assess_trades_uses_the_daily_t_when_a_clock_exists():
+    strong = [0.5 + (0.01 if i % 2 else -0.01) for i in range(60)]
+    sig = assess_trades(_daily_log(strong))
+    assert sig.method == "daily-t" and sig.passed and sig.t >= T_DAILY_MIN
+
+
+def test_assess_trades_fails_a_flat_daily_series_with_an_evidence_reason():
+    flat = [0.1 if i % 2 else -0.1 for i in range(60)]      # mean 0 → no edge
+    sig = assess_trades(_daily_log(flat))
+    assert sig.method == "daily-t" and not sig.passed and sig.reason.startswith("t_daily")
+
+
+def test_assess_trades_falls_back_to_per_trade_without_a_clock():
+    sig = assess_trades([{"status": "closed", "r": 1.0}] * 25)
+    assert sig.method == "sign-flip" and sig.passed
+
+
+def test_promotion_gate_uses_the_daily_series_when_the_log_has_a_clock():
+    strong = [0.5 + (0.01 if i % 2 else -0.01) for i in range(60)]
+    allowed, sig, evaluated = promotion_gate(_daily_log(strong))
+    assert allowed and evaluated and sig.method == "daily-t" and sig.passed
+
+
+def test_promotion_gate_blocks_a_clocked_log_with_no_daily_edge():
+    flat = [0.1 if i % 2 else -0.1 for i in range(60)]
+    allowed, sig, evaluated = promotion_gate(_daily_log(flat))
+    assert not allowed and evaluated and sig.method == "daily-t" and not sig.passed
+
+
+def test_run_acceptance_judges_a_clocked_log_on_the_daily_series():
+    strong = [0.5 + (0.01 if i % 2 else -0.01) for i in range(60)]
+    rep = acceptance.run_acceptance(_daily_log(strong))
+    assert rep.passed and rep.significance.method == "daily-t" and rep.n_days == 60
+
+
+def test_acceptance_report_summary_renders():
+    """Regression: the report used ``significance.t`` before it existed."""
+    txt = acceptance.run_acceptance([{"status": "closed", "r": 0.5}] * 25).summary()
+    assert "ACCEPTANCE" in txt and "t je Tag" in txt

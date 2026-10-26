@@ -1,6 +1,8 @@
 id: H-008
 titel: FX-Carry funktioniert nur im ruhigen Regime (Risikofilter) - monatlich, Korb
 status: kill
+skript: studies/carry_final.py
+stufe: S1
 erstellt: 2026-10-24
 autor: ''
 beobachtung: 'Der Carry-Faktor (Zinsdifferenz) ist der dokumentierte klassische FX-Praemie-Edge

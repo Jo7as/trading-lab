@@ -1,13 +1,20 @@
 """Significance tests shared by every strategy's acceptance path.
 
 A result is only accepted — a backtest PASS, an evolution promotion to
-``best_oos`` — if its per-trade return series is distinguishable from a
-no-edge null. Two models, one threshold set:
+``best_oos`` — if its return series is distinguishable from a no-edge null. Three
+tests, one threshold set:
 
-* **generic (default).** A sign-flip permutation test on the trade returns:
-  under "no edge" the returns are symmetric around zero, so flipping their
-  signs yields the null distribution of the mean. Answers "is the edge real
-  given this sample?" without any strategy cooperation.
+* **daily (default for a trade log with a clock).** Stage S4: ``t >= 3`` on the
+  **calendar-day** aggregate (:func:`assess_trades`). The daily series is the
+  honest one for correlated same-day trades; it does **not** buy power (with
+  independent trades its t equals the per-trade t). A small edge with
+  ``sd(R) ~ 4`` stays hard to prove either way - the fix for that is more trades
+  or a larger edge, and a bar that knows how many variants were searched
+  (``screening.required_t`` / ``screening.deflated_sharpe``).
+* **generic (fallback).** A sign-flip permutation on the *per-trade* returns,
+  used only when the log has no clock and cannot be aggregated: under "no edge"
+  the returns are symmetric around zero, so flipping their signs yields the null
+  distribution of the mean.
 * **strategy-provided.** A random-entry baseline (a percentile): the caller
   supplies a null sample of the same statistic (sum R). Used by the ORB
   machine (``strategies/orb_2r.py``) and the C1 harness, which can build a true
@@ -19,20 +26,23 @@ Callers can also override ``run_acceptance`` with extra pass/fail criteria
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+from . import screening
 from .env import env
 
 # ── Thresholds: the single place every caller reads them from ──────────
 MIN_PERCENTILE = 95.0   # must beat this % of a provided random-entry null
 MAX_PVALUE = 0.05       # one-sided p-value for the generic sign-flip test
 MIN_TRADES = 10         # below this the test is not trusted (avoids 1-lucky-trade)
+T_DAILY_MIN = 3.0       # S4: t of the DAILY series (screening.S4_MIN_T_DAILY)
 
 _BOOT = 2000
 _FLIPS = 5000
 _RETURN_KEYS = ("r", "pnl_pct", "equity_pnl_pct")
+_CLOCK_KEYS = ("day", "exit_time", "entry_time")
 
 
 @dataclass(frozen=True)
@@ -48,11 +58,13 @@ class Significance:
     p_value: float | None = None
     percentile: float | None = None
     reason: str = ""
+    t: float = 0.0
 
     def summary(self) -> str:
         bits = [
             self.method,
             f"n={self.n}",
+            f"t={self.t:.2f}",
             f"obs={self.observed:+.3f}",
             f"95%-CI=[{self.ci_low:+.3f},{self.ci_high:+.3f}]",
         ]
@@ -70,6 +82,7 @@ class Significance:
         return {
             "method": self.method,
             "n": self.n,
+            "t": round(self.t, 4),
             "observed": round(self.observed, 4),
             "ci_low": round(self.ci_low, 4),
             "ci_high": round(self.ci_high, 4),
@@ -151,6 +164,7 @@ def assess(
     """
     a = _clean(returns)
     lo, hi = bootstrap_ci(a, seed=seed)
+    t = screening.t_stat(a)
 
     if null_samples is not None:
         obs = float(a.sum()) if observed is None else float(observed)
@@ -159,21 +173,82 @@ def assess(
         reason = "" if a.size >= min_trades else f"n<{min_trades}"
         return Significance(
             method="random-entry", n=a.size, observed=obs,
-            ci_low=lo, ci_high=hi, percentile=pct, passed=ok, reason=reason,
+            ci_low=lo, ci_high=hi, percentile=pct, passed=ok, reason=reason, t=t,
         )
 
     obs = float(observed) if observed is not None else (float(a.mean()) if a.size else 0.0)
     if a.size < min_trades:
         return Significance(
             method="sign-flip", n=a.size, observed=obs, ci_low=lo, ci_high=hi,
-            passed=False, reason=f"n<{min_trades}",
+            passed=False, reason=f"n<{min_trades}", t=t,
         )
     p = sign_flip_pvalue(a, seed=seed)
     return Significance(
         method="sign-flip", n=a.size, observed=obs, ci_low=lo, ci_high=hi,
         p_value=p, passed=p <= max_pvalue,
-        reason="" if p <= max_pvalue else f"p>{max_pvalue}",
+        reason="" if p <= max_pvalue else f"p>{max_pvalue}", t=t,
     )
+
+
+def assess_trades(
+    trades: Sequence[dict],
+    *,
+    observed: float | None = None,
+    null_samples: Sequence[float] | None = None,
+    min_percentile: float = MIN_PERCENTILE,
+    max_pvalue: float = MAX_PVALUE,
+    min_trades: int = MIN_TRADES,
+    t_daily_min: float = T_DAILY_MIN,
+    seed: int = 7,
+) -> Significance:
+    """Significance for a **trade log**, judged on the DAILY series (stage S4).
+
+    This is the criterion the funnel enforces (``screening.s4_significant``):
+    ``t >= t_daily_min`` on the calendar-day aggregate, not the per-trade t. The
+    per-trade series is the trap the audit named (``sd(R) ~ 4`` needs ~20,000
+    trades to resolve a 0.1 R edge), so it is only the fallback for a log that
+    carries no clock at all - a caller that cannot aggregate cannot do better.
+
+    ``null_samples`` keeps the strategy-provided random-entry (percentile) test
+    unchanged; it is the caller's own null and is not aggregated.
+    """
+    trades = list(trades or [])
+    returns = returns_from_trades(trades)
+
+    if null_samples is not None:
+        return assess(
+            returns, observed=observed, null_samples=null_samples,
+            min_percentile=min_percentile, max_pvalue=max_pvalue,
+            min_trades=min_trades, seed=seed,
+        )
+
+    daily = _daily_series(trades)
+    if daily is not None and len(daily) >= 2:
+        t = screening.t_stat(daily)
+        lo, hi = bootstrap_ci(daily.to_numpy(), seed=seed)
+        n = len(returns)
+        passed = n >= min_trades and t >= t_daily_min
+        reason = "" if passed else (f"n<{min_trades}" if n < min_trades
+                                    else f"t_daily<{t_daily_min:g}")
+        return Significance(
+            method="daily-t", n=n, observed=float(daily.mean()),
+            ci_low=lo, ci_high=hi, passed=passed, reason=reason, t=t,
+        )
+
+    return assess(
+        returns, observed=observed, min_percentile=min_percentile,
+        max_pvalue=max_pvalue, min_trades=min_trades, seed=seed,
+    )
+
+
+def _daily_series(trades: Sequence[dict]) -> Any | None:
+    """The daily return series of a closed-trade log, or ``None`` if there is no clock."""
+    closed = [t for t in trades if t.get("status") in (None, "closed")]
+    if not closed or not any(k in t for t in closed for k in _CLOCK_KEYS):
+        return None
+    key = next((k for k in _RETURN_KEYS if any(t.get(k) is not None for t in closed)), "r")
+    s = screening.daily_series(closed, r_key=key)
+    return s if len(s) else None
 
 
 def _has_closed_trades(trades: Sequence[dict]) -> bool:
@@ -193,6 +268,10 @@ def promotion_gate(
       promotion; ``flag`` records the result in ``best_oos_meta.json`` but still
       promotes.
     * ``LAB_SIGNIFICANCE_MIN_PERCENTILE`` / ``_MAX_PVALUE`` / ``_MIN_TRADES``.
+    * ``LAB_SIGNIFICANCE_T_DAILY`` — the S4 bar on the **daily** t (default 3.0).
+      The decided branch uses :func:`assess_trades`, so a log with a clock is
+      judged on its calendar-day series; only a clockless log falls back to the
+      per-trade sign-flip.
 
     Three outcomes, and the difference between them matters:
 
@@ -227,12 +306,13 @@ def promotion_gate(
         mode = (env("LAB_SIGNIFICANCE_MODE", "enforce") or "enforce").strip().lower()
         return (mode == "flag"), sig, True
 
-    sig = assess(
-        returns,
+    sig = assess_trades(
+        trades,
         null_samples=null_samples,
         min_percentile=float(env("LAB_SIGNIFICANCE_MIN_PERCENTILE", str(MIN_PERCENTILE))),
         max_pvalue=float(env("LAB_SIGNIFICANCE_MAX_PVALUE", str(MAX_PVALUE))),
         min_trades=int(env("LAB_SIGNIFICANCE_MIN_TRADES", str(MIN_TRADES))),
+        t_daily_min=float(env("LAB_SIGNIFICANCE_T_DAILY", str(T_DAILY_MIN))),
         seed=seed,
     )
     if sig.passed:

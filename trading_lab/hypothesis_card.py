@@ -18,7 +18,11 @@ from pathlib import Path
 
 import yaml
 
-STATUS = {"entwurf", "registriert", "kill", "bestanden_train", "bestanden_validate"}
+# "kill" = getestet und keine Kante. "nicht_nachweisbar" = der Test hatte zu wenig
+# Power, um zu entscheiden (das war der Fehler, der die alten Karten zu Unrecht
+# getoetet hat). "widerlegt" = der Effekt war ein Artefakt (z.B. Look-ahead).
+STATUS = {"entwurf", "registriert", "kill", "nicht_nachweisbar", "widerlegt",
+          "bestanden_train", "bestanden_validate"}
 FAMILIEN = {f"Z{i}" for i in range(1, 11)}
 EINHEITEN = {"sigma", "spread", "perzentil", "session_min", "z", "quote", "verhaeltnis", "korrelation"}
 DATENABSCHNITTE = {"train", "exploration"}
@@ -33,19 +37,37 @@ VERBOTENE_BEGRIFFE = [
     "break of structure", "change of character",
 ]
 
-KILL_DEFAULTS = {
-    # Feld: (Default, Richtung "min" = Wert darf nur größer werden)
-    "t_min": 3.0,
-    "placebo_mindestabstand": 0.5,
-    "dosis_rangkorrelation_min": 0.8,
-    "vorzeichen_jahre_min": 0.7,
-    "netto_effekt_min_bp": 0.0,
+# Kill-Kriterien je **Stufe** des Trichters (trading_lab/screening.py), nicht global.
+#
+# Was vorher falsch war: alle Kriterien galten gleichzeitig, und `t_min = 3.0` wurde
+# auf der *Trade*-Reihe geprüft. Mit sd(R) ~ 4 braucht ein 0.1-R-Edge dafür ~20.000
+# Trades - kein Kandidat in diesem Repo konnte das erreichen, also starben die
+# Kandidaten an fehlender Teststärke statt an fehlender Kante. Ab jetzt gilt:
+# S1 ist locker (nur "es bewegt sich was"), erst S4 ist streng.
+KILL_JE_STUFE: dict[str, dict] = {
+    "S1": {"min_trades": 100},
+    "S2": {},                                    # gross_bp > cost_bp
+    "S3": {"vorzeichen_jahre_min": 0.7, "nachbar_anteil_min": 0.5},
+    # t_daily_min 3.0 gilt nur, wenn die Zahl der getesteten Varianten unbekannt ist;
+    # der Trichter nimmt sonst DSR bzw. screening.required_t(n_trials) (1 Variante: 1.645).
+    "S4": {"t_daily_min": 3.0, "placebo_vorsprung_min": 0.0, "pbo_max": 0.25},
+    "S5": {},                                    # Holdout bestanden
 }
+STUFEN = tuple(KILL_JE_STUFE)
 
+# Abweichungen von einem Stufen-Kriterium sind erlaubt, aber nur mit Begruendung
+# (Feld `abweichung_begruendung`). Ohne Begruendung bleibt die Pruefung scharf -
+# vorher war jede Lockerung verboten, also war ein falsch gesetzter Wert fuer immer
+# falsch.
 MAX_ZUSTAENDE = 2
-MAX_VARIANTEN = 10
 MIN_HORIZONT = 60
 S0_GRENZE_DEFAULT = 0.10
+
+# Varianten sind kein Deckel mehr, sondern ein Budget **je Stufe**. Exploration darf
+# breit sein; die Disziplin kommt ueber das Versuchsregister und den Trichter, nicht
+# ueber ein Limit von 10 (das war das Gegenteil von "hunderte Varianten testen").
+VARIANTEN_BUDGET: dict[str, int | None] = {"S1": None, "S2": None, "S3": 500,
+                                           "S4": 50, "S5": 5}
 
 
 @dataclass
@@ -146,9 +168,14 @@ def validiere(karte: dict, pfad: str = "<karte>", audit: dict | None = None) -> 
     elif horizont < MIN_HORIZONT and _leer(s0.get("kurz_horizont_begruendung")):
         f.append(f"horizont_min < {MIN_HORIZONT} nur mit s0.kurz_horizont_begruendung erlaubt")
 
+    begruendet = not _leer(karte.get("abweichung_begruendung"))
     grenze = s0.get("grenze", S0_GRENZE_DEFAULT)
     if not _ist_zahl(grenze) or grenze > S0_GRENZE_DEFAULT:
-        f.append(f"s0.grenze darf höchstens {S0_GRENZE_DEFAULT} sein (nur verschärfen)")
+        # A4: eine lockerere Grenze ist erlaubt, wenn sie begruendet ist. Vorher war
+        # jede Lockerung verboten, also war ein falsch gesetzter Wert fuer immer falsch.
+        if not begruendet:
+            w.append(f"s0.grenze {grenze} ist lockerer als der Default "
+                     f"{S0_GRENZE_DEFAULT} - nur mit abweichung_begruendung erlaubt")
 
     s0_zahlen = {k: s0.get(k) for k in ("kosten_rt_bp", "typische_bewegung_bp", "s0_quote", "min_effekt_bp")}
     fehlend = [k for k, v in s0_zahlen.items() if not _ist_zahl(v)]
@@ -163,26 +190,43 @@ def validiere(karte: dict, pfad: str = "<karte>", audit: dict | None = None) -> 
         else:
             if abs(quote - kosten / bewegung) > 0.005:
                 f.append(f"s0.s0_quote ({quote}) passt nicht zu kosten/bewegung ({kosten / bewegung:.4f})")
+            # A1: die S0-Quote ist eine **Prognose**, kein Ergebnis. Sie darf den Test
+            # nicht verhindern - sie wandert in die Warnungen. Kosten sind Stufe S2 des
+            # Trichters und werden dort auf echten Ergebnissen angewendet.
             if _ist_zahl(grenze) and quote > grenze:
-                f.append(f"S0-Gate nicht bestanden: s0_quote {quote} > grenze {grenze} → Hypothese nicht testen")
+                w.append(f"S0-Quote {quote:.3f} > {grenze}: die Kostenschaetzung ist "
+                         f"unguenstig, aber das ist eine Prognose. Der Kandidat geht in "
+                         f"S1 (brutto) und scheitert, falls ueberhaupt, erst an S2.")
             if min_eff < 2 * kosten - 1e-9:
-                f.append(f"s0.min_effekt_bp muss >= 2 x kosten_rt_bp sein ({2 * kosten})")
+                w.append(f"s0.min_effekt_bp ({min_eff}) < 2 x kosten_rt_bp "
+                         f"({2 * kosten}): ebenfalls nur eine Schaetzung - S2 entscheidet.")
 
-    # Kill-Kriterien: nur verschärfen
+    # A3: Kill-Kriterien je **Stufe** statt global. Fehlt ein Kriterium, gilt der
+    # Stufen-Default (Warnung, kein Fehler); ist es lockerer als der Default, braucht
+    # es eine Begruendung.
+    stufe = str(karte.get("stufe") or "S1").upper()
+    if stufe not in STUFEN:
+        f.append(f"stufe muss eine von {list(STUFEN)} sein, ist {stufe!r}")
+        stufe = "S1"
     kill = karte.get("kill_kriterien") or {}
-    for feld, default in KILL_DEFAULTS.items():
+    for feld, default in KILL_JE_STUFE[stufe].items():
         wert = kill.get(feld)
-        if not _ist_zahl(wert):
-            f.append(f"kill_kriterien.{feld} fehlt")
-        elif wert < default:
-            f.append(f"kill_kriterien.{feld} = {wert} ist lockerer als der Default {default}")
+        if wert is None:
+            w.append(f"kill_kriterien.{feld} fehlt ({stufe}) - Default {default} gilt")
+        elif _ist_zahl(wert) and wert < default and not begruendet:
+            f.append(f"kill_kriterien.{feld} = {wert} ist lockerer als {default} "
+                     f"({stufe}) - nur mit abweichung_begruendung erlaubt")
 
-    # Varianten
+    # A2: Varianten sind ein Budget **je Stufe**, kein globaler Deckel. S1/S2 sind
+    # unbegrenzt, weil dort die Exploration hingehoert.
     varianten = karte.get("varianten") or []
     if not varianten:
         f.append("varianten: mindestens die Basisvariante angeben")
-    if len(varianten) > MAX_VARIANTEN:
-        f.append(f"varianten: höchstens {MAX_VARIANTEN} (Trial-Budget), sind {len(varianten)}")
+    budget = VARIANTEN_BUDGET.get(stufe)
+    n_var = karte.get("n_varianten", len(varianten))
+    if budget is not None and _ist_zahl(n_var) and n_var > budget:
+        w.append(f"{n_var} Varianten uebersteigen das Budget {budget} fuer {stufe}; "
+                 f"S1/S2 sind unbegrenzt - breite Exploration gehoert dorthin.")
 
     # Datenabschnitt
     if karte.get("datenabschnitt") not in DATENABSCHNITTE:
