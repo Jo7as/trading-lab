@@ -44,3 +44,21 @@ Bauen/Einfrieren: `studies/portfolio_build.py` (`--neu` nur solange ungeöffnet)
 Code: `trading_lab/portfolio.py`, `trading_lab/rules.py`; Tests: `tests/test_portfolio.py`.
 Die Train-Zahlen sind in-sample und daher optimistisch - erfahrungsgemäß bleibt außerhalb
 die Hälfte oder weniger. Keine Anlageberatung.
+
+## Ergebnis des Holdout-Tests TK6 (2026-10-26, 23:18) - NICHT BESTANDEN
+
+Vorregistriert in Commit `16893b3`. Holdout 2025-01-01 .. 2026-10-26 (21,8 Monate), Risiko 0,25 %/Trade:
+
+| Kennzahl | Train (in-sample) | Holdout |
+|---|---|---|
+| % pro Monat (Mittel) | 2,11 | **0,20** (9 % des Trainingswerts) |
+| % pro Monat (Median) | 1,49 | -0,05 |
+| positive Monate | 0,71 | 0,50 |
+| max. Drawdown % | 8,0 | **17,7** (Kriterium <= 10: verfehlt) |
+| t (Tagesreihe) | - | **0,25** (Kriterium >= 1,645: verfehlt) |
+
+Komponenten im Holdout (Summe R): momentum US100 **-22,0**, momentum SP500 +16,6,
+supertrend GER40 +20,5, supertrend USDJPY +3,5, supertrend SP500 +2,3, orb_classic US100 -3,7.
+
+Der Holdout ist für alle sechs Komponenten verbraucht (Ledger). US2 und M1 sind Teilmengen
+und würden nichts Unabhängiges mehr testen. Bericht: `artifacts/pruefung/20261026_231806_portfolio_TK6/`.
