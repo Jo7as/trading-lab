@@ -120,7 +120,10 @@ def run_backtest(df: pd.DataFrame, cfg: DonchianConfig, *, verbose: bool = False
 > intended horizon. It reports `E|move| / round-trip cost`; a ratio below ~2
 > means **nothing built on that horizon can work** (no parameter search fixes
 > it). On our CFD data 5-minute horizons fail almost everywhere and 60-minute
-> horizons pass on the indices.
+> horizons pass on the indices. It also reports `p_reach` — the share of windows
+> whose *own* move covers that window's spread — and a **limit-aware** verdict:
+> `g.verdict(limit=True)` reads the half-spread ratio, so a limit-entry/exit idea
+> is not taxed as if it crossed the book twice (audit F3).
 > **(3) Calendar invariants.** Any session-based strategy must pass
 > `trading_lab.invariants.assert_invariants` (entries/exits inside the session,
 > no position spanning two days) and keep a test on a **full 24 h frame**
@@ -168,6 +171,23 @@ for a full example with a train/test/confirm split and a markdown report.
   or use an adapter from `trading_lab/adapters/` (yfinance, …).
 - Everything is cached under `artifacts/`; never hit the network from tests.
 
+## Level 2b — optimise and screen it (recommended before evolution)
+
+`trading_lab/optimizer.py` searches entry, filter, stop and target settings on the
+**train** years and turns the shortlist into funnel rows (S1 gross → S2 net →
+S3 years/neighbours → S4 Deflated Sharpe → S5 holdout once). Objective: the lower
+confidence bound of the **net expectancy per trade** (not R:R, not a composite
+score). Register an adapter in `studies/optimize_all.py` (`REGISTRY`): a grid of
+discrete values per parameter, a `prepare` (1-minute frame → what `run_backtest`
+eats) and a `run` that returns the trade log. Then:
+
+```bash
+uv run python studies/optimize_all.py --only my_idea:US100 --budget 150
+```
+
+Every distinct result counts as a trial; the effective number of independent
+trials sets the S4 bar, so a broad search is allowed *and* priced in.
+
 ## Level 3 — plug into evolution (optional)
 
 To let a worker search your parameters around the clock, subclass
@@ -214,7 +234,10 @@ Run the suite: `uv run python -m pytest -q`. Keep it green.
 
 A positive PnL is not enough. Every strategy runs the **same acceptance path**
 before it counts: the shared significance test plus any strategy-specific
-criteria (period sums, cost stress, neighbours). Wire it into your runner:
+criteria (period sums, cost stress, neighbours). Your trade log should carry a
+clock (`exit_time`/`day`): with one, the gate is stage **S4** — `t >= 3` on the
+calendar-day series (`significance.assess_trades`) — not the per-trade test, which
+has no power for a small edge. Wire it into your runner:
 
 ```python
 from trading_lab.acceptance import run_acceptance
@@ -227,4 +250,25 @@ assert report.passed
 The evolution path enforces this automatically — a worker only promotes a new
 `best_oos` record when its OOS trades pass the gate. Full details, the null
 models and the tunable thresholds: **[ACCEPTANCE.md](ACCEPTANCE.md)**.
+
+### Exit attribution (do this before you tune the reward/risk)
+
+A fixed R target is easy to add and easy to leave decorative. On all three ORB
+markets the 2R target fires in **6–13 %** of trades while **46–67 %** are closed
+at the session end, and those time exits get a median of only **6–22 %** of the
+way to the target. The "2R strategy" is really a hold-to-the-close model with a
+target that barely participates — so sweeping `target_r` tunes a parameter that
+is nearly absent from the P&L.
+
+Run the report before touching any reward/risk parameter:
+
+```bash
+.venv/bin/python studies/exit_attribution.py --strategy orb_2r --asset all
+```
+
+It groups the trades by `exit_reason` (count, mean R, share of the total R), adds
+the target progress `(exit − entry) / (target − entry)` per group and the holding
+time, and ends in a verdict. Read it as: **if the target fires in under ~20 % of
+trades, fix the horizon/target pair first** — do not optimise the ratio. Logic in
+`trading_lab/exit_attribution.py`, tests in `tests/test_exit_attribution.py`.
 
