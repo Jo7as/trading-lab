@@ -10,6 +10,15 @@ min(cap, target_vol / trailing 60-day realised vol), causal. Reports the scaled
 metrics, the average leverage and the implied drawdown (the prop question).
 
   .venv/bin/python studies/carry_final.py
+
+
+.. warning::
+   **OBSOLETE - contains a look-ahead bug.** The calm filter is read at the month
+   END, i.e. after the month it is supposed to gate; that alone turns +3 %/yr into
+   +13 %/yr. H-009 is rejected. The corrected evaluation, the proof, and the
+   surviving measurements live in ``studies/carry_real_swaps.py``; this file is
+   kept only as a record of what was tested.
+
 """
 from __future__ import annotations
 

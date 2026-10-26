@@ -43,6 +43,14 @@ INSTRUMENTS: dict[str, str] = {
     "GER40": "E_DAAX",
     "XAUUSD": "XAU/USD",
     "JP225": "E_N225Jap",   # Nikkei 225 CFD (Tokyo cash open 09:00 JST)
+
+    # Crosses needed by the AEP candidate clusters (see Neue Idee pläne/).
+    "USDCHF": "USD/CHF",
+    "AUDJPY": "AUD/JPY",
+    "EURCHF": "EUR/CHF",
+    "AUDNZD": "AUD/NZD",
+    "AUDCAD": "AUD/CAD",
+    "BTCUSD": "BTC/USD",
 }
 
 

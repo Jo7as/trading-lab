@@ -13,10 +13,18 @@ Gates (pre-registered): sign-test z >= 3, |median move| >= 2x round-trip cost,
 placebo (random days) clearly smaller, dose-response monotone in |magnitude|.
 
   .venv/bin/python studies/hypotheses_60m.py
+  .venv/bin/python studies/hypotheses_60m.py --json artifacts/h60_variants.json
+
+With ``--json`` the study also writes one funnel row per asset/hypothesis
+(``screening.funnel_row_from_trades``), so H-002/H-003 can go through
+``studies/run_screening.py`` (audit step C2).
 """
 from __future__ import annotations
 
+import argparse
+import json
 import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -28,6 +36,7 @@ sys.path.insert(0, ".")  # runnable as a script from the repo root
 from pass_speed import load_cached  # noqa: E402
 
 from trading_lab.data_quality import clean  # noqa: E402
+from trading_lab.screening import funnel_row_from_trades  # noqa: E402
 
 TZ = {"US100": "America/New_York", "SP500": "America/New_York", "GER40": "Europe/Berlin"}
 CLOCK = {"US100": (570, 600, 900, 955), "SP500": (570, 600, 900, 955), "GER40": (540, 600, 990, 1015)}
@@ -51,7 +60,7 @@ def day_table(asset: str) -> pd.DataFrame:
 
 
 def study(name: str, r: pd.DataFrame, direction: np.ndarray, move: np.ndarray,
-          cost_pct: float, magnitude: np.ndarray, seed: int = 7) -> str:
+          cost_pct: float, magnitude: np.ndarray, seed: int = 7) -> tuple[str, dict]:
     n = len(move)
     signed = direction * move
     med = np.median(signed)
@@ -68,13 +77,27 @@ def study(name: str, r: pd.DataFrame, direction: np.ndarray, move: np.ndarray,
                "FAIL(sign)" if z < 3 else
                "FAIL(cost)" if eff_cost < 2 else
                "FAIL(dose)" if slope <= 0 else "FAIL(placebo)")
+    # Gross event log for the funnel: the move is pre-cost, the spread is its own field.
+    trades = [{"day": str(d), "r": float(s)} for d, s in zip(r["day"], signed)]
+    row = funnel_row_from_trades(
+        trades, name=name,
+        gross_bp=float(np.mean(np.abs(move))) * 1e4,
+        cost_bp=cost_pct * 100.0,
+        placebo_gross=placebo,
+    )
     return (f"  {name:20s} n={n:5d}  med {med*100:+.3f}%  z={z:5.2f}  hit {n_pos/n:4.0%}  "
             f"cost {cost_pct:.4f}%  eff/cost {eff_cost:5.1f}  placebo {placebo*100:+.3f}%  "
-            f"quint {quint}  {verdict}")
+            f"quint {quint}  {verdict}", row)
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--json", default="", metavar="PFAD",
+                    help="Funnel-Zeilen (audit C2) hierhin schreiben")
+    args = ap.parse_args()
+
     print("### Step 2 — three hypotheses, direct clock computation, cleaned 1m data")
+    rows: list[dict] = []
     for asset in TZ:
         t = day_table(asset)
         if len(t) < 200:
@@ -83,19 +106,27 @@ def main() -> None:
         raw = clean(load_cached(asset))
         cost = float(((raw["ask_close"] - raw["close"]) / ((raw["close"] + raw["ask_close"]) / 2)).median()) * 100
         print(f"\n{asset}  days={len(t)}  median round-trip cost {cost:.4f}%")
-        # H1: first-hour sign -> 10:00..15:00
-        d1 = np.sign(t["c1"] - t["open"]).to_numpy()
-        mv1 = ((t["c2"] - t["c1"]) / t["c1"]).to_numpy()
-        print(study("H1 first-hour mom", t, d1, mv1, cost, np.abs(t["c1"] / t["open"] - 1)))
-        # H2: 09:30..15:00 sign -> 15:00..15:55
-        d2 = np.sign(t["c2"] - t["open"]).to_numpy()
-        mv2 = ((t["c3"] - t["c2"]) / t["c2"]).to_numpy()
-        print(study("H2 last-hour mom", t, d2, mv2, cost, np.abs(t["c2"] / t["open"] - 1)))
-        # H3: overnight gap fill: fade the gap from the open to the close
         gap = (t["open"] / t["prev_close"] - 1).to_numpy()
-        d3 = -np.sign(gap)
-        mv3 = ((t["c3"] - t["open"]) / t["open"]).to_numpy()
-        print(study("H3 gap fade", t, d3, mv3, cost, np.abs(gap)))
+        cases = (
+            # H1: first-hour sign -> 10:00..15:00
+            ("H1 first-hour mom", np.sign(t["c1"] - t["open"]).to_numpy(),
+             ((t["c2"] - t["c1"]) / t["c1"]).to_numpy(), np.abs(t["c1"] / t["open"] - 1)),
+            # H2: 09:30..15:00 sign -> 15:00..15:55
+            ("H2 last-hour mom", np.sign(t["c2"] - t["open"]).to_numpy(),
+             ((t["c3"] - t["c2"]) / t["c2"]).to_numpy(), np.abs(t["c2"] / t["open"] - 1)),
+            # H3: overnight gap fill: fade the gap from the open to the close
+            ("H3 gap fade", -np.sign(gap),
+             ((t["c3"] - t["open"]) / t["open"]).to_numpy(), np.abs(gap)),
+        )
+        for name, direction, move, magnitude in cases:
+            text, row = study(name, t, direction, move, cost, magnitude)
+            print(text)
+            rows.append({**row, "asset": asset})
+
+    if args.json:
+        Path(args.json).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.json).write_text(json.dumps(rows, indent=1, default=str))
+        print(f"\n    {len(rows)} Funnel-Zeilen -> {args.json}")
 
 
 if __name__ == "__main__":

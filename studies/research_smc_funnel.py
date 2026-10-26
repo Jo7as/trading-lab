@@ -63,9 +63,16 @@ class FunnelCounts:
     exit_reasons: dict = field(default_factory=dict)
 
 
-def run_funnel(
+def count_entry_gates(
     df_4h, df_15m, df_1m, cfg: SmcIctConfig
 ) -> tuple[FunnelCounts, dict]:
+    """Count how many events die at each *entry* gate inside the SMC strategy.
+
+    Named ``count_entry_gates`` and not ``run_funnel`` on purpose: the screening
+    funnel in ``trading_lab/screening.py`` is a different thing (the S1..S5 stages
+    a candidate passes). Two functions called ``run_funnel`` with different
+    semantics is exactly the kind of collision that makes a pipeline unreadable.
+    """
     c = FunnelCounts()
 
     for name, df in (("4h", df_4h), ("15m", df_15m), ("1m", df_1m)):
@@ -364,7 +371,7 @@ async def main() -> None:
     print(f"  4h={len(df_4h)} 15m={len(df_15m)} 1m={len(df_1m)}", flush=True)
 
     print("Running funnel...", flush=True)
-    counts, summary = run_funnel(df_4h, df_15m, df_1m, cfg)
+    counts, summary = count_entry_gates(df_4h, df_15m, df_1m, cfg)
     f = summary["funnel"]
 
     print("\n=== SMC FUNNEL", args.asset, f"{args.year_start}–{args.year_end - 1}", "===")

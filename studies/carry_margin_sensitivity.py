@@ -9,6 +9,14 @@ costs us; (b) one weekday carries a triple swap (~+2/7 of the accrual).
 Self-check: m_long = m_short = 30% must reproduce H-009 (Sharpe 1.59, MDD -8.9%).
 
   .venv/bin/python studies/carry_margin_sensitivity.py
+
+
+.. warning::
+   **OBSOLETE - contains the same look-ahead bug** as ``carry_final.py`` (calm
+   filter read at the month end). Its margin numbers are not usable as strategy
+   results. See ``studies/carry_real_swaps.py`` for the corrected run; the
+   measured markup itself is still valid and lives in ``trading_lab/duka_swaps.py``.
+
 """
 from __future__ import annotations
 

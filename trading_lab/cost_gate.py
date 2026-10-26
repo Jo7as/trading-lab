@@ -77,9 +77,17 @@ class GateResult:
     cost_limit_pct: float         # half spread (limit exit)
     ratio_taker: float
     ratio_limit: float
+    p_reach: float = float("nan")  # share of windows whose own |move| covers the spread
 
-    def verdict(self, k: float = DEFAULT_K) -> str:
-        r = self.ratio_taker
+    def verdict(self, k: float = DEFAULT_K, *, limit: bool = False) -> str:
+        """PASS/MARGINAL/FAIL for the given bar.
+
+        ``limit=True`` judges the ratio with a resting exit (half spread). The
+        default stays the conservative taker reading, so existing callers are
+        unchanged; a limit-entry/exit strategy should ask for the limit verdict
+        instead of being taxed as if it crossed the book twice (audit F3).
+        """
+        r = self.ratio_limit if limit else self.ratio_taker
         if r >= k:
             return "PASS"
         if r >= NEAR_K:
@@ -87,9 +95,11 @@ class GateResult:
         return "FAIL"
 
     def __str__(self) -> str:
+        reach = "  n/a" if self.p_reach != self.p_reach else f"{self.p_reach:5.0%}"
         return (f"{self.minutes:>3d}m  move {self.move_pct:6.3f}%  "
                 f"cost {self.cost_taker_pct:6.3f}% (limit {self.cost_limit_pct:6.3f}%)  "
-                f"ratio {self.ratio_taker:6.2f} (limit {self.ratio_limit:6.2f})  {self.verdict()}")
+                f"ratio {self.ratio_taker:6.2f} (limit {self.ratio_limit:6.2f})  "
+                f"reach {reach}  {self.verdict()}")
 
 
 def mid(m1: pd.DataFrame) -> pd.Series:
@@ -115,11 +125,17 @@ def horizon_gate(m1: pd.DataFrame, minutes: int) -> GateResult:
     med_spread = float(sp.median())
     cost_taker = med_spread * round_trip_spread("market", "market")
     cost_limit = med_spread * round_trip_spread("market", "limit")
+    # p_reach: the share of windows whose own |move| is at least that window's own
+    # round-trip cost. The mean |move| says nothing about a *single* trade paying;
+    # this does - if only 30 % of windows move far enough, an edge is unlikely.
+    per_bar_cost = spread_pct(m1).reindex(mv.index) * round_trip_spread("market", "market")
+    p_reach = float((mv >= per_bar_cost).mean()) if len(mv) else float("nan")
     return GateResult(
         minutes=minutes, move_pct=move * 100, move_p25_pct=move_p25 * 100,
         cost_taker_pct=cost_taker * 100, cost_limit_pct=cost_limit * 100,
         ratio_taker=move / cost_taker if cost_taker else float("inf"),
         ratio_limit=move / cost_limit if cost_limit else float("inf"),
+        p_reach=p_reach,
     )
 
 
@@ -147,4 +163,5 @@ def trades_move_gate(trades: list[dict], m1: pd.DataFrame) -> dict:
         "cost_pct_median": round(float(np.median(cost)) * 100, 4),
         "ratio": round(float(move.median() / np.median(cost)), 2) if np.median(cost) else None,
         "ratio_p25": round(float(move.quantile(0.25) / np.median(cost)), 2),
+        "p_reach": round(float((move.to_numpy() >= cost).mean()), 3),
     }

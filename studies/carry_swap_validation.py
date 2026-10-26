@@ -9,6 +9,14 @@
    We measure each pair's median 1-minute return around the 17:00 NY roll and
    compare it with the expected daily carry. ~0 means swap is charged separately
    (so it must be modelled); ≈ the differential means the data already pays it.
+
+
+.. warning::
+   **OBSOLETE - contains the same look-ahead bug** as ``carry_final.py`` (calm
+   filter read at the month end). The *rate* and *roll-diagnostic* findings are
+   still valid; the portfolio numbers are not. See
+   ``studies/carry_real_swaps.py``.
+
 """
 from __future__ import annotations
 import sys

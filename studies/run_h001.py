@@ -19,10 +19,18 @@ applied to a bid-measured move; it is the conservative, single-source reading an
 replaces the old ``sp_cp + sp_end`` (two full spreads).
 
   .venv/bin/python studies/run_h001.py
+  .venv/bin/python studies/run_h001.py --json artifacts/h001_variants.json
+
+With ``--json`` the study also writes one funnel row per asset/variant
+(``screening.funnel_row_from_trades``), so the card can go through
+``studies/run_screening.py`` (audit step C2).
 """
 from __future__ import annotations
 
+import argparse
+import json
 import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -35,6 +43,7 @@ from pass_speed import load_cached  # noqa: E402
 
 from trading_lab.data_audit import SESSIONS, build_study_frame  # noqa: E402
 from trading_lab.cost_gate import round_trip_spread  # noqa: E402
+from trading_lab.screening import funnel_row_from_trades  # noqa: E402
 
 CLOCK = {"US100": (570, 960), "US30": (570, 960), "SP500": (570, 960), "GER40": (540, 1050)}
 CHECK_EVERY = 60
@@ -51,7 +60,7 @@ def matrices(df: pd.DataFrame, asset: str):
 
 
 def test(close: pd.DataFrame, spread: pd.DataFrame, open_m: int, close_m: int,
-         sel: np.ndarray) -> dict:
+         sel: np.ndarray, dates: pd.Index) -> dict:
     """First hourly checkpoint with |progress| >= 1 sigma_m, hold to the close."""
     col_of = {m: i for i, m in enumerate(close.columns)}
     C = close.to_numpy(float)
@@ -81,16 +90,20 @@ def test(close: pd.DataFrame, spread: pd.DataFrame, open_m: int, close_m: int,
     move = d * (px_end - px_cp) / px_cp                 # signed forward return, in price %
     # cost: market entry at the checkpoint + market exit at the close = 1.0 x spread
     cost = round_trip_spread("market", "market") * (sp_cp + sp_end) / 2.0
-    return {"n": len(days), "move": move, "cost": cost, "mag": np.abs(prog_star) / sigma_star, "d": d}
+    return {"n": len(days), "move": move, "cost": cost, "mag": np.abs(prog_star) / sigma_star,
+            "d": d, "date": np.asarray(dates)[days]}
 
 
-def report(label: str, r: dict, seed: int = 7) -> str:
+def report(label: str, r: dict, seed: int = 7) -> tuple[str, dict | None]:
+    date = r.get("date")
     ok = np.isfinite(r["move"]) & np.isfinite(r["cost"]) & (r["move"] != 0)
     r = {"n": int(ok.sum()), "move": r["move"][ok], "cost": r["cost"][ok],
          "mag": r["mag"][ok], "d": r["d"][ok]}
+    if date is not None:
+        date = np.asarray(date)[ok]
     n = r["n"]
     if n < 30:
-        return f"  {label:22s} n={n}: too few events"
+        return f"  {label:22s} n={n}: too few events", None
     signed = r["move"]
     med = float(np.median(signed))
     n_pos = int((signed > 0).sum())
@@ -105,18 +118,35 @@ def report(label: str, r: dict, seed: int = 7) -> str:
     verdict = ("PASS" if (z >= 3 and eff >= 2 and abs(placebo) * 100 < 0.5 * abs(med * 100) and slope > 0)
                else "FAIL(sign)" if z < 3 else "FAIL(cost)" if eff < 2
                else "FAIL(dose)" if slope <= 0 else "FAIL(placebo)")
+    row = None
+    if date is not None:
+        # Hand the funnel a *gross* log (the move is pre-cost; the cost is its own
+        # field), so S1 sees the edge and S2 charges the spread exactly once.
+        trades = [{"day": str(d), "r": float(m)} for d, m in zip(date, signed)]
+        row = funnel_row_from_trades(
+            trades, name=label,
+            gross_bp=float(np.mean(np.abs(signed))) * 1e4,
+            cost_bp=cost * 100.0,
+            placebo_gross=placebo,
+        )
     return (f"  {label:22s} n={n:5d}  med {med*100:+.3f}%  z={z:5.2f}  hit {n_pos/n:4.0%}  "
             f"cost {cost:.4f}%  eff/cost {eff:5.1f}  placebo {placebo*100:+.3f}%  "
-            f"quint {quint}  {verdict}")
+            f"quint {quint}  {verdict}", row)
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--json", default="", metavar="PFAD",
+                    help="Funnel-Zeilen (audit C2) hierhin schreiben")
+    args = ap.parse_args()
+
     print("### H-001 (registered): noise-area progress at high volatility, hold to close")
     print(f"    cost: market entry + market exit = "
           f"{round_trip_spread('market', 'market'):.1f} x spread")
+    rows: list[dict] = []
     for asset, (open_m, close_m) in CLOCK.items():
         df, info = build_study_frame(load_cached(asset), asset)
-        close, spread, _ = matrices(df, asset)
+        close, spread, dates = matrices(df, asset)
         o = close[open_m]
         ret = (close.ffill(axis=1).iloc[:, -1] / o - 1)
         vol20 = ret.rolling(20, min_periods=10).std()
@@ -125,8 +155,16 @@ def main() -> None:
         base = ret.notna().to_numpy()
         print(f"\n{asset}  days={int(base.sum())}  (dropped rows: {info['dropped']}, "
               f"thin days: {info['thin_days']})")
-        print(report("basis (alle Tage)", test(close, spread, open_m, close_m, base)))
-        print(report("nur_hohe_vola", test(close, spread, open_m, close_m, base & high)))
+        for label, sel in (("basis (alle Tage)", base), ("nur_hohe_vola", base & high)):
+            text, row = report(label, test(close, spread, open_m, close_m, sel, dates))
+            print(text)
+            if row is not None:
+                rows.append({**row, "asset": asset})
+
+    if args.json:
+        Path(args.json).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.json).write_text(json.dumps(rows, indent=1, default=str))
+        print(f"\n    {len(rows)} Funnel-Zeilen -> {args.json}")
 
 
 if __name__ == "__main__":

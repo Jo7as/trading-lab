@@ -65,3 +65,21 @@ def test_trades_move_gate_charges_the_limit_exit_less() -> None:
     out = trades_move_gate(trades, df)
     full = float(spread_pct(df).median()) * 100
     assert out["cost_pct_median"] == pytest.approx((0.5 * full + 1.0 * full) / 2, rel=0.05)
+    assert 0.0 <= out["p_reach"] <= 1.0
+
+
+def test_p_reach_is_the_share_of_windows_covering_their_own_spread() -> None:
+    df = _frame()
+    g = horizon_gate(df, 60)
+    assert 0.0 <= g.p_reach <= 1.0
+
+
+def test_verdict_can_be_read_off_the_limit_ratio() -> None:
+    """A limit strategy must not be taxed as if it crossed the book twice (audit F3)."""
+    from trading_lab.cost_gate import NEAR_K, GateResult
+    g = GateResult(minutes=60, move_pct=1.0, move_p25_pct=0.5,
+                   cost_taker_pct=1.0, cost_limit_pct=0.5,
+                   ratio_taker=1.0, ratio_limit=NEAR_K)
+    assert g.verdict() == "FAIL"                 # taker ratio 1.0 < NEAR_K
+    assert g.verdict(limit=True) == "MARGINAL"   # limit ratio 2.0 >= NEAR_K
+    assert g.verdict(k=1.5, limit=True) == "PASS"
