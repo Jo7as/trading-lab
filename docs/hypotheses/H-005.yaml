@@ -1,6 +1,8 @@
 id: H-005
 titel: 'London-16:00-Fix (WMR): Drift vor dem Fix, Rücknahme danach'
 status: kill
+skript: studies/run_h005_h006.py
+stufe: S1
 erstellt: 2026-10-24
 autor: ''
 beobachtung: 'Der WM/Refinitiv-4-Uhr-Fix (16:00 London = 11:00 New York) ist ein Zeitpunkt,
@@ -68,5 +70,9 @@ varianten:
 - name: fenster_30
   aenderung: Exit nach 30 Minuten
 datenabschnitt: train
-ergebnis: 'S0 gate: quote 0.1206 > 0.1 -> kill before testing (S0 quote above limit
-  -> not testable).'
+ergebnis: 'Erstmals GETESTET 2026-10-26 (studies/run_h005_h006.py, Train 2019-2024, echte Bid/Ask,
+  Trichter S1-S4). Vorher nur per S0-Prognose verworfen. Basis 11:00->12:00 NY gegen die Pre-Fix-Drift:
+  EURUSD brutto +0.25..+0.30 bp, netto -0.01..+0.05 bp; GBPUSD brutto +0.40..+0.64 bp, netto -0.27..-0.02 bp
+  (Placebo 09:00 schwaecher, Vorsprung +0.5..+0.6 bp); USDJPY und AUDUSD brutto ~0, netto negativ.
+  Kein Fall besteht S3 (Vorzeichen in >= 70 % der Jahre); Dosis-Quintile nicht monoton. Monatsende-Variante:
+  GBPUSD netto +1.8..+2.1 bp, aber nur 72 Ereignisse (S1 n<100) - zu duenn. -> kill an S2/S3 (gemessen).'

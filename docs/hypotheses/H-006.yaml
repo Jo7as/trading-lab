@@ -1,6 +1,8 @@
 id: H-006
 titel: Relative Bewegung zwischen eng verbundenen Majors kehrt intraday zurück
 status: kill
+skript: studies/run_h005_h006.py
+stufe: S1
 erstellt: 2026-10-24
 autor: ''
 beobachtung: 'EURUSD, GBPUSD und die Dollar-Majors bewegen sich überwiegend gemeinsam
@@ -72,5 +74,9 @@ varianten:
 - name: nur_overlap
   aenderung: nur 08:00-11:00 NY (tiefste Spreads)
 datenabschnitt: train
-ergebnis: 'S0 gate: quote 0.1206 > 0.1 -> kill before testing (S0 quote above limit
-  -> not testable).'
+ergebnis: 'Erstmals GETESTET 2026-10-26 (studies/run_h005_h006.py, Train 2019-2024, beide Legs zu echten
+  Bid/Ask, 5-Minuten-Raster). EURUSD/GBPUSD: brutto -2.4..+0.2 bp -> kein Effekt. AUDUSD/NZDUSD: ECHTER
+  Brutto-Effekt +1.7..+3.1 bp je Ereignis (t brutto 2.8..3.5, Placebo EURGBP/AUDNZD -0.05 bp, Dosis grob
+  steigend), aber die Kosten zweier Legs (~3.3 bp) machen ihn netto negativ (-0.2..-1.7 bp). -> kill an S2
+  (gemessen, nicht prognostiziert). Offene Spur: mit Limit-Einstieg (halber Spread je Leg) koennte die
+  z>=2.5-overlap-Variante netto positiv werden - nur mit NEUER Karte und Fill-Simulation.'
