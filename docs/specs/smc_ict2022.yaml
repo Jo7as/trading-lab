@@ -9,6 +9,14 @@ status: abgestimmt
 abgestimmt_von: "Jonas (Nutzer, im Chat: keine Änderung, Zeitrahmen/Einstieg/RR als Varianten prüfen)"
 abgestimmt_am: "2026-10-27"
 
+aenderungen:
+  - datum: "2026-10-27"
+    regel: "Entry-Bedingung 4"
+    vorher: "nur internes CHoCH nach oben"
+    nachher: "erster interner Bruch nach oben, CHoCH oder BOS"
+    grund: "Referenz-Abgleich: nach einem Sweep ist der erste Bruch in 369 von 770 Fällen ein BOS (interner Trend schon aufwärts). ICT-MSS unterscheidet das nicht; nur-CHoCH ließ ~0,1 Trades/Woche übrig."
+    freigabe: "Jonas im Chat (Option 1 gewählt), vor dem ersten Gitter-Lauf"
+
 idee:
   mechanismus: >
     In der Eröffnungsphase (Killzone) holt sich der Markt zuerst die Stops auf der Gegenseite
@@ -35,7 +43,7 @@ entry:
     - "1. Bias: externe Struktur auf 1h (nur abgeschlossene 1h-Kerzen) im Aufwärtstrend (ext_trend = +1). Short: -1."
     - "2. Killzone aktiv: London 02:00-05:00 New-York-Zeit (GER40, XAUUSD, EURUSD) bzw. NY 08:30-11:00 New-York-Zeit (US100, SP500, XAUUSD, EURUSD)."
     - "3. Sweep der Sell-Side-Liquidität auf 5m in der Killzone: Docht unter ein ungebrochenes 5m-Swing-Tief oder einen EQL-Pool, Schlusskurs wieder darüber (sweep_low = 1). Sweep-Extrem = tiefstes Tief ab dem Sweep."
-    - "4. MSS mit Displacement: innerhalb von 12 5m-Kerzen nach dem Sweep ein internes CHoCH nach oben auf 5m (int_event = +2)."
+    - "4. MSS mit Displacement: innerhalb von 12 5m-Kerzen nach dem Sweep der erste Bruch des letzten internen Swing-Hochs nach oben - internes CHoCH ODER BOS (int_event = +2 oder +1)."
     - "5. Das Bein zwischen Sweep und MSS hinterlässt ein bullisches FVG: Größe >= 0,5 x ATR(14, 5m), mittlere Kerze mit Körper >= 0,8 x ATR(14, 5m). Bei mehreren: das letzte vor dem MSS."
     - "6. Ziel-Check vor dem Einstieg: T2 (siehe take_profit) liegt mindestens 2 R über dem Einstieg, sonst kein Trade."
     - "7. Höchstens ein Trade je Markt und Killzone."

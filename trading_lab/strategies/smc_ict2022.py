@@ -8,7 +8,7 @@ Long (short mirrored):
  2. killzone: London 02:00-05:00 / NY 08:30-11:00 New York time (per market);
  3. sweep of sell-side liquidity on the LTF (wick below an unbroken swing low or an EQL
     pool, close back above) inside the killzone;
- 4. within ``mss_window`` LTF bars an internal CHoCH up (MSS);
+ 4. within ``mss_window`` LTF bars the first internal break up - CHoCH or BOS (MSS);
  5. the leg from the sweep to the MSS left a bullish FVG (>= 0.5 ATR, displacement body
     >= 0.8 ATR) - or, in the ``ifvg`` variant, a bullish inverse FVG;
  6. limit at the FVG CE (or its proximal edge), stop = sweep extreme - 0.1 ATR,
@@ -28,7 +28,8 @@ import numpy as np
 import pandas as pd
 
 from ..indicators import atr as _atr
-from ..market_structure import (CHOCH_DN, CHOCH_UP, StructureConfig, analyze, mid_ohlc, raw_pivots)
+from ..market_structure import (BOS_DN, BOS_UP, CHOCH_DN, CHOCH_UP, StructureConfig, analyze, mid_ohlc,
+                                raw_pivots)
 from ..mr_common import resample_ohlc
 
 NY = "America/New_York"
@@ -226,8 +227,10 @@ def find_setups(prep: Prepared, cfg: SmcIct2022Config) -> list[Setup]:
                 state = None
             else:
                 state["x"] = min(state["x"], lo[i]) if state["d"] > 0 else max(state["x"], hi[i])
-                want = CHOCH_UP if state["d"] > 0 else CHOCH_DN
-                if iev[i] == want:
+                # spec rule 4 (changed 2026-10-27 with the user): the FIRST internal break in
+                # the trade direction after the sweep - CHoCH or BOS
+                want = (CHOCH_UP, BOS_UP) if state["d"] > 0 else (CHOCH_DN, BOS_DN)
+                if iev[i] in want:
                     s = _build(prep, cfg, d, state, i, i, cl)
                     if s is not None:
                         out.append(s)

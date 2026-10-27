@@ -250,3 +250,11 @@ def test_a_sweep_of_an_internal_swing_low_counts() -> None:
     bars.iloc[3, 0] = 0                                                # no external / pool sweep ...
     bars.loc[bars.index[3], "int_swing_sweep_low"] = 1                 # ... but an internal one
     assert len(S.find_setups(p, CFG)) == 1
+
+
+def test_mss_may_be_an_internal_bos_too() -> None:
+    """Spec change 2026-10-27: the first internal break after the sweep counts, BOS or CHoCH."""
+    from trading_lab.market_structure import BOS_UP
+    p = _fake_prep(fvg_created=7)
+    p.combos["1h/5m"]["res"].bars.iloc[6, 2] = BOS_UP
+    assert len(S.find_setups(p, CFG)) == 1
