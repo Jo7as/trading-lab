@@ -491,3 +491,21 @@ EURUSD/USDJPY, mean_reversion EURUSD and supertrend EURUSD drop from S2/S3 to S1
 slippage, most on SP500). Funnel: S1 161/242 -> S2 142 -> S3 69 -> **S4 0**, as before.
 Practical reading for a prop account: intraday edges have to live on indices (no
 commission) or be large enough per trade to carry ~0.6-1 bp FX round trips.
+
+## 2026-10-27 — S-001: SMC/ICT 2022, fairly re-tested on the new structure framework
+
+Spec agreed with the user (`docs/specs/smc_ict2022.yaml`), every rule tested
+(`tests/test_smc_ict2022.py`), 96-variant grid (timeframe, CE/edge, min RR, liquidity vs
+fixed 3 R, FVG/IFVG, bias on/off), 5 markets, train 2019-2024, ftmo costs, holdout locked.
+The reference check caught three implementation gaps before the grid ran (FVG confirmed
+one bar after the MSS, one trade per killzone = filled trades, internal swing sweeps) and
+one spec question (MSS = CHoCH only) that the user changed to "first internal break,
+CHoCH or BOS".
+
+Funnel: S1 25/30 -> S2 18 -> S3 3 -> **S4 0**. Best: **GER40, 4h/15m, CE, min RR 2,
+fixed 3 R, no bias** - 129 trades (1.8/month), 47 % hits, +0.29 R/trade, 5/6 years,
+neighbours 86 %, placebo +0.32 R, PBO 0.13, but DSR 0.49; for 1.5 %/month it would need
+2.9 % risk per trade and a 17 % drawdown. Per-axis averages: the HTF bias does not help
+(4 of 5 markets better without it), 4h/15m beats 1h/5m, the liquidity target does not
+beat a fixed 3 R, FVG beats IFVG on indices. Verdict: no demonstrable SMC edge in train;
+GER40 is a lead, too thin to prove or to trade on a prop account.
