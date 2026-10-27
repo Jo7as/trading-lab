@@ -482,3 +482,12 @@ index. Its "kill at S1" says nothing about trend following or swing trading in g
 The one number that stands: an always-in book at ~5x gross leverage pays ~6-7 %/yr
 financing on CFDs - continuous-exposure designs must model swaps; stop-based swing
 trades with ~0.5 % risk carry a fraction of that. Holdout untouched.
+
+**Rerun with the `ftmo` cost profile (2026-10-27, all 39 runs, holdout locked).** Index
+results are unchanged (FTMO charges no index commission; spreads from the data). FX gets
+worse by 0.01-0.05 R per trade (commission): pullback EURUSD/USDJPY, session_range_fade
+EURUSD/USDJPY, mean_reversion EURUSD and supertrend EURUSD drop from S2/S3 to S1/S0
+(net negative). orb_2r improves by +0.015..+0.034 R (relative instead of absolute
+slippage, most on SP500). Funnel: S1 161/242 -> S2 142 -> S3 69 -> **S4 0**, as before.
+Practical reading for a prop account: intraday edges have to live on indices (no
+commission) or be large enough per trade to carry ~0.6-1 bp FX round trips.
