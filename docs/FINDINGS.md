@@ -436,8 +436,12 @@ helper).
 ## Open options (not started)
 
 1. **Execution cost, not pattern search.** Everything died on CFD spreads. CME
-   futures have ~1-tick spreads and ~$1 commission — roughly 5–10× lower
-   relative cost. Testable with a small Databento MBP-1 sample (ES/NQ) or on a
+   futures have ~1-tick spreads and ~$1 commission. *Correction 2026-10-27
+   (`trading_lab/costs.py`):* that is **~1.5x**, not 5-10x, cheaper than an index CFD
+   on a prop account - MNQ ~0.5-0.6 bp round trip vs US100 at FTMO ~0.9 bp (no index
+   commission there). The repo also charged **no commission at all** until then,
+   which made FX majors look 3-4x cheaper than they are and AUD/NZD/gold (wide
+   Dukascopy feed spreads) look ~2x more expensive than at a raw-ECN venue. Testable with a small Databento MBP-1 sample (ES/NQ) or on a
    funded futures account.
 2. **Longer horizons** (4 h and daily), where moves are many spreads. The screen
    above says 4 h is the only horizon that both clears the gate and fits a
@@ -449,3 +453,32 @@ helper).
 
 Priors for "another intraday pattern on CFD data": low (~10 %). The honest
 levers are execution cost or horizon, not more patterns.
+
+## 2026-10-27 — real costs, H-011 (relative value, limit) and H-012 (multi-market trend)
+
+**Cost model fixed (`trading_lab/costs.py`).** Until now only the Dukascopy feed
+spread was charged and no commission anywhere. Checked against FTMO (FX $2.50/lot/side
+since 2025-09-29, indices commission-free), IC Markets Raw and Dukascopy: FX majors were
+3-4x too cheap (EURUSD 0.19 bp spread, but ~0.6-0.7 bp with commission), AUD/NZD/gold
+~2x too expensive (the feed's 0.9-1.0 pip vs 0.02-0.4 pip raw ECN), index CFDs about
+right. Default profile is now `ftmo`; `ecn_raw`, `dukascopy`, `cme_micro` and the old
+`data` are selectable. ORB-2R slippage is relative now (0.5 bp per fill) - the old
+absolute 1.0 point was ~2 bp per fill on SP500.
+
+**H-011 - H-006 with limit entries** (`studies/run_h011_relval_limit.py`, train only).
+Limits do not rescue it: both legs fill only 49-57 % (ftmo spreads) / 83-88 % (ecn_raw)
+of the time, the chased second leg loses the fast part of the reversion, and the
+signals that did NOT fill were the best ones (+7..+12 bp gross) - adverse selection.
+Best cell (ecn_raw, market, z >= 2.5, 08-11 NY): net +0.84 bp/event, 4/6 years, t 0.69
+-> **kill at S3**. All ftmo cells are net negative. Holdout untouched.
+
+**H-012 - a crude always-in TSMOM book on 26 markets** (`studies/run_h012_trend_multi.py`).
+**Withdrawn as evidence (2026-10-27, review with the user).** The design was not fit for
+the question: no stop-loss and no take-profit (always long or short), risk parity that
+ignored correlation (14 FX pairs share the dollar factor -> 20 % realised vol instead of
+10 %, 67 % drawdown), a flat financing guess instead of real swap rates, CFD oil/copper
+without roll handling, no unit tests and no sanity check against a published trend
+index. Its "kill at S1" says nothing about trend following or swing trading in general.
+The one number that stands: an always-in book at ~5x gross leverage pays ~6-7 %/yr
+financing on CFDs - continuous-exposure designs must model swaps; stop-based swing
+trades with ~0.5 % risk carry a fraction of that. Holdout untouched.
