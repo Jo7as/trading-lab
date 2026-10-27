@@ -224,3 +224,11 @@ def test_pools_exist_on_both_levels_and_flag_columns() -> None:
     assert _eqh(res, "ext") and _eqh(res, "int")
     assert res.bars["ext_eqh_sweep"].iloc[11] == 1 and res.bars["ext_eqh_taken"].iloc[-1] == 1
     assert 11 not in _eqh(res)[0].touches          # the sweep candle is not a touch
+
+
+def test_internal_swing_sweeps_are_reported_per_level() -> None:
+    res = analyze(_random(800, seed=21), StructureConfig())
+    for k in ("ext", "int"):
+        assert f"{k}_swing_sweep_low" in res.bars and f"{k}_swing_sweep_high" in res.bars
+    assert res.bars["int_swing_sweep_low"].sum() >= res.bars["ext_swing_sweep_low"].sum()
+    assert (res.bars["ext_swing_sweep_low"] <= res.bars["sweep_low"]).all()

@@ -163,6 +163,17 @@ def _orb_classic(asset: str) -> Spec:
                      charges_spread=False)   # stamps the bar CLOSE already -> no offset
 
 
+def _smc_ict2022(asset: str) -> Spec:
+    """S-001 (docs/specs/smc_ict2022.yaml): the grid is exactly the agreed variant grid."""
+    from .strategies import smc_ict2022 as M
+    grid = {"zeitrahmen": ("1h/5m", "4h/15m"), "einstieg": ("ce", "fvg_kante"),
+            "min_rr": (1.5, 2.0, 3.0), "ziel": ("liquiditaet", "fest_3r"),
+            "setup": ("fvg", "ifvg"), "bias": ("an", "aus")}
+    return Spec("smc_ict2022", asset, M.SmcIct2022Config(asset=asset), grid,
+                prepare=lambda m1: M.prepare(m1, asset),
+                run=lambda c, d: M.run_backtest(d, c)["trades"])
+
+
 REGISTRY = {
     "momentum": (_momentum, ASSETS),
     "pullback": (_pullback, ASSETS),
@@ -172,6 +183,7 @@ REGISTRY = {
     "bb_squeeze": (_bb_squeeze, ASSETS),
     "supertrend": (_supertrend, ASSETS),
     "orb_classic": (_orb_classic, ("US100", "SP500")),
+    "smc_ict2022": (_smc_ict2022, ("US100", "SP500", "GER40", "XAUUSD", "EURUSD")),
 }
 
 # Slow engines get a smaller search (seconds per run measured on US100 train):
@@ -181,7 +193,7 @@ SHORTLIST = {"pullback": (3, 2)}            # (top by net LCB, top by gross LCB)
 
 # Not adapted, with the reason (reported, never silently dropped):
 NOT_ADAPTED = {
-    "smc_ict": "4h+15m+1m multi-frame engine, ~minutes per run - too slow for a grid search here",
+    "smc_ict": "legacy engine on the old structure code - superseded by smc_ict2022 (S-001)",
     "silver_bullet": "15m+1m engine without a search space; rejected family (SMC_ICT_PNL_RESEARCH)",
     "trend_range_rejection": "1m engine without a search space, no prior positive result",
     "regime_hybrid": "a combination of supertrend + mean_reversion, both run here on their own",
@@ -206,4 +218,6 @@ DESCRIPTIONS = {
                   "mit Trend- und Aktivitaetsfilter gehandelt.",
     "supertrend": "Supertrend-Wechsel mit Volumen- und EMA-Filter, optional Einstieg im Ruecksetzer.",
     "orb_classic": "Klassischer Opening-Range-Breakout auf 5-Minuten-Kerzen, Ziel als Vielfaches der Spanne.",
+    "smc_ict2022": "ICT 2022 (Spec S-001): Sweep in der Killzone, MSS mit Displacement, Einstieg im FVG, "
+                   "Stop hinter dem Sweep, Ziele an interner/externer Liquidität.",
 }

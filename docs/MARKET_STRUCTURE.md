@@ -80,4 +80,6 @@ res.active_zones(bar_idx, kinds=("fvg", "ifvg", "ob"))
 ```
 
 `ext_event` / `int_event`: `+1` BOS up, `-1` BOS down, `+2` CHoCH up, `-2` CHoCH down,
-`0` none. `sweep_high` / `sweep_low`: a swing high/low or EQH/EQL pool was swept on this bar.
+`0` none. `sweep_high` / `sweep_low`: the external swing target or an EQH/EQL pool (either
+level) was swept on this bar. `ext_swing_sweep_low` / `int_swing_sweep_low` (and `_high`): the
+current swing target of that level was swept.

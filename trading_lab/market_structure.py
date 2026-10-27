@@ -328,6 +328,8 @@ def analyze(df: pd.DataFrame, cfg: StructureConfig = StructureConfig()) -> Struc
     ptr = {k: 0 for k in levels}
     cols = {f"{k}_{x}": np.zeros(n) for k in levels for x in ("trend", "event")}
     for k in levels:
+        cols[f"{k}_swing_sweep_high"] = np.zeros(n)
+        cols[f"{k}_swing_sweep_low"] = np.zeros(n)
         cols[f"{k}_protected_high"] = np.full(n, np.nan)
         cols[f"{k}_protected_low"] = np.full(n, np.nan)
         cols[f"{k}_swing_high"] = np.full(n, np.nan)
@@ -365,6 +367,8 @@ def analyze(df: pd.DataFrame, cfg: StructureConfig = StructureConfig()) -> Struc
             lh, ll = lv.filter.last(1), lv.filter.last(-1)
             cols[f"{k}_swing_high"][i] = lh.price if lh else np.nan
             cols[f"{k}_swing_low"][i] = ll.price if ll else np.nan
+            # per-level sweep of the current swing target (wick through, close back)
+            cols[f"{k}_swing_sweep_high"][i], cols[f"{k}_swing_sweep_low"][i] = sh, sl
             if k == "ext":
                 sweep_h[i], sweep_l[i] = sh, sl
                 if ev in (BOS_UP, CHOCH_UP, BOS_DN, CHOCH_DN):

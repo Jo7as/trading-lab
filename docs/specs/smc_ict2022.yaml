@@ -1,0 +1,115 @@
+# S-001: ICT-2022-Modell (Sweep -> MSS mit Displacement -> FVG-Einstieg -> Ziel an Liquidität)
+# Faire Neubewertung von SMC auf trading_lab/market_structure.py. Schließt die Lücken, die
+# docs/SMC_ICT_PNL_RESEARCH.md (Abschnitt 4) an den alten Umsetzungen festgestellt hat.
+
+id: S-001
+strategie: smc_ict2022
+titel: "ICT 2022: Liquiditäts-Sweep in der Killzone, MSS mit Displacement, Einstieg im FVG, Ziel an der gegenüberliegenden Liquidität"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: keine Änderung, Zeitrahmen/Einstieg/RR als Varianten prüfen)"
+abgestimmt_am: "2026-10-27"
+
+idee:
+  mechanismus: >
+    In der Eröffnungsphase (Killzone) holt sich der Markt zuerst die Stops auf der Gegenseite
+    (Sweep der Sell-Side-Liquidität unter gleichen Tiefs / dem letzten Swing-Tief), um große
+    Kauforders zu füllen. Danach liefert er in Richtung des übergeordneten Trends: ein
+    impulsiver Strukturbruch (MSS) hinterlässt ein Fair Value Gap. Der Rücklauf in dieses FVG
+    ist der Einstieg, das Ziel ist die Liquidität auf der anderen Seite (Buy-Side über
+    Swing-Hochs / gleichen Hochs). Short spiegelbildlich.
+  quellen:
+    - "ICT 2022 Mentorship / Killzone-Leitfäden (Ablauf in docs/SMC_ICT_PNL_RESEARCH.md, Abschnitt 2)"
+    - "docs/SMC_ICT_PNL_RESEARCH.md - Lückenanalyse der alten Umsetzung (Ziel, Stop, Killzone, MSS)"
+    - "docs/SMC_SILVER_BULLET.md - Silver Bullet XAUUSD 2024-2026: PF ~1.0"
+
+handel:
+  maerkte: [US100, SP500, GER40, XAUUSD, EURUSD]
+  zeitrahmen: "Bias: 1h (externe Struktur); Setup und Einstieg: 5m; Fills auf 1m Bid/Ask"
+  kontotyp: prop_standard
+  max_haltedauer: "intraday - spätestens Session-Ende, kein Halten über Nacht"
+  wochenende_halten: false
+  news_fenster: "kein neuer Einstieg 2 min vor/nach High-Impact-News (FTMO Standard funded); im Backtest nicht modelliert -> Kalender-Abgleich als offener Punkt"
+
+entry:
+  bedingungen:
+    - "1. Bias: externe Struktur auf 1h (nur abgeschlossene 1h-Kerzen) im Aufwärtstrend (ext_trend = +1). Short: -1."
+    - "2. Killzone aktiv: London 02:00-05:00 New-York-Zeit (GER40, XAUUSD, EURUSD) bzw. NY 08:30-11:00 New-York-Zeit (US100, SP500, XAUUSD, EURUSD)."
+    - "3. Sweep der Sell-Side-Liquidität auf 5m in der Killzone: Docht unter ein ungebrochenes 5m-Swing-Tief oder einen EQL-Pool, Schlusskurs wieder darüber (sweep_low = 1). Sweep-Extrem = tiefstes Tief ab dem Sweep."
+    - "4. MSS mit Displacement: innerhalb von 12 5m-Kerzen nach dem Sweep ein internes CHoCH nach oben auf 5m (int_event = +2)."
+    - "5. Das Bein zwischen Sweep und MSS hinterlässt ein bullisches FVG: Größe >= 0,5 x ATR(14, 5m), mittlere Kerze mit Körper >= 0,8 x ATR(14, 5m). Bei mehreren: das letzte vor dem MSS."
+    - "6. Ziel-Check vor dem Einstieg: T2 (siehe take_profit) liegt mindestens 2 R über dem Einstieg, sonst kein Trade."
+    - "7. Höchstens ein Trade je Markt und Killzone."
+  ausfuehrung: >
+    Limit-Order am CE (50 %) des FVG, gültig für 12 5m-Kerzen nach dem MSS. Gefüllt nur, wenn
+    der Briefkurs (Long) auf 1m-Basis unter das Limit handelt (Durchhandeln, nicht nur
+    Berühren). Storno, wenn vorher T1 erreicht oder das Sweep-Extrem unterschritten wird.
+
+stop_loss:
+  regel: "Sweep-Extrem - 0,1 x ATR(14, 5m). Kein Trade, wenn der Abstand < 0,5 x ATR oder > 4 x ATR (5m) ist."
+  begruendung: >
+    ICT: der Stop gehört hinter den Manipulations-Docht. Wird dieser unterschritten, ist die
+    Idee falsch. Die alte Umsetzung hatte den Stop eng am 1m-Order-Block - 54 % volle Stops.
+
+take_profit:
+  regel: >
+    T1 = nächstes ungebrochenes internes 5m-Swing-Hoch über dem Einstieg (IRL): dort 50 %
+    schließen und Stop auf Einstand. T2 = nächstes ungebrochenes externes 1h-Swing-Hoch oder
+    EQH-Pool über dem Einstieg (ERL): Rest schließen. Gibt es kein T1 zwischen Einstieg und T2,
+    wird die ganze Position an T2 geschlossen.
+  begruendung: "ICT 2022: T1 = interne, T2 = externe Liquidität. Die alte Umsetzung hatte feste 1,5R/3R."
+
+exit_sonst:
+  - "Session-Ende: US100/SP500 15:55 NY, GER40 17:25 Berlin, XAUUSD/EURUSD 16:55 NY - alles zum Marktpreis"
+  - "kein Halten über Nacht, kein Wochenende"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  max_offene_positionen: 2
+  korrelation: "US100 und SP500 zählen als ein Markt: höchstens eine offene Position zusammen (die erste gewinnt). Gesamt höchstens 2 offene Positionen. Wird im Portfolio-Schritt angewendet - die Einzelmarkt-Backtests kennen nur ihren eigenen Markt."
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 10
+
+kosten:
+  profil: ftmo
+  swaps: "keine - nur intraday, Positionen schließen vor Session-Ende"
+  slippage: "0,5 bp je Market- oder Stop-Fill; Limit-Einstieg ohne Slippage, aber nur bei Durchhandeln"
+
+daten:
+  quelle: "Dukascopy 1m Bid/Ask aus artifacts/cache/m1; Struktur auf Mid-OHLC (market_structure.mid_ohlc), Fills auf Bid/Ask"
+  bekannte_probleme:
+    - "Killzones in New-York-Zeit inkl. Sommerzeit-Umstellung (tz America/New_York); GER40-Session in Europe/Berlin"
+    - "1h-Bias nur aus abgeschlossenen 1h-Kerzen (eine Kerze verzögert), sonst Look-ahead"
+    - "News-Sperre (FTMO Standard) im Backtest nicht modelliert"
+  warmup: "200 1h-Kerzen für die externe Struktur und ATR"
+
+varianten:
+  # Vom Nutzer gewünscht: "ein bisschen probieren" - als festes Gitter, VOR dem ersten Lauf
+  # festgelegt. Jede unterschiedliche Kombination ist ein Versuch; S4 rechnet die Zahl
+  # der (effektiv unabhängigen) Versuche über den Deflated Sharpe heraus.
+  - name: basis
+    aenderung: "1h/5m, Einstieg am FVG-CE, Mindest-RR 2, Ziel T1 = IRL / T2 = ERL, frisches FVG, mit 1h-Bias"
+  - name: gitter_zeitrahmen
+    aenderung: "zeitrahmen in {1h/5m, 4h/15m}"
+  - name: gitter_einstieg
+    aenderung: "einstieg in {ce, fvg_kante}"
+  - name: gitter_min_rr
+    aenderung: "min_rr in {1.5, 2.0, 3.0}"
+  - name: gitter_ziel
+    aenderung: "ziel in {liquiditaet (IRL/ERL), fest_3r}"
+  - name: gitter_setup
+    aenderung: "setup in {fvg, ifvg}"
+  - name: kontrolle_bias
+    aenderung: "bias in {an, aus} - ohne Bias als Kontrolle"
+  # Gitter gesamt: 2 x 2 x 3 x 2 x 2 x 2 = 96 Kombinationen (identische Ergebnisse zählen einmal)
+
+referenz: >
+  (1) Alte Repo-Ergebnisse: smc_ict ~+1,3 % über 2,5 Jahre (PF 1,43, ~1,5 Trades/Woche),
+  Silver Bullet XAUUSD PF ~1,0 (docs/SMC_ICT_PNL_RESEARCH.md, docs/SMC_SILVER_BULLET.md).
+  (2) Was diszipliniertes ICT laut Praxisberichten liefert: Trefferquote 40-55 %, Ø Gewinn 2-5 R,
+  Erwartung 0,3-0,6 R/Trade, wenige Setups pro Woche und Markt.
+  (3) Placebo des Prüfablaufs: dieselben Einstiegszeiten in Zufallsrichtung.
+  Plausibilitätsgrenze: > 0,6 R/Trade oder > 60 % Trefferquote bei >= 2 R Ziel -> erst Fehler
+  (Look-ahead) suchen, nicht feiern.
+
+tests:
+  - tests/test_smc_ict2022.py
