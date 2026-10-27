@@ -42,6 +42,33 @@ trading strategies**. Paper/signal only, no live broker execution. Python 3.11.
 | `scripts/`, `mt5/`, `tests/` | Ops helpers, MT5 demo EA, test suite |
 | `artifacts/` | Generated reports/caches — **git-ignored, don't commit** |
 
+## BEFORE testing any strategy: spec first, agreed by the user (mandatory)
+
+Read this before you write or test a strategy. On 2026-10-27 a "trend strategy" (H-012)
+was coded straight from an idea - no stop-loss, no take-profit, risk parity that ignored
+correlation, guessed financing, no tests, no reference - and its "rejected" verdict was
+worthless. The pipeline is strict but it only judges what it is given. So, in this order:
+
+1. **Write the spec** `docs/specs/<strategy>.yaml` from `docs/specs/TEMPLATE.yaml`:
+   mechanism (why should it work), markets, timeframe, account type (prop_standard /
+   prop_swing / own capital), **entry, stop-loss, take-profit, other exits**, max holding
+   time, weekend, risk per trade, how correlated markets are capped, cost profile
+   (`trading_lab/costs.py`), swaps if held overnight, relative slippage, data issues
+   (futures rolls, sessions, time zones), pre-registered variants, a **reference** to
+   sanity-check against, and the **tests**.
+2. `uv run python -m trading_lab.strategy_spec docs/specs/<strategy>.yaml` until it is OK.
+3. **Walk the user through the spec and wait.** Only the user sets `status: abgestimmt`
+   (+ `abgestimmt_von`, `abgestimmt_am`). Never set it yourself.
+4. Write a test for **every** rule on a tiny hand-made price path, then the code.
+5. Compare with the reference. If it disagrees strongly, look for the bug before you
+   draw any conclusion.
+6. Only then run the fixed procedure below. Without an agreed spec it stops; continuing
+   (`--ohne-spec`) marks the report "UNGEPRÜFTE UMSETZUNG" - such a result is about the
+   implementation, never about the idea, and must be reported that way.
+
+Also: do **not** make the screening stricter (stages, thresholds, holdout rules) without
+asking the user first; cost-model corrections that make costs more realistic are fine.
+
 ## Testing a strategy (the fixed procedure)
 
 `uv run python studies/pruefen.py` is **the** way to test a strategy: 12 fixed steps,
@@ -84,6 +111,14 @@ with the idea.
   look profitable before it was caught. Use `trading_lab.mr_common.day_slices`
   and keep a test on a **full 24 h frame** (`tests/test_day_slices.py`); a
   synthetic RTH-only frame will not catch it.
+- **Indicators and market structure come from the shared, reference-tested modules**:
+  `trading_lab/indicators.py` (Wilder/EMA SMA-seeded, NaN warm-up, pinned against
+  StockCharts/TradingView in `tests/test_indicators.py`) and `trading_lab/market_structure.py`
+  (swings with ATR filter, external/internal structure, BOS/CHoCH as one-bar **events**,
+  protected highs/lows, EQH/EQL sweeps, FVG -> IFVG lifecycle, order blocks; definitions in
+  `docs/MARKET_STRUCTURE.md`). Never write private copies of ATR/EMA/ADX or a new swing
+  detector inside a strategy. `strategies/smc/structure.py` is legacy (BOS/CHoCH there are
+  states that persist 4-6 bars) and only kept so old SMC results stay reproducible.
 - **Two spaces decide whether a number means anything** — the clock (UTC index,
   exchange-local sessions) and the cost space (mid, per-leg half-spread). Read
   **[docs/TIME_CONVENTIONS.md](docs/TIME_CONVENTIONS.md)** before writing a study or
