@@ -162,3 +162,65 @@ def test_no_look_ahead_anywhere() -> None:
             for f in ("touched_idx", "filled_idx", "inverted_idx", "retest_idx", "invalidated_idx"):
                 vb, va = getattr(zb, f), getattr(za, f)
                 assert vb == (va if va is not None and va < k else None), (k, f)
+
+
+# ── EQH/EQL v2: clusters, non-adjacent matches, separation, breaks, both levels ──
+
+EQ = StructureConfig(atr_period=3, ext_left=2, ext_right=2, ext_min_swing_atr=0.0,
+                     int_left=1, int_right=1, int_min_swing_atr=0.0, eq_tol_atr=0.15, eq_min_sep=3)
+
+
+def _eqh(res, level="ext"):
+    return [p for p in res.pools if p.kind == 1 and p.level_name == level]
+
+
+def test_three_equal_highs_form_one_pool_with_three_touches() -> None:
+    #        0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+    path = [10, 11, 12, 13, 12, 11, 12, 13, 12, 11, 12, 13, 12, 11, 11, 11]
+    res = analyze(_bars(path), EQ)
+    pools = _eqh(res)
+    assert len(pools) == 1 and pools[0].n_touches == 3
+    assert abs(pools[0].level - (13 + W)) < 1e-9
+
+
+def test_equal_high_is_found_across_a_lower_high_in_between() -> None:
+    # 13 ... lower high 12.5 ... 13 again: the two 13s are not adjacent swings
+    path = [10, 11, 12, 13, 12, 11, 11.5, 12.5, 11.5, 11, 12, 13, 12, 11, 11, 11]
+    res = analyze(_bars(path), EQ)
+    pools = _eqh(res)
+    assert len(pools) == 1 and pools[0].n_touches == 2
+
+
+def test_a_high_broken_by_a_close_cannot_pair_later() -> None:
+    # high 13.2 (bar 4), a CLOSE at 13.5 above it (bar 7), a real low, then 13.2 again (bar 14)
+    #        0   1   2   3   4   5   6   7     8     9   10  11    12  13  14  15  16  17  18
+    path = [10, 11, 12, 13, 12, 11, 12, 13.5, 12.5, 12, 11, 10.5, 11, 12, 13, 12, 11, 11, 11]
+    broken = analyze(_bars(path), EQ)
+    later = [s for s in broken.swings["ext"] if s.kind == 1 and s.idx > 12 and abs(s.price - (13 + W)) < 1e-9]
+    assert later, "the second 13.2 must be a swing - otherwise this test proves nothing"
+    assert not any(4 in p.touches for p in broken.pools)
+    # control: without the breaking close the same two highs DO pair
+    control = [10, 11, 12, 13, 12, 11, 12, 12.6, 12.5, 12, 11, 10.5, 11, 12, 13, 12, 11, 11, 11]
+    ok = analyze(_bars(control), EQ)
+    assert any(4 in p.touches and max(p.touches) > 12 for p in _eqh(ok))
+
+
+def test_a_cluster_cannot_creep_beyond_the_band() -> None:
+    # highs 13.2, 13.4, 13.6, 13.8 step up by 0.2 each: band 0.15 x ATR is narrower
+    path = [10, 11, 12, 13, 12, 11, 12, 13.2, 12, 11, 12, 13.4, 12, 11, 12, 13.6, 12, 11, 11]
+    res = analyze(_bars(path), EQ)
+    eqh = _eqh(res)
+    assert eqh, "the steps are small enough to pair - otherwise this test proves nothing"
+    assert all(p.n_touches == 2 and p.zone_high - p.zone_low <= 0.21 for p in eqh)   # pairs, no 4-touch creep
+
+
+def test_pools_exist_on_both_levels_and_flag_columns() -> None:
+    path = [10, 11, 12, 13, 12, 11, 12, 13, 12, 11, 11, 11, 11, 11]
+    df = _bars(path)
+    df.loc[df.index[11], "high"] = 13.5
+    df = pd.concat([df, _bars([11, 12, 13, 14]).iloc[1:].set_axis(
+        pd.date_range(df.index[-1] + pd.Timedelta(hours=1), periods=3, freq="1h"))])
+    res = analyze(df, EQ)
+    assert _eqh(res, "ext") and _eqh(res, "int")
+    assert res.bars["ext_eqh_sweep"].iloc[11] == 1 and res.bars["ext_eqh_taken"].iloc[-1] == 1
+    assert 11 not in _eqh(res)[0].touches          # the sweep candle is not a touch

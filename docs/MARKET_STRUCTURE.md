@@ -39,10 +39,18 @@ inside one external swing. Each level runs its own state machine.
   high/low sets the trend (labelled CHoCH).
 * A wick through the target with the close back inside is a **sweep**, not a break.
 
-**Liquidity: equal highs / lows.** When a swing high confirms within `eq_tol_atr x ATR` of
-an earlier, still unbroken swing high, the pair forms an **EQH** pool at the higher of the
-two (EQL mirrored). A wick through the pool with the close back inside is a **sweep** of
-the pool; a close through it **takes** it.
+**Liquidity: equal highs / lows (pools).** Built on both levels (`eq_levels`). When a
+swing high confirms, it is compared with **every earlier swing high of the same level that
+is still unbroken** (no close above it yet) and at most `eq_lookback` bars old - not only
+with the previous swing. Two swings form an **EQH pool** if they are within
+`eq_tol_atr x ATR` and at least `eq_min_sep` bars apart. Later swings **join** the pool
+(touch count 3, 4, ...) as long as the whole cluster stays within the band - a pool cannot
+creep upwards by small steps. The pool is a zone `[zone_low, zone_high]`; its `level` is
+the outer edge (highest high for EQH, lowest low for EQL) because that is where the stops
+sit. On every later bar: a wick beyond the level with the close back inside is a
+**sweep** (repeatable; the sweeping candle never counts as a new touch), a close beyond it
+**takes** the pool. EQL mirrored. Bar columns: `ext_eqh_sweep`, `ext_eql_sweep`,
+`ext_eqh_taken`, `ext_eql_taken` (and `int_...`).
 
 **Fair value gap (FVG).** Three candles `i-2, i-1, i`, known at the close of `i`. Bullish:
 `low[i] > high[i-2]`, zone `[high[i-2], low[i]]`; bearish mirrored. Kept only if the gap is

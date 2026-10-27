@@ -32,8 +32,11 @@ class StructureConfig:
     int_left: int = 2
     int_right: int = 2
     int_min_swing_atr: float = 0.5
-    # liquidity
-    eq_tol_atr: float = 0.10
+    # liquidity (equal highs / lows)
+    eq_tol_atr: float = 0.10             # band around a cluster, in ATR
+    eq_lookback: int = 300               # bars back a swing may find its equal
+    eq_min_sep: int = 3                  # bars between two touches of one pool
+    eq_levels: tuple[str, ...] = ("ext", "int")
     # fair value gaps
     fvg_min_atr: float = 0.25
     displacement_atr: float = 0.0        # 0 = no body filter on the middle candle
@@ -75,11 +78,91 @@ class Zone:
 
 @dataclass
 class Pool:
-    kind: int                            # +1 EQH, -1 EQL
+    """Equal highs (EQH, kind +1) / equal lows (EQL, kind -1): a cluster of >= 2 swing
+    points within ``eq_tol_atr x ATR`` of each other. Stops sit beyond the cluster, so
+    ``level`` is its outer edge (highest high / lowest low)."""
+    kind: int
     level: float
     created_idx: int
+    zone_low: float = np.nan
+    zone_high: float = np.nan
+    touches: list[int] = field(default_factory=list)   # pivot bars of the swings in the cluster
+    level_name: str = "ext"
+    updated_idx: int = -1                # last bar a touch joined
     swept_idx: list[int] = field(default_factory=list)
     taken_idx: int | None = None
+
+    @property
+    def n_touches(self) -> int:
+        return len(self.touches)
+
+
+class _LiquidityBook:
+    """Builds EQH/EQL pools from confirmed swings of one level (causal)."""
+
+    def __init__(self, name: str, cfg: "StructureConfig"):
+        self.name, self.cfg = name, cfg
+        self.cands: dict[int, list[Swing]] = {1: [], -1: []}   # unbroken swings, not yet pooled
+        self.open: list[Pool] = []
+
+    def on_bar_close(self, i: int, c: float) -> None:
+        """Drop candidates that a close has broken or that are too old."""
+        lb = self.cfg.eq_lookback
+        self.cands[1] = [s for s in self.cands[1] if c <= s.price and i - s.idx <= lb]
+        self.cands[-1] = [s for s in self.cands[-1] if c >= s.price and i - s.idx <= lb]
+
+    def on_swing(self, s: Swing, i: int, atr_i: float, pools: list[Pool]) -> None:
+        if not np.isfinite(atr_i):
+            self.cands[s.kind].append(s)
+            return
+        tol = self.cfg.eq_tol_atr * atr_i
+        # 1) joins an existing open pool?
+        for p in self.open:
+            if p.kind != s.kind or p.taken_idx is not None:
+                continue
+            # the whole cluster must stay within the band (no creeping), and the candle
+            # that SWEPT the pool is the sweep, not another equal high
+            width = max(p.zone_high, s.price) - min(p.zone_low, s.price)
+            if width <= tol and s.idx not in p.swept_idx and s.idx - max(p.touches) >= self.cfg.eq_min_sep:
+                p.touches.append(s.idx)
+                p.zone_low, p.zone_high = min(p.zone_low, s.price), max(p.zone_high, s.price)
+                p.level = p.zone_high if p.kind > 0 else p.zone_low
+                p.updated_idx = i
+                return
+        # 2) forms a new pool with an earlier, unbroken swing at the same level?
+        match = [q for q in self.cands[s.kind]
+                 if q is not s and abs(q.price - s.price) <= tol and s.idx - q.idx >= self.cfg.eq_min_sep]
+        if match:
+            q = max(match, key=lambda x: x.idx)
+            lo, hi = min(q.price, s.price), max(q.price, s.price)
+            p = Pool(s.kind, hi if s.kind > 0 else lo, created_idx=i, zone_low=lo, zone_high=hi,
+                     touches=[q.idx, s.idx], level_name=self.name, updated_idx=i)
+            pools.append(p)
+            self.open.append(p)
+            self.cands[s.kind] = [x for x in self.cands[s.kind] if x is not q]
+            return
+        self.cands[s.kind].append(s)
+
+    def update(self, i: int, h: float, l: float, c: float) -> tuple[int, int, int, int]:
+        """(eqh_swept, eql_swept, eqh_taken, eql_taken) on bar i for pools known before i."""
+        sh = sl = th = tl = 0
+        for p in self.open:
+            if p.taken_idx is not None or p.created_idx >= i:
+                continue
+            if p.kind > 0:
+                if c > p.level:
+                    p.taken_idx, th = i, 1
+                elif h > p.level:
+                    p.swept_idx.append(i)
+                    sh = 1
+            else:
+                if c < p.level:
+                    p.taken_idx, tl = i, 1
+                elif l < p.level:
+                    p.swept_idx.append(i)
+                    sl = 1
+        self.open = [p for p in self.open if p.taken_idx is None]
+        return sh, sl, th, tl
 
 
 @dataclass
@@ -252,7 +335,10 @@ def analyze(df: pd.DataFrame, cfg: StructureConfig = StructureConfig()) -> Struc
     sweep_h, sweep_l = np.zeros(n), np.zeros(n)
     zones: list[Zone] = []
     pools: list[Pool] = []
-    open_pools: list[Pool] = []
+    books = {k: _LiquidityBook(k, cfg) for k in cfg.eq_levels if k in levels}
+    for k in books:
+        for x in ("eqh_sweep", "eql_sweep", "eqh_taken", "eql_taken"):
+            cols[f"{k}_{x}"] = np.zeros(n)
     active: list[Zone] = []
 
     for i in range(n):
@@ -263,16 +349,12 @@ def analyze(df: pd.DataFrame, cfg: StructureConfig = StructureConfig()) -> Struc
             while ptr[k] < len(lst) and lst[ptr[k]].confirmed_idx <= i:
                 p = lst[ptr[k]]
                 ptr[k] += 1
-                prev_same = lv.filter.last(p.kind)
                 s = lv.filter.add(p, atr_i)
                 if s is None:
                     continue
                 lv.on_swing(s)
-                if k == "ext" and prev_same is not None and prev_same is not s and prev_same.broken_idx is None \
-                        and np.isfinite(atr_i) and abs(s.price - prev_same.price) <= cfg.eq_tol_atr * atr_i:
-                    lvl = max(s.price, prev_same.price) if s.kind > 0 else min(s.price, prev_same.price)
-                    pools.append(Pool(s.kind, lvl, i))
-                    open_pools.append(pools[-1])
+                if k in books:
+                    books[k].on_swing(s, i, atr_i, pools)
         # 2) structure events on this close
         for k, lv in levels.items():
             ev, sh, sl = lv.on_bar(i, h, l, c)
@@ -290,23 +372,15 @@ def analyze(df: pd.DataFrame, cfg: StructureConfig = StructureConfig()) -> Struc
                     if ob is not None:
                         zones.append(ob)
                         active.append(ob)
-        # 3) liquidity pools (only the ones not yet taken)
-        open_pools = [p for p in open_pools if p.taken_idx is None] if i % 50 == 0 else open_pools
-        for p in open_pools:
-            if p.taken_idx is not None or p.created_idx >= i:
-                continue
-            if p.kind > 0:
-                if c[i] > p.level:
-                    p.taken_idx = i
-                elif h[i] > p.level:
-                    p.swept_idx.append(i)
-                    sweep_h[i] = 1
-            else:
-                if c[i] < p.level:
-                    p.taken_idx = i
-                elif l[i] < p.level:
-                    p.swept_idx.append(i)
-                    sweep_l[i] = 1
+        # 3) liquidity pools: sweeps / takes of pools known before this bar, then
+        #    drop candidate swings this close has broken
+        for k, bk in books.items():
+            esh, esl, eth, etl = bk.update(i, h[i], l[i], c[i])
+            cols[f"{k}_eqh_sweep"][i], cols[f"{k}_eql_sweep"][i] = esh, esl
+            cols[f"{k}_eqh_taken"][i], cols[f"{k}_eql_taken"][i] = eth, etl
+            sweep_h[i] = max(sweep_h[i], esh)
+            sweep_l[i] = max(sweep_l[i], esl)
+            bk.on_bar_close(i, c[i])
         # 4) zone lifecycles (zones created at an EARLIER bar)
         still: list[Zone] = []
         for z in active:
@@ -329,7 +403,7 @@ def analyze(df: pd.DataFrame, cfg: StructureConfig = StructureConfig()) -> Struc
 
     bars = pd.DataFrame(cols, index=df.index)
     bars["sweep_high"], bars["sweep_low"] = sweep_h, sweep_l
-    for k in ("ext_trend", "int_trend", "ext_event", "int_event"):
+    for k in [c for c in bars.columns if c.endswith(("_trend", "_event", "_sweep", "_taken"))] + ["sweep_high", "sweep_low"]:
         bars[k] = bars[k].astype(int)
     return StructureResult(bars=bars, swings={k: lv.filter.swings for k, lv in levels.items()},
                            zones=zones, pools=pools)
