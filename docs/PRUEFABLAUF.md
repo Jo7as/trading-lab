@@ -7,6 +7,11 @@ uv run python studies/pruefen.py --strategie momentum --instrument US100
 uv run python studies/pruefen.py --liste  # Strategien, Instrumente, die 12 Schritte
 ```
 
+**Vorher:** eine abgestimmte Spezifikation `docs/specs/<strategie>.yaml` (Vorlage
+`docs/specs/TEMPLATE.yaml`, Prüfer `python -m trading_lab.strategy_spec`). Ohne sie hält
+Schritt 2 an; wer trotzdem weitermacht (`--ohne-spec`), bekommt im Bericht
+**„UNGEPRÜFTE UMSETZUNG“** - das Ergebnis gilt dann nur für diese Umsetzung, nicht für die Idee.
+
 **Jeder Durchlauf ist gleich**, egal welche Strategie: dieselben 12 Schritte in derselben
 Reihenfolge, dieselben Schwellen. Nach jedem Schritt zeigt der Ablauf, was passiert ist,
 das Zwischenergebnis und was es bedeutet, und hält an. Mit `a` kann man jederzeit
@@ -15,7 +20,7 @@ abbrechen. Das Protokoll wird trotzdem geschrieben.
 | # | Schritt | Was passiert | Entscheidest du |
 |---|---|---|---|
 | 1 | Umgebung prüfen | Python, .venv; Ziel des Ablaufs erklärt | - |
-| 2 | Strategie und Instrument | Auswahl aus `trading_lab/registry.py` | ja |
+| 2 | Strategie und Instrument | Auswahl aus `trading_lab/registry.py`; **Spezifikation prüfen** | ja (ohne Spec: abbrechen oder bewusst weiter) |
 | 3 | Daten laden und aufteilen | 1-Minuten Bid/Ask aus dem Cache; **Train** bis 2024, **Holdout** ab 2025 (verschlossen) | Download, falls nichts im Cache |
 | 4 | Basis-Backtest | Standard-Parameter auf Train: n, brutto/netto R, Jahre | - |
 | 5 | Suchraum und Budget | Grid anzeigen, einzelne Parameter fixieren, schnell/normal/gründlich | ja |

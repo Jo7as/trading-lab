@@ -40,8 +40,8 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
-from . import screening
-from .optimizer import (MIN_TRADES, build_rows, evaluate_holdout, grid_size, normalise,
+from . import screening, strategy_spec
+from .optimizer import (MIN_TRADES, build_rows, evaluate_holdout, grid_size, run_variant,
                         per_year, prop_profile, search, shortlist)
 from .registry import (ASSETS, BUDGET_SCALE, DESCRIPTIONS, HOLDOUT_START, NOT_ADAPTED,
                        REGISTRY, SHORTLIST, load_cached)
@@ -88,6 +88,9 @@ class GuidedCheck:
     out_root: Path = OUT_ROOT
     loader: Callable[[str], pd.DataFrame] = load_cached
     holdout_start: pd.Timestamp = HOLDOUT_START
+    cost_profile: str | None = None
+    #: None = ask; True = continue without an agreed spec (report marked); False = abort
+    allow_unchecked: bool | None = None
     #: decisions and results, in order - becomes the protocol in the report
     log: list[dict] = field(default_factory=list)
 
@@ -187,10 +190,32 @@ class GuidedCheck:
         self.spec = REGISTRY[self.strategy][0](self.asset)
         self.say(f"\n  Gewählt: {self.strategy} auf {self.asset}")
         self._explain(DESCRIPTIONS.get(self.strategy, ""))
+        # Pflicht vor jedem Test: eine abgestimmte Spezifikation (docs/specs/<strategie>.yaml).
+        # Die Pipeline prüft nur, was man ihr gibt - eine schlecht definierte Strategie
+        # scheitert zu Recht und beweist trotzdem nichts über die Idee (H-012).
+        self.spec_check = strategy_spec.load(self.strategy)
+        if self.spec_check.agreed:
+            self.say(f"\n  Spezifikation: abgestimmt ({self.spec_check.path})")
+        else:
+            self.say(f"\n  SPEZIFIKATION FEHLT ODER IST NICHT ABGESTIMMT:")
+            for err in self.spec_check.errors[:12]:
+                self.say(f"   - {err}")
+            self._explain(f"""
+            Ohne abgestimmte Spezifikation (Entry, Stop-Loss, Take-Profit, Haltedauer, Kosten,
+            Referenz, Tests - Vorlage docs/specs/TEMPLATE.yaml) ist ein Ergebnis keine Aussage
+            über die Idee. Weiter geht es nur bewusst; der Bericht trägt dann '{strategy_spec.UNCHECKED}'.
+            """)
+            if self.allow_unchecked is None:
+                a = self._choose("Trotzdem weiter?", {"a": "abbrechen", "w": f"weiter als {strategy_spec.UNCHECKED}"}, "a")
+                self.allow_unchecked = a == "w"
+            if not self.allow_unchecked:
+                raise Abbruch()
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.run_dir = self.out_root / f"{stamp}_{self.strategy}_{self.asset}"
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        self._record(2, strategie=self.strategy, instrument=self.asset)
+        self._record(2, strategie=self.strategy, instrument=self.asset,
+                     spezifikation=("abgestimmt" if self.spec_check.agreed else strategy_spec.UNCHECKED),
+                     spec_fehler=self.spec_check.errors)
         self._pause()
 
     # 3 ─────────────────────────────────────────────────────────────────
@@ -219,6 +244,21 @@ class GuidedCheck:
             m1 = self.loader(self.asset)
             if m1.empty:
                 raise Abbruch()
+        from . import costs
+        if self.cost_profile is None:
+            self._explain("""
+            Kosten: Mit welchen Konditionen soll gerechnet werden? Das ändert den Spread
+            (bei manchen Profilen auf die typischen Werte des Handelsplatzes skaliert) und die
+            Kommission je Trade. 'ftmo' ist der Standard, weil das Ziel ein Prop-Konto ist.
+            """)
+            opts = {str(i): n for i, n in enumerate(costs.PROFILES, 1)}
+            for k, n in opts.items():
+                self.say(f"   {k}. {n:10s} {costs.PROFILES[n].description}")
+            default = next(k for k, n in opts.items() if n == costs.DEFAULT_PROFILE)
+            self.cost_profile = opts[self._choose("Kostenprofil?", opts, default)]
+        self.spec.cost_profile = self.cost_profile
+        raw_spread = (m1["ask_close"] - m1["close"]) / m1["close"] * 1e4
+        m1 = costs.adjust_frame(m1, self.asset, self.cost_profile)
         self.m1 = m1
         self.m1_train = m1[m1.index < self.holdout_start]
         spread = (m1["ask_close"] - m1["close"]) / m1["close"] * 1e4
@@ -226,14 +266,19 @@ class GuidedCheck:
             "von": str(m1.index[0].date()), "bis": str(m1.index[-1].date()),
             "kerzen": int(len(m1)), "train_kerzen": int(len(self.m1_train)),
             "holdout_kerzen": int(len(m1) - len(self.m1_train)),
+            "spread_median_bp_daten": round(float(raw_spread.median()), 2),
             "spread_median_bp": round(float(spread.median()), 2),
+            "kostenprofil": self.cost_profile,
+            "kommission_bp_je_seite": round(costs.commission_bp_side(self.asset, float(m1["close"].iloc[-1]),
+                                                                   self.cost_profile), 3),
         }
         self.say("")
         for k, v in info.items():
             self.say(f"  {k:18s} {v}")
         self._explain(f"""
-        Der mittlere Spread ({info['spread_median_bp']} Basispunkte) ist das, was jeder Trade
-        mindestens bezahlt. Je kleiner die erwartete Bewegung pro Trade, desto mehr frisst er.
+        Ein Round Trip kostet hier etwa {info['spread_median_bp']} bp Spread (Median) plus
+        2 x {info['kommission_bp_je_seite']} bp Kommission. Das zahlt jeder Trade mindestens - je kleiner
+        die erwartete Bewegung pro Trade, desto mehr frisst es.
         (geladen in {time.time() - t0:.0f}s)
         """)
         self._record(3, **info)
@@ -249,10 +294,8 @@ class GuidedCheck:
         Einheit "R": 1 R = das Risiko eines Trades (Abstand Einstieg -> Stop). +0,1 R je Trade
         heißt: im Schnitt gewinnt jeder Trade ein Zehntel dessen, was er riskiert.
         """)
-        data = self.spec.prepare(self.m1_train)
         t0 = time.time()
-        tr = normalise(self.spec.run(self.spec.base, data), self.m1_train, self.spec.risk_pct,
-                       self.spec.entry_offset_min, self.spec.charges_spread)
+        tr = run_variant(self.spec, self.spec.base, self.m1_train, adjusted=True)
         self.baseline = tr
         if tr.empty:
             self.say("\n  Keine Trades mit den Standard-Parametern.")
@@ -593,6 +636,11 @@ class GuidedCheck:
         lines = [f"# Prüfbericht {self.strategy} auf {self.asset}", "",
                  f"Erstellt {datetime.now():%Y-%m-%d %H:%M}. Fester Ablauf, {len(STEPS)} Schritte."
                  + (" **ABGEBROCHEN.**" if aborted else ""), ""]
+        sc = getattr(self, "spec_check", None)
+        if sc is not None and not sc.agreed:
+            lines += [f"> **{strategy_spec.UNCHECKED}** - keine abgestimmte Spezifikation "
+                      f"(docs/specs/{self.strategy}.yaml). Das Ergebnis sagt etwas über diese Umsetzung, "
+                      "nicht über die Idee.", ""]
         if hasattr(self, "status"):
             lines += [f"**Ergebnis:** {self.status}", ""]
         if getattr(self, "rows", None):

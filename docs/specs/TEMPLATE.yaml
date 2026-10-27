@@ -1,0 +1,65 @@
+# Strategie-Spezifikation - VOR jeder Zeile Code ausfüllen und mit dem Nutzer abstimmen.
+# Kopieren nach docs/specs/<strategie>.yaml (<strategie> = Name in trading_lab/registry.py).
+# Prüfen:  uv run python -m trading_lab.strategy_spec docs/specs/<strategie>.yaml
+# Warum: H-012 (2026-10-27) war ein Trendportfolio ohne Stop/TP, mit falscher Risikoverteilung
+# und ohne Tests - die Pipeline hat es korrekt verworfen, aber das Urteil sagte nichts über die
+# Idee. Eine schlecht gebaute Strategie scheitert zu Recht und beweist trotzdem nichts.
+
+id: S-000                       # S-<3 Ziffern>
+strategie: mein_name            # Registry-Name (trading_lab/registry.py)
+titel: ""
+status: entwurf                 # entwurf | abgestimmt  (abgestimmt NUR durch den Nutzer)
+abgestimmt_von: ""              # wer hat die Spec freigegeben (Pflicht bei status: abgestimmt)
+abgestimmt_am: ""               # JJJJ-MM-TT
+
+idee:
+  mechanismus: ""               # wer handelt hier warum - warum sollte das funktionieren?
+  quellen: []                   # Literatur, Bücher, frühere Repo-Befunde (docs/FINDINGS.md)
+
+handel:
+  maerkte: []                   # z.B. [US100, SP500]
+  zeitrahmen: ""                # Signal-Kerzen, z.B. 4h / 1D / 15min
+  kontotyp: prop_standard       # prop_standard | prop_swing | eigenkapital
+  max_haltedauer: ""            # z.B. "5 Handelstage"
+  wochenende_halten: false      # prop_standard (funded): false
+  news_fenster: ""              # z.B. "kein Entry 2 min vor/nach High-Impact-News" oder "egal (Swing)"
+
+entry:
+  bedingungen: []               # jede Bedingung messbar, ohne Ermessen
+  ausfuehrung: ""               # Market/Limit, auf welcher Kerze (Signal am Schluss -> Fill wann?)
+
+stop_loss:
+  regel: ""                     # PFLICHT, z.B. "Einstieg - 2 x ATR(14, 1D)" oder "unter letztem Swing-Tief - 0,1 ATR"
+  begruendung: ""
+
+take_profit:
+  regel: ""                     # PFLICHT: festes Ziel, Trailing, Zeit-Exit oder Gegensignal - "keiner" nur mit Begründung
+  begruendung: ""
+
+exit_sonst: []                  # Zeit-Exit, Freitag-Schluss, Session-Ende, Gegensignal ...
+
+risiko:
+  risiko_je_trade_pct: 0.5      # % des Kontos je Trade (1 R)
+  max_offene_positionen: 1
+  korrelation: ""               # wie werden korrelierte Märkte begrenzt? (H-012: 14 FX-Paare am Dollar)
+  tagesverlust_limit_pct: 5     # Prop-Regel
+  gesamtverlust_limit_pct: 10
+
+kosten:
+  profil: ftmo                  # trading_lab/costs.py: ftmo | ecn_raw | dukascopy | cme_micro
+  swaps: ""                     # wie wird Finanzierung über Nacht modelliert? (Pflicht wenn > 1 Tag)
+  slippage: ""                  # relativ (bp), nie absolute Kurspunkte
+
+daten:
+  quelle: ""                    # z.B. Dukascopy 1m bid/ask, artifacts/cache/m1
+  bekannte_probleme: []         # Futures-Rolls bei Öl/Kupfer-CFDs, Zeitzonen, Sessions, Lücken ...
+  warmup: ""
+
+varianten:                      # vorab festgelegt, wenige; die erste ist die Hauptvariante
+  - name: basis
+    aenderung: ""
+
+referenz: ""                    # PFLICHT: womit vergleichen wir zur Plausibilität?
+                                # (veröffentlichtes Ergebnis, Vergleichsindex, eigene frühere Messung)
+
+tests: []                       # PFLICHT: Testdateien, die JEDE Regel oben auf kleinen Kursverläufen prüfen

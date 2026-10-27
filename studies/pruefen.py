@@ -27,6 +27,9 @@ def main() -> int:
     ap.add_argument("--strategie", choices=sorted(REGISTRY))
     ap.add_argument("--instrument")
     ap.add_argument("--budget", choices=sorted(BUDGETS), help="s/n/g = schnell/normal/gruendlich")
+    ap.add_argument("--kosten", help="Kostenprofil: ftmo (Standard), ecn_raw, dukascopy, cme_micro, data")
+    ap.add_argument("--ohne-spec", action="store_true",
+                    help="ohne abgestimmte Spezifikation weiter (Bericht: UNGEPRÜFTE UMSETZUNG)")
     ap.add_argument("--liste", action="store_true", help="Strategien, Instrumente und die 12 Schritte zeigen")
     args = ap.parse_args()
     warnings.filterwarnings("ignore")
@@ -45,7 +48,8 @@ def main() -> int:
         from trading_lab.registry import BUDGET_SCALE
         scale = BUDGET_SCALE.get(args.strategie or "", 1.0)
         budget = max(20, int(BUDGETS[args.budget][1] * scale))
-    GuidedCheck(strategy=args.strategie, asset=args.instrument, budget=budget).run()
+    GuidedCheck(strategy=args.strategie, asset=args.instrument, budget=budget,
+                cost_profile=args.kosten, allow_unchecked=True if args.ohne_spec else None).run()
     return 0
 
 

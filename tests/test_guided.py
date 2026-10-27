@@ -21,7 +21,7 @@ def toy(monkeypatch, tmp_path):
     monkeypatch.setitem(guided.REGISTRY, "toy", (spec, ("SYN",)))
     monkeypatch.setattr(guided, "LEDGER", tmp_path / "ledger.json")
     data = _m1()
-    return dict(strategy="toy", asset="SYN", budget=20, out_root=tmp_path,
+    return dict(strategy="toy", asset="SYN", budget=20, out_root=tmp_path, allow_unchecked=True,
                 loader=lambda a: data, holdout_start=pd.Timestamp("2022-11-01", tz="UTC"))
 
 
@@ -64,3 +64,15 @@ def test_abort_writes_the_protocol(toy) -> None:
     g, text, path = _run(toy, ["", "a"])
     assert "Abgebrochen" in text
     assert path is not None and "ABGEBROCHEN" in path.read_text()
+
+
+def test_without_an_agreed_spec_the_check_stops_by_default(toy) -> None:
+    """Every new agent hits this: no docs/specs/<strategy>.yaml -> abort unless chosen."""
+    toy = {**toy, "allow_unchecked": None}
+    g, text, path = _run(toy, [])
+    assert "SPEZIFIKATION FEHLT" in text and "Abgebrochen" in text
+
+
+def test_a_run_without_spec_is_marked_in_the_report(toy) -> None:
+    g, text, path = _run(toy, [])
+    assert "UNGEPRÜFTE UMSETZUNG" in path.read_text()

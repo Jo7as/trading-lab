@@ -7,6 +7,14 @@ Kilo, …) and point it at this file.
 There are two levels. Start at **Level 1**; only touch Level 3 if you want the
 idea to run 24/7 on a server.
 
+## Level 0 — the spec, agreed with the user (before any code)
+
+Copy `docs/specs/TEMPLATE.yaml` to `docs/specs/<strategy>.yaml`, fill in entry, stop-loss,
+take-profit, exits, holding time, risk, costs, data issues, variants, a reference and the
+tests, check it with `uv run python -m trading_lab.strategy_spec docs/specs/<strategy>.yaml`,
+and get the user's approval (`status: abgestimmt`). The guided check refuses to run
+without it (or marks the report "UNGEPRÜFTE UMSETZUNG"). See AGENTS.md for why.
+
 ## Level 1 — the strategy module
 
 Create `trading_lab/strategies/my_idea.py`. It needs exactly two things:

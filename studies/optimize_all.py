@@ -49,7 +49,11 @@ def _job(name: str, asset: str, budget: int, holdout: str | None) -> dict:
     if m1.empty:
         return {"name": name, "asset": asset, "error": "keine Daten im Cache"}
     spec = REGISTRY[name][0](asset)
-    print(f"  start {spec.label}  (Grid {grid_size(spec.grid)}, Budget {budget})", flush=True)
+    from trading_lab import strategy_spec
+    sc = strategy_spec.load(name)
+    spec_status = "abgestimmt" if sc.agreed else strategy_spec.UNCHECKED
+    print(f"  start {spec.label}  (Grid {grid_size(spec.grid)}, Budget {budget})"
+          + ("" if sc.agreed else f"  [{spec_status}: keine abgestimmte docs/specs/{name}.yaml]"), flush=True)
     try:
         top_net, top_gross = SHORTLIST.get(name, (6, 3))
         res = optimise(spec, m1, holdout_start=HOLDOUT_START,
@@ -58,7 +62,10 @@ def _job(name: str, asset: str, budget: int, holdout: str | None) -> dict:
                        holdout_release=holdout, verbose=True)
     except Exception as exc:
         return {"name": name, "asset": asset, "error": repr(exc)}
+    for r in res.rows:
+        r["spezifikation"] = spec_status
     payload = {"name": name, "asset": asset, "n_trials": res.n_trials, "pbo": res.pbo,
+               "spezifikation": spec_status,
                "grid_size": grid_size(spec.grid), "seconds": round(time.time() - t0, 1),
                "note": res.note, "rows": res.rows, "trials": res.trial_log()}
     OUT.mkdir(parents=True, exist_ok=True)
