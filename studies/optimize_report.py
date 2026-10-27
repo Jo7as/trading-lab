@@ -32,7 +32,7 @@ import pandas as pd  # noqa: E402
 from trading_lab.registry import HOLDOUT_START, REGISTRY, load_cached  # noqa: E402
 from trading_lab import prop_sim, screening  # noqa: E402
 from trading_lab.guided import GuidedCheck  # noqa: E402
-from trading_lab.optimizer import normalise  # noqa: E402
+from trading_lab.optimizer import run_variant  # noqa: E402
 
 OUT = Path("artifacts/optimize")
 NEAR_DSR = 0.80
@@ -102,8 +102,9 @@ def prop_check(row: pd.Series) -> dict:
     name, asset = row["strategy"], row["asset"]
     spec = REGISTRY[name][0](asset)
     m1 = load_cached(asset)
-    tr_all = normalise(spec.run(replace(spec.base, **row["params"]), spec.prepare(m1)), m1, spec.risk_pct,
-                       spec.entry_offset_min, spec.charges_spread)
+    if row.get("cost_profile"):
+        spec.cost_profile = row["cost_profile"]
+    tr_all = run_variant(spec, replace(spec.base, **row["params"]), m1)
     out = {}
     for label, part in (("train", tr_all[tr_all["entry_time"] < HOLDOUT_START]),
                         ("holdout", tr_all[tr_all["entry_time"] >= HOLDOUT_START])):

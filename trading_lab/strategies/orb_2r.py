@@ -61,9 +61,13 @@ class OrbConfig:
     target_r: float = 2.0
     stop_buffer_spreads: float = 1.0
 
-    slippage: float = 1.0             # price points per market / stop fill
-    slippage_pct: float = 0.0         # plus this fraction of the price (scales with the index level)
-    commission: float = 0.0           # price points per round trip
+    # Slippage is RELATIVE (review 2026-10-27): the old default of 1.0 price point was
+    # set for US100 (~0.5 bp) and silently became ~2 bp per fill on SP500 and 1.4 bp on
+    # US100 in 2019. 0.5 bp per market/stop fill on every market now.
+    slippage: float = 0.0             # price points per market / stop fill (legacy, absolute)
+    slippage_pct: float = 0.00005     # fraction of the price per market / stop fill (0.5 bp)
+    commission: float = 0.0           # price points per round trip - venue commission now lives
+                                      # in trading_lab.costs (charged by optimizer.normalise)
     max_cost_r: float = 0.04          # 0 = filter off
     max_range_mult: float = 0.0       # 0 = off; skip when range > mult × mean of the last N days
     range_lookback_days: int = 20
@@ -95,7 +99,8 @@ MARKETS: dict[str, OrbConfig] = {
     ),
     "XAUUSD": OrbConfig(
         asset="XAUUSD", asset_label="XAU/USD", session_open="08:20", flat_time="16:55",
-        slippage=0.10, commission=0.06,
+        # was slippage=0.10 USD + commission=0.06 USD (absolute); now the relative default
+        # slippage and the venue commission from trading_lab.costs
     ),
     # A1 — Nikkei opening range. Tokyo opens 09:00 JST (00:00 UTC, no DST); flat
     # before the 15:00/15:30 cash close so the 11:30–12:30 lunch gap stays inside

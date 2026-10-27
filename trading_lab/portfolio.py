@@ -28,7 +28,7 @@ import pandas as pd
 import yaml
 
 from . import prop_sim, screening
-from .optimizer import normalise
+from .optimizer import run_variant
 from .registry import HOLDOUT_START, REGISTRY, load_cached
 
 PF_DIR = Path(__file__).resolve().parent.parent / "configs" / "portfolios"
@@ -170,7 +170,7 @@ class PortfolioResult:
 def _component_trades(c: Component, m1: pd.DataFrame) -> pd.DataFrame:
     spec = REGISTRY[c.strategy][0](c.asset)
     cfg = replace(spec.base, **c.params)
-    return normalise(spec.run(cfg, spec.prepare(m1)), m1, spec.risk_pct, spec.entry_offset_min, spec.charges_spread)
+    return run_variant(spec, cfg, m1)
 
 
 def evaluate(pf: Portfolio, *, window: str, holdout_start: pd.Timestamp = HOLDOUT_START,

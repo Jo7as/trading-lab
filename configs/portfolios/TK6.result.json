@@ -1,0 +1,20 @@
+{
+ "id": "TK6",
+ "status": "archiviert",
+ "holdout_geoeffnet": "2026-10-26T23:18",
+ "urteil": "NICHT BESTANDEN",
+ "kriterien": {
+  "t_taeglich >= 1.645": false,
+  "pct_pro_monat_mittel > 0": true,
+  "max_drawdown_pct <= 10.0": false,
+  "schlechtester_tag_pct <= 5.0": true
+ },
+ "holdout": {
+  "pct_pro_monat_mittel": 0.195,
+  "max_drawdown_pct": 17.71,
+  "t_taeglich": 0.251,
+  "monate": 21.8
+ },
+ "vorregistrierung_commit": "16893b3",
+ "hinweis": "Lock seit der Kostenprofil-Änderung (2026-10-27) gebrochen - gewollt, das Portfolio ist abgeschlossen."
+}

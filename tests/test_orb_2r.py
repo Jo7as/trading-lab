@@ -18,7 +18,7 @@ from trading_lab.strategies.orb_2r import (
 )
 
 SPREAD = 1.0
-CFG = OrbConfig(slippage=0.5, commission=0.0, max_cost_r=0.0)
+CFG = OrbConfig(slippage=0.5, slippage_pct=0.0, commission=0.0, max_cost_r=0.0)
 
 
 def _day(
@@ -200,7 +200,9 @@ def test_random_baseline_shape_and_cost_drag():
 
 def test_market_presets_use_exchange_local_times():
     assert MARKETS["GER40"].tz == "Europe/Berlin" and MARKETS["GER40"].session_open == "09:00"
-    assert MARKETS["XAUUSD"].session_open == "08:20" and MARKETS["XAUUSD"].commission > 0
+    assert MARKETS["XAUUSD"].session_open == "08:20"
+    # costs are relative now: the same 0.5 bp slippage on every market, commission per venue
+    assert MARKETS["XAUUSD"].slippage_pct == MARKETS["US100"].slippage_pct > 0
     s = build_sessions(_day(_RANGE), MARKETS["US100"])
     assert pd.Timestamp(s.open_ns[0], tz="UTC") == pd.Timestamp("2024-03-05 14:30", tz="UTC")
 

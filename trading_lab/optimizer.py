@@ -84,6 +84,8 @@ class Spec:
     #: itself. Found 2026-10-26: supertrend, bb_squeeze and orb_classic never paid
     #: the spread, so their "net" was gross.
     charges_spread: bool = True
+    #: venue cost profile (``trading_lab.costs``): spread scaling + commission per side
+    cost_profile: str = "ftmo"
 
     @property
     def label(self) -> str:
@@ -118,7 +120,8 @@ def _ns(x: Any) -> np.ndarray:
 
 
 def normalise(trades: list[dict], m1: pd.DataFrame, risk_pct: float | None,
-              entry_offset_min: int = 0, charges_spread: bool = True) -> pd.DataFrame:
+              entry_offset_min: int = 0, charges_spread: bool = True, *,
+              asset: str | None = None, cost_profile: str | None = None) -> pd.DataFrame:
     """One row per closed trade with ``entry_time, exit_time, direction, risk,
     target_dist, r, r_gross`` - the same columns for every strategy.
 
@@ -179,11 +182,29 @@ def normalise(trades: list[dict], m1: pd.DataFrame, risk_pct: float | None,
         # bid-only engine: what it logged is gross; net = gross - one round-trip spread
         df["r_gross"] = df["r"]
         df["r"] = df["r"] - half
-        return df
-    need = df["r_gross"].isna()
-    if need.any():
-        df.loc[need, "r_gross"] = df.loc[need, "r"] + half[need.to_numpy()]
+    else:
+        need = df["r_gross"].isna()
+        if need.any():
+            df.loc[need, "r_gross"] = df.loc[need, "r"] + half[need.to_numpy()]
+    if asset is not None and cost_profile is not None:
+        # commission, two sides, in R - the part the old model never charged
+        from . import costs
+        bp = np.array([costs.commission_bp_side(asset, e, cost_profile) for e in df["entry"]])
+        df["commission_r"] = 2 * bp * 1e-4 * df["entry"].to_numpy() / df["risk"].to_numpy()
+        df["r"] = df["r"] - df["commission_r"]
     return df
+
+
+def run_variant(spec: "Spec", cfg: Any, m1: pd.DataFrame, *, adjusted: bool = False) -> pd.DataFrame:
+    """One variant, start to finish, with the spec's full cost model: venue spread
+    (``costs.adjust_frame``), the engine, then ``normalise`` with offset, bid-only
+    spread and commission. Every caller (guided check, portfolios, reports) uses this,
+    so a cost rule can never be applied in one place and forgotten in another."""
+    from . import costs
+    if not adjusted:
+        m1 = costs.adjust_frame(m1, spec.asset, spec.cost_profile)
+    return normalise(spec.run(cfg, spec.prepare(m1)), m1, spec.risk_pct, spec.entry_offset_min,
+                     spec.charges_spread, asset=spec.asset, cost_profile=spec.cost_profile)
 
 
 # ── Placebo by replay ─────────────────────────────────────────────────────
@@ -383,6 +404,8 @@ def _neighbours(cfg: Any, grid: dict[str, tuple]) -> list[Any]:
 
 class _Search:
     def __init__(self, spec: Spec, m1_train: pd.DataFrame, *, budget: int, verbose: bool):
+        from . import costs
+        m1_train = costs.adjust_frame(m1_train, spec.asset, spec.cost_profile)
         self.spec, self.m1, self.budget, self.verbose = spec, m1_train, budget, verbose
         self.data = spec.prepare(m1_train)
         self.trials: dict[tuple, Trial] = {}
@@ -404,7 +427,8 @@ class _Search:
                 print(f"    [{self.spec.label}] Fehler bei {dict(k)}: {exc!r}")
             return None
         tr = normalise(raw, self.m1, self.spec.risk_pct, self.spec.entry_offset_min,
-                       self.spec.charges_spread)
+                       self.spec.charges_spread, asset=self.spec.asset,
+                       cost_profile=self.spec.cost_profile)
         r = tr["r"].to_numpy() if len(tr) else np.array([])
         g = tr["r_gross"].to_numpy() if len(tr) else np.array([])
         trial = Trial(key=k, cfg=cfg, trades=tr, n=len(tr),
@@ -504,6 +528,7 @@ def build_rows(s: "_Search", short: list[Trial]) -> tuple[list[dict], dict]:
         d = daily.get(t.key, daily_on_calendar(t.trades, days))
         rows.append({
             "name": f"{spec.label}#{len(rows)}", "strategy": spec.name, "asset": spec.asset,
+            "cost_profile": spec.cost_profile,
             "params": {k: v for k, v in t.key},
             "n": t.n, "gross_mean": t.gross_mean, "net_mean": t.net_mean,
             "placebo_gross": (t.gross_mean - placebo_edge) if placebo_edge is not None else None,
@@ -530,6 +555,8 @@ def evaluate_holdout(spec: Spec, m1: pd.DataFrame, rows: list[dict], names: set[
     Runs on the full history (indicators keep their warm-up) and keeps only the
     trades that ENTER on/after ``holdout_start``.
     """
+    from . import costs
+    m1 = costs.adjust_frame(m1, spec.asset, spec.cost_profile)
     full = spec.prepare(m1)
     hold_months = max((m1.index[-1] - holdout_start).days / 30.44, 1.0)
     for row in rows:
@@ -537,7 +564,7 @@ def evaluate_holdout(spec: Spec, m1: pd.DataFrame, rows: list[dict], names: set[
             continue
         cfg = replace(spec.base, **row["params"])
         tr = normalise(spec.run(cfg, full), m1, spec.risk_pct, spec.entry_offset_min,
-                       spec.charges_spread)
+                       spec.charges_spread, asset=spec.asset, cost_profile=spec.cost_profile)
         tr = tr[tr["entry_time"] >= holdout_start] if len(tr) else tr
         r = tr["r"].to_numpy() if len(tr) else np.array([])
         row["oos_n"] = int(len(r))
@@ -577,5 +604,5 @@ def grid_size(grid: dict[str, tuple]) -> int:
     return int(np.prod([len(v) for v in grid.values()]))
 
 
-__all__ = ["Spec", "Result", "optimise", "search", "shortlist", "build_rows", "evaluate_holdout", "normalise", "replay_placebo", "prop_profile",
+__all__ = ["run_variant", "Spec", "Result", "optimise", "search", "shortlist", "build_rows", "evaluate_holdout", "normalise", "replay_placebo", "prop_profile",
            "lcb", "daily_on_calendar", "grid_size"]

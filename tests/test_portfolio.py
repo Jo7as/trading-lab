@@ -62,7 +62,10 @@ def test_real_portfolios_are_valid_and_frozen() -> None:
         pf = P.load(pid)
         assert pf.components and pf.risk_per_trade_pct > 0
         assert all(c.strategy in P.REGISTRY for c in pf.components)
-        assert P.is_unchanged(pid), f"{pid} ist nicht eingefroren oder wurde geaendert"
+        # an archived portfolio (holdout spent, result recorded) may have a broken lock;
+        # every portfolio still WAITING for its test must be frozen and unchanged
+        if not (P.PF_DIR / f"{pid}.result.json").exists():
+            assert P.is_unchanged(pid), f"{pid} ist nicht eingefroren oder wurde geaendert"
 
 
 def test_a_change_in_the_strategy_code_breaks_the_lock(pf_dir, tmp_path, monkeypatch) -> None:
