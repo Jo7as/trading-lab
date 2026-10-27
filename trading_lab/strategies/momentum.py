@@ -82,33 +82,18 @@ class MomentumConfig:
     tf: str = "15min"               # working timeframe for the signal
 
 
-# ── indicators (all causal: value at bar t uses data <= t) ──────────────
+# ── indicators: the shared, reference-tested ones (trading_lab/indicators.py) ──
+# This module used to carry its own ATR/EMA/ADX with different seeding, so the same
+# "ADX >= 25" meant slightly different things in different strategies.
+from ..indicators import adx as _adx, atr as _atr, ema, efficiency_ratio  # noqa: E402
+
+
 def atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    h, l, c = df["high"], df["low"], df["close"].shift(1)
-    tr = pd.concat([h - l, (h - c).abs(), (l - c).abs()], axis=1).max(axis=1)
-    return tr.ewm(alpha=1.0 / period, adjust=False, min_periods=period).mean()
-
-
-def ema(s: pd.Series, span: int) -> pd.Series:
-    return s.ewm(span=span, adjust=False, min_periods=span).mean()
-
-
-def efficiency_ratio(close: pd.Series, n: int) -> pd.Series:
-    change = (close - close.shift(n)).abs()
-    vol = close.diff().abs().rolling(n).sum()
-    return (change / vol.replace(0, np.nan)).fillna(0.0)
+    return _atr(df["high"], df["low"], df["close"], period)
 
 
 def adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    up = df["high"].diff()
-    dn = -df["low"].diff()
-    plus = np.where((up > dn) & (up > 0), up, 0.0)
-    minus = np.where((dn > up) & (dn > 0), dn, 0.0)
-    tr = atr(df, period)
-    pdi = 100 * pd.Series(plus, index=df.index).ewm(alpha=1/period, adjust=False).mean() / tr
-    mdi = 100 * pd.Series(minus, index=df.index).ewm(alpha=1/period, adjust=False).mean() / tr
-    dx = 100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan)
-    return dx.ewm(alpha=1/period, adjust=False).mean().fillna(0.0)
+    return _adx(df["high"], df["low"], df["close"], period)["adx"]
 
 
 def build_frame(m1: pd.DataFrame, cfg: MomentumConfig) -> pd.DataFrame:

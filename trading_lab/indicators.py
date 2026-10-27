@@ -6,6 +6,11 @@ and return a pandas Series or DataFrame of the same length.
 
 No look-ahead bias: every indicator at index i uses only data up to and
 including index i. Rolling windows use .rolling() which is backward-looking.
+
+Smoothing follows the textbook / TradingView definitions (review 2026-10-27): Wilder
+(RSI, ATR, ADX) and EMA are seeded with the SMA of the first ``period`` values and are
+NaN before that - see ``seeded_smooth``. Reference values are pinned in
+``tests/test_indicators.py``.
 """
 from __future__ import annotations
 
@@ -13,31 +18,69 @@ import numpy as np
 import pandas as pd
 
 
+def seeded_smooth(x: pd.Series, period: int, alpha: float) -> pd.Series:
+    """Recursive smoothing seeded with the SMA of the first ``period`` valid values.
+
+    This is how Wilder (RSI/ATR/ADX, ``alpha = 1/period``) and the standard EMA
+    (``alpha = 2/(period+1)``) are defined, and what TradingView's ``ta.rma`` /
+    ``ta.ema`` do. ``ewm(adjust=False)`` alone seeds with the FIRST value instead, so
+    the first few dozen bars of an EMA(200) or ATR(14) were meaningless numbers that
+    looked valid. Values before the seed are NaN (review 2026-10-27).
+    """
+    x = pd.Series(x, dtype=float)
+    pos = np.flatnonzero(x.notna().to_numpy())
+    if len(pos) < period:
+        return pd.Series(np.nan, index=x.index)
+    p = pos[period - 1]
+    s = x.copy()
+    s.iloc[: p + 1] = np.nan
+    s.iloc[p] = float(x.iloc[pos[:period]].mean())
+    out = s.ewm(alpha=alpha, adjust=False).mean()
+    out.iloc[:p] = np.nan
+    return out
+
+
+def wilder(x: pd.Series, period: int) -> pd.Series:
+    """Wilder's smoothing (RMA): SMA seed, then ``y += (x - y) / period``."""
+    return seeded_smooth(x, period, 1.0 / period)
+
+
 def ema(series: pd.Series, period: int) -> pd.Series:
-    """Exponential moving average — uses ewm which is backward-looking."""
-    return series.ewm(span=period, adjust=False).mean()
+    """Exponential moving average, SMA-seeded; NaN during the warm-up."""
+    return seeded_smooth(series, period, 2.0 / (period + 1.0))
 
 
 def rsi(closes: pd.Series, period: int = 14) -> pd.Series:
-    """Wilder's RSI — fully vectorized."""
+    """Wilder's RSI (SMA-seeded averages). NaN during the warm-up.
+
+    Only gains -> 100, only losses -> 0, flat -> 50. (It used to return 50 whenever
+    the average loss was zero, i.e. exactly when RSI should be 100.)
+    """
     deltas = closes.diff()
-    gains = deltas.clip(lower=0.0)
-    losses = (-deltas.clip(upper=0.0))
-    avg_gain = gains.ewm(alpha=1.0 / period, adjust=False).mean()
-    avg_loss = losses.ewm(alpha=1.0 / period, adjust=False).mean()
+    avg_gain = wilder(deltas.clip(lower=0.0), period)
+    avg_loss = wilder((-deltas).clip(lower=0.0), period)
     rs = avg_gain / avg_loss.replace(0.0, np.nan)
     out = 100.0 - (100.0 / (1.0 + rs))
-    return out.fillna(50.0)
+    out = out.where(avg_loss != 0.0, np.where(avg_gain > 0.0, 100.0, 50.0))
+    return out.where(avg_gain.notna())
+
+
+def true_range(high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
+    prev_close = close.shift(1)
+    return pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()],
+                     axis=1).max(axis=1)
 
 
 def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
-    """Average True Range — Wilder's smoothing."""
-    prev_close = close.shift(1)
-    tr1 = high - low
-    tr2 = (high - prev_close).abs()
-    tr3 = (low - prev_close).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    return tr.ewm(alpha=1.0 / period, adjust=False).mean()
+    """Average True Range, Wilder's smoothing (SMA seed). NaN during the warm-up."""
+    return wilder(true_range(high, low, close), period)
+
+
+def efficiency_ratio(close: pd.Series, n: int) -> pd.Series:
+    """Kaufman efficiency ratio |net move| / sum |moves| over ``n`` bars (0..1)."""
+    change = (close - close.shift(n)).abs()
+    vol = close.diff().abs().rolling(n).sum()
+    return (change / vol.replace(0, np.nan)).fillna(0.0)
 
 
 def adx(
@@ -58,23 +101,18 @@ def adx(
         index=high.index,
     )
 
-    prev_close = close.shift(1)
-    tr = pd.concat(
-        [
-            high - low,
-            (high - prev_close).abs(),
-            (low - prev_close).abs(),
-        ],
-        axis=1,
-    ).max(axis=1)
-
-    alpha = 1.0 / period
-    atr_w = tr.ewm(alpha=alpha, adjust=False).mean()
-    plus_di = 100.0 * plus_dm.ewm(alpha=alpha, adjust=False).mean() / atr_w.replace(0.0, np.nan)
-    minus_di = 100.0 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr_w.replace(0.0, np.nan)
+    tr = true_range(high, low, close)
+    # first bar has no previous bar -> no directional movement there
+    plus_dm.iloc[0] = minus_dm.iloc[0] = np.nan
+    tr = tr.where(close.shift(1).notna())
+    atr_w = wilder(tr, period)
+    plus_di = 100.0 * wilder(plus_dm, period) / atr_w.replace(0.0, np.nan)
+    minus_di = 100.0 * wilder(minus_dm, period) / atr_w.replace(0.0, np.nan)
     dx = (100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0.0, np.nan))
-    adx_val = dx.ewm(alpha=alpha, adjust=False).mean()
+    adx_val = wilder(dx, period)
 
+    # Legacy semantics kept on purpose: 0 during the warm-up (callers compare
+    # "adx >= threshold"; a NaN would silently flip "block if trending" filters).
     return pd.DataFrame(
         {
             "adx": adx_val.fillna(0.0),
@@ -121,66 +159,37 @@ def supertrend(
     high: pd.Series, low: pd.Series, close: pd.Series,
     period: int = 10, multiplier: float = 3.0
 ) -> pd.DataFrame:
-    """Supertrend indicator — returns trend direction and support/resistance line.
+    """Supertrend (standard definition): ATR bands around hl2 that only tighten,
+    direction flips when the close crosses the active band. NaN during the ATR
+    warm-up; like TradingView's ``ta.supertrend`` the first valid bar starts down.
 
-    Returns DataFrame with columns:
-      supertrend: the supertrend line value
-      st_dir: +1 for uptrend (green), -1 for downtrend (red)
+    Columns: ``supertrend`` (the active line), ``st_dir`` (+1 up / -1 down).
     """
-    a = atr(high, low, close, period)
-    hl2 = (high + low) / 2.0
-    upper_basic = hl2 + multiplier * a
-    lower_basic = hl2 - multiplier * a
-
     n = len(close)
-    final_upper = np.full(n, np.nan)
-    final_lower = np.full(n, np.nan)
-    st_line = np.full(n, np.nan)
-    st_dir = np.ones(n)  # default uptrend
-
     if n == 0:
-        return pd.DataFrame({
-            "supertrend": pd.Series(dtype=float),
-            "st_dir": pd.Series(dtype=float),
-        })
-
-    final_upper[0] = upper_basic.iloc[0]
-    final_lower[0] = lower_basic.iloc[0]
-    st_line[0] = upper_basic.iloc[0]
-    st_dir[0] = 1.0 if close.iloc[0] >= st_line[0] else -1.0
-
-    for i in range(1, n):
-        # carry forward if band is tighter than previous
-        if upper_basic.iloc[i] < final_upper[i - 1] or close.iloc[i - 1] > final_upper[i - 1]:
-            final_upper[i] = upper_basic.iloc[i]
-        else:
-            final_upper[i] = final_upper[i - 1]
-
-        if lower_basic.iloc[i] > final_lower[i - 1] or close.iloc[i - 1] < final_lower[i - 1]:
-            final_lower[i] = lower_basic.iloc[i]
-        else:
-            final_lower[i] = final_lower[i - 1]
-
-        # determine direction
-        if st_dir[i - 1] == 1.0:  # was uptrend
-            if close.iloc[i] < final_lower[i]:
-                st_dir[i] = -1.0
-                st_line[i] = final_upper[i]
+        return pd.DataFrame({"supertrend": pd.Series(dtype=float), "st_dir": pd.Series(dtype=float)})
+    a = atr(high, low, close, period).to_numpy()
+    h, l, c = high.to_numpy(float), low.to_numpy(float), close.to_numpy(float)
+    hl2 = (h + l) / 2.0
+    ub, lb = hl2 + multiplier * a, hl2 - multiplier * a
+    fu, fl = np.full(n, np.nan), np.full(n, np.nan)
+    line, d = np.full(n, np.nan), np.full(n, np.nan)
+    valid = np.flatnonzero(np.isfinite(a))
+    if len(valid):
+        k = valid[0]
+        fu[k], fl[k] = ub[k], lb[k]
+        d[k] = -1.0                      # TradingView ta.supertrend starts in the down state
+        line[k] = fu[k]
+        for i in range(k + 1, n):
+            fu[i] = ub[i] if (ub[i] < fu[i - 1] or c[i - 1] > fu[i - 1]) else fu[i - 1]
+            fl[i] = lb[i] if (lb[i] > fl[i - 1] or c[i - 1] < fl[i - 1]) else fl[i - 1]
+            if d[i - 1] > 0:
+                d[i] = -1.0 if c[i] < fl[i] else 1.0
             else:
-                st_dir[i] = 1.0
-                st_line[i] = final_lower[i]
-        else:  # was downtrend
-            if close.iloc[i] > final_upper[i]:
-                st_dir[i] = 1.0
-                st_line[i] = final_lower[i]
-            else:
-                st_dir[i] = -1.0
-                st_line[i] = final_upper[i]
-
-    return pd.DataFrame({
-        "supertrend": pd.Series(st_line, index=close.index),
-        "st_dir": pd.Series(st_dir, index=close.index),
-    })
+                d[i] = 1.0 if c[i] > fu[i] else -1.0
+            line[i] = fl[i] if d[i] > 0 else fu[i]
+    return pd.DataFrame({"supertrend": pd.Series(line, index=close.index),
+                         "st_dir": pd.Series(d, index=close.index)})
 
 
 def volume_above_average(

@@ -78,7 +78,7 @@ class SupertrendVolumeConfig:
 
     # ── Execution model (added 2026-10, reviewed) ──────────────────
     timeframe: str = "1h"            # bar size of `df`; drives the time stop
-    slippage_pct: float = 0.00002    # adverse slippage per fill (2 bp, as elsewhere)
+    slippage_pct: float = 0.00002    # adverse slippage per fill (0.2 bp; the old comment said 2 bp)
     random_entry: bool = False       # baseline: same signal bars, random direction
     random_seed: int = 7
 
@@ -395,12 +395,12 @@ def run_backtest(
     trades: list[dict] = []
     equity_curve: list[float] = [rm.current_equity]
 
-    # Drop warmup rows where indicators are NaN
-    df = df.dropna(
-        subset=["atr", "ema_slow_val", "supertrend", "st_dir"]
-    ).copy()
+    # Warm-up rows (indicators NaN) are SKIPPED, not dropped: dropping them would put
+    # entry_idx into a trimmed index space that no caller knows about (AGENTS.md:
+    # "index spaces are a trap" - surfaced on 2026-10-27 when the EMA got a real warm-up).
+    warm = df[["atr", "ema_slow_val", "supertrend", "st_dir"]].notna().all(axis=1).to_numpy()
 
-    if len(df) == 0:
+    if not warm.any():
         return {
             "trades": [],
             "metrics": _compute_metrics([], equity_curve, cfg),
@@ -412,6 +412,9 @@ def run_backtest(
     rng = np.random.default_rng(cfg.random_seed)
 
     for i in range(len(df)):
+        if not warm[i]:
+            equity_curve.append(rm.current_equity)
+            continue
         row = df.iloc[i]
         current_ts = (
             float(row.name.timestamp())
