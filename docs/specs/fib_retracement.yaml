@@ -1,0 +1,115 @@
+# S-002: Fibonacci-Retracement im Trend - Rücksetzer in die Fib-Zone nach einem Strukturbruch
+# Mit eingebauter Kontrolle: dieselbe Logik an "falschen" Levels. Nur wenn die echten
+# Fib-Levels die Kontrolle schlagen, ist Fibonacci selbst der Edge (nicht nur "Rücksetzer
+# im Trend"). Anlass: Expert Systems with Applications 2021 (doi 10.1016/j.eswa.2021.115893):
+# Kurse drehen an Fib-Zonen öfter, aber nicht öfter als an Nicht-Fib-Zonen.
+
+id: S-002
+strategie: fib_retracement
+titel: "Fibonacci-Retracement: nach einem externen Strukturbruch Einstieg im Rücksetzer an 0,5 / 0,618 / 0,705, Stop hinter dem Impuls, Ziel altes Hoch oder Extension"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: sieht gut aus)"
+abgestimmt_am: "2026-10-28"
+
+idee:
+  mechanismus: >
+    Nach einem impulsiven Bein, das die externe Struktur bricht (BOS/CHoCH nach oben), holen
+    Trendfolger und Institutionelle verpasste Einstiege im Rücksetzer nach. Viele Marktteilnehmer
+    platzieren ihre Orders an denselben Fibonacci-Levels des Impulses (0,5 / 0,618 / 0,705) -
+    wenn das eine selbsterfüllende Wirkung hat, dreht der Kurs dort häufiger in Trendrichtung als
+    an beliebigen anderen Levels. Short spiegelbildlich.
+  quellen:
+    - "Expert Systems with Applications 2021, 'Automatic identification and evaluation of Fibonacci retracements' (3 Aktienmärkte): Fib-Zonen nicht besser als Nicht-Fib-Zonen"
+    - "arXiv 1605.03559: Retracements folgen einer stetigen Verteilung, keine Häufung an Fib-Zahlen"
+    - "ICT-OTE-Zone 0,62-0,79 (docs/SMC_ICT_PNL_RESEARCH.md)"
+
+handel:
+  maerkte: [US100, SP500, GER40, XAUUSD, EURUSD]
+  zeitrahmen: "Variante swing: Impuls auf 1D, Bestätigung auf 4h; Variante intraday: Impuls auf 1h, Bestätigung auf 15m; Fills auf 1m Bid/Ask"
+  kontotyp: prop_swing
+  max_haltedauer: "swing: 15 Handelstage; intraday: bis Session-Ende"
+  wochenende_halten: true
+  news_fenster: "nicht modelliert (Swing-Konto erlaubt News-Trading; Standard-Konto-Variante schließt freitags)"
+
+entry:
+  bedingungen:
+    - "1. Impuls: auf dem Impuls-Zeitrahmen ein externer BOS oder CHoCH nach oben (market_structure, ext_event > 0). Anker A = geschütztes Tief des brechenden Beins (Fib 1,0), Anker B = höchstes Hoch seit A (Fib 0,0); B wandert mit, solange neue Hochs entstehen."
+    - "2. Impuls groß genug: B - A >= 3 x ATR(14) des Impuls-Zeitrahmens."
+    - "3. Trend intakt: kein Schlusskurs unter A (sonst ist das Setup ungültig)."
+    - "4. Einstiegs-Level L = B - level x (B - A); level je Variante 0,5 / 0,618 / 0,705 oder Kontrolle (siehe varianten)."
+    - "5. Gültigkeit: 10 Kerzen des Impuls-Zeitrahmens ab dem Bruch; danach oder bei einem neuen Bruch wird neu verankert."
+  ausfuehrung: >
+    Variante limit: Limit-Kauf an L, gefüllt nur wenn der Briefkurs auf 1m DURCH L handelt.
+    Variante bestaetigung: der Kurs muss L erreicht haben (Tief <= L), dann Einstieg zum Schluss
+    der ersten Kerze des Bestätigungs-Zeitrahmens, die bullisch schließt (Schluss > Eröffnung) und
+    über L liegt - Market-Kauf zum Briefkurs. Je Impuls höchstens ein Trade.
+
+stop_loss:
+  regel: "Variante ursprung: A - 0,1 x ATR(14, Impuls-Zeitrahmen). Variante fib_0786: Level 0,786 - 0,1 x ATR(14, Bestätigungs-Zeitrahmen). Stop muss unter dem Einstieg liegen."
+  begruendung: "Unter dem Impuls-Ursprung ist die Trendannahme falsch; 0,786 ist der engere, in der Praxis übliche Stop."
+
+take_profit:
+  regel: >
+    Je Variante: (a) altes Hoch B (Fib 0); (b) Extension -0,272 = B + 0,272 x (B - A);
+    (c) Extension -0,618; (d) fest 2 R; (e) fest 3 R; (f) 50 % an B, Stop auf Einstand,
+    Rest an der Extension -0,618. B ist das Hoch zum Zeitpunkt des Einstiegs.
+  begruendung: "Klassische Fib-Ziele und feste R-Ziele im Vergleich."
+
+exit_sonst:
+  - "swing: Zeitstopp nach 15 Handelstagen; Variante konto_standard: Schluss freitags 21:00 UTC (kein Wochenende), Variante konto_swing: Halten übers Wochenende erlaubt"
+  - "intraday: Schluss am Session-Ende (US100/SP500 15:55 NY, GER40 17:25 Berlin, XAUUSD/EURUSD 16:55 NY)"
+  - "Gegenbruch: ein externer CHoCH nach unten auf dem Impuls-Zeitrahmen schließt die Position zum Marktpreis"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  max_offene_positionen: 2
+  korrelation: "US100 und SP500 zählen als ein Markt (höchstens eine Position zusammen); wird im Portfolio-Schritt angewendet."
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 10
+
+kosten:
+  profil: ftmo
+  swaps: >
+    Finanzierung je Nacht auf das Positionsvolumen: Indizes und Gold 2,5 % p.a., FX 1,0 % p.a.
+    (pauschal, konservativ, für Long und Short), Wochenende dreifach. Näherung - echte Swaps
+    schwanken mit dem Zinsniveau; FX-Swaps aus trading_lab/duka_swaps.py als Nachtest.
+  slippage: "0,5 bp je Market- oder Stop-Fill; Limit ohne Slippage, nur bei Durchhandeln"
+
+daten:
+  quelle: "Dukascopy 1m Bid/Ask aus artifacts/cache/m1; Struktur und Fib-Anker auf Mid-OHLC, Fills auf Bid/Ask"
+  bekannte_probleme:
+    - "Tageskerzen enden um 17:00 New York (FX-Konvention), auch für Indizes und Gold"
+    - "Impuls-Anker nur aus abgeschlossenen Kerzen des Impuls-Zeitrahmens"
+    - "Sommerzeit über America/New_York bzw. Europe/Berlin"
+  warmup: "200 Kerzen des Impuls-Zeitrahmens"
+
+varianten:
+  # Vom Nutzer gewünscht: Zeitrahmen, Einstieg, Stop und Ziel jeweils als Varianten.
+  - name: basis
+    aenderung: "swing (1D/4h), level 0,618, limit, Stop ursprung, Ziel altes Hoch B, konto_swing"
+  - name: gitter_zeitrahmen
+    aenderung: "zeitrahmen in {swing, intraday}"
+  - name: gitter_level
+    aenderung: "level in {0,5, 0,618, 0,705, kontrolle}"
+  - name: kontrolle
+    aenderung: >
+      level = je Impuls zufällig aus [0,40; 0,75], aber nicht innerhalb +-0,03 um 0,5 / 0,618 /
+      0,705 (fester Seed). Gleiche Logik sonst. Schlägt Fib die Kontrolle nicht, ist Fib kein Edge.
+  - name: gitter_einstieg
+    aenderung: "einstieg in {limit, bestaetigung}"
+  - name: gitter_stop
+    aenderung: "stop in {ursprung, fib_0786}"
+  - name: gitter_ziel
+    aenderung: "ziel in {altes_hoch, ext_0272, ext_0618, fest_2r, fest_3r, teil_hoch_ext0618}"
+  - name: gitter_konto
+    aenderung: "konto in {swing, standard} (nur beim Zeitrahmen swing wirksam)"
+  # Gitter gesamt: 2 x 4 x 2 x 2 x 6 x 2 = 384 Kombinationen (identische Ergebnisse zählen einmal)
+
+referenz: >
+  (1) Expert Systems with Applications 2021: Fib-Zonen nicht besser als Nicht-Fib-Zonen ->
+  unsere Kontrolle mit falschen Levels ist der entscheidende Vergleich. (2) Placebo des
+  Prüfablaufs (Zufallsrichtung). (3) Plausibilitätsgrenze: Schlägt ein Fib-Level die Kontrolle um
+  mehr als 0,3 R je Trade oder liegt die Erwartung über 0,6 R, zuerst Fehler suchen.
+
+tests:
+  - tests/test_fib_retracement.py

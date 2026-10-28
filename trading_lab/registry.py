@@ -174,6 +174,18 @@ def _smc_ict2022(asset: str) -> Spec:
                 run=lambda c, d: M.run_backtest(d, c)["trades"])
 
 
+def _fib_retracement(asset: str) -> Spec:
+    """S-002 (docs/specs/fib_retracement.yaml): the agreed 384-variant grid."""
+    from .strategies import fib_retracement as M
+    grid = {"zeitrahmen": ("swing", "intraday"), "level": ("0.5", "0.618", "0.705", "kontrolle"),
+            "einstieg": ("limit", "bestaetigung"), "stop": ("ursprung", "fib_0786"),
+            "ziel": ("altes_hoch", "ext_0272", "ext_0618", "fest_2r", "fest_3r", "teil_hoch_ext0618"),
+            "konto": ("swing", "standard")}
+    return Spec("fib_retracement", asset, M.FibConfig(asset=asset), grid,
+                prepare=lambda m1: M.prepare(m1, asset),
+                run=lambda c, d: M.run_backtest(d, c)["trades"])
+
+
 REGISTRY = {
     "momentum": (_momentum, ASSETS),
     "pullback": (_pullback, ASSETS),
@@ -184,6 +196,7 @@ REGISTRY = {
     "supertrend": (_supertrend, ASSETS),
     "orb_classic": (_orb_classic, ("US100", "SP500")),
     "smc_ict2022": (_smc_ict2022, ("US100", "SP500", "GER40", "XAUUSD", "EURUSD")),
+    "fib_retracement": (_fib_retracement, ("US100", "SP500", "GER40", "XAUUSD", "EURUSD")),
 }
 
 # Slow engines get a smaller search (seconds per run measured on US100 train):
@@ -218,6 +231,8 @@ DESCRIPTIONS = {
                   "mit Trend- und Aktivitaetsfilter gehandelt.",
     "supertrend": "Supertrend-Wechsel mit Volumen- und EMA-Filter, optional Einstieg im Ruecksetzer.",
     "orb_classic": "Klassischer Opening-Range-Breakout auf 5-Minuten-Kerzen, Ziel als Vielfaches der Spanne.",
+    "fib_retracement": "Fibonacci-Retracement (Spec S-002): nach externem Strukturbruch Einstieg im Rücksetzer "
+                       "an 0,5/0,618/0,705, mit Kontrolle an falschen Levels.",
     "smc_ict2022": "ICT 2022 (Spec S-001): Sweep in der Killzone, MSS mit Displacement, Einstieg im FVG, "
                    "Stop hinter dem Sweep, Ziele an interner/externer Liquidität.",
 }
