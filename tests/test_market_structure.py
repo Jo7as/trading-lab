@@ -232,3 +232,37 @@ def test_internal_swing_sweeps_are_reported_per_level() -> None:
         assert f"{k}_swing_sweep_low" in res.bars and f"{k}_swing_sweep_high" in res.bars
     assert res.bars["int_swing_sweep_low"].sum() >= res.bars["ext_swing_sweep_low"].sum()
     assert (res.bars["ext_swing_sweep_low"] <= res.bars["sweep_low"]).all()
+
+
+# ── swing method "zigzag" (ATR reversal) ─────────────────────────────────
+
+def test_zigzag_confirms_when_price_moves_k_atr_away() -> None:
+    from trading_lab.market_structure import zigzag_pivots
+    high = np.array([10, 11, 12, 13, 12.8, 12.0, 10.9, 11.5, 12.5, 13.6])
+    low = high - 0.5
+    atr = np.full(len(high), 1.0)
+    piv = zigzag_pivots(high, low, atr, 2.0)
+    # at the start both sides are tracked: the opening low 9.5 confirms once a high reaches 11.5
+    assert (piv[0].kind, piv[0].idx, piv[0].confirmed_idx) == (-1, 0, 2)
+    # then the high 13 (bar 3) confirms when a low reaches 11.0: bar 6 (10.4)
+    assert (piv[1].kind, piv[1].idx, piv[1].price, piv[1].confirmed_idx) == (1, 3, 13.0, 6)
+    # and the low 10.4 (bar 6) confirms when a high reaches 12.4: bar 8 (12.5)
+    assert (piv[2].kind, piv[2].idx, piv[2].confirmed_idx) == (-1, 6, 8)
+    assert [p.kind for p in piv] == [-1, 1, -1]      # alternation
+
+
+def test_zigzag_bar_cannot_make_and_confirm_its_own_extreme() -> None:
+    from trading_lab.market_structure import zigzag_pivots
+    high = np.array([10, 10, 15.0, 15.0])            # bar 2: huge range, high 15, low 10
+    low = np.array([9.5, 9.5, 10.0, 14.5])
+    piv = zigzag_pivots(high, low, np.full(4, 1.0), 2.0)
+    assert all(p.confirmed_idx > p.idx for p in piv)
+
+
+def test_zigzag_mode_is_causal_too() -> None:
+    full = _random(700, seed=13)
+    cfg = StructureConfig(swing_method="zigzag")
+    a = analyze(full, cfg)
+    b = analyze(full.iloc[:450], cfg)
+    assert np.allclose(b.bars.to_numpy(), a.bars.iloc[:450].to_numpy(), equal_nan=True)
+    assert len(a.swings["ext"]) < len(a.swings["int"])

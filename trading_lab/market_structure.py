@@ -24,6 +24,11 @@ BOS_UP, BOS_DN, CHOCH_UP, CHOCH_DN = 1, -1, 2, -2
 @dataclass(frozen=True)
 class StructureConfig:
     atr_period: int = 14
+    # how swings are found: "fractal" = L/R bars + ATR filter (default, keeps old results
+    # reproducible); "zigzag" = a swing is confirmed once price has moved k x ATR away
+    swing_method: str = "fractal"
+    ext_zz_atr: float = 2.0
+    int_zz_atr: float = 0.7
     # external (swing) structure
     ext_left: int = 5
     ext_right: int = 5
@@ -195,6 +200,34 @@ def raw_pivots(high: np.ndarray, low: np.ndarray, left: int, right: int) -> list
     return out
 
 
+def zigzag_pivots(high: np.ndarray, low: np.ndarray, atr: np.ndarray, k: float) -> list[Swing]:
+    """ATR zig-zag: the running extreme becomes a swing once price has moved ``k x ATR``
+    away from it (ATR of the PREVIOUS bar - known). Alternates by construction; the
+    confirmation is as fast as the reversal, not a fixed number of bars. A bar that makes
+    the extreme cannot also confirm it (order inside a bar is unknown)."""
+    n = len(high)
+    out: list[Swing] = []
+    mode = 0                                         # +1 tracking a high, -1 a low, 0 both
+    hi, hi_i, lo, lo_i = -np.inf, -1, np.inf, -1
+    for i in range(n):
+        if mode >= 0 and high[i] > hi:
+            hi, hi_i = float(high[i]), i
+        if mode <= 0 and low[i] < lo:
+            lo, lo_i = float(low[i]), i
+        th = k * atr[i - 1] if i > 0 and np.isfinite(atr[i - 1]) else np.nan
+        if not np.isfinite(th):
+            continue
+        if mode >= 0 and hi_i >= 0 and hi_i < i and hi - low[i] >= th:
+            out.append(Swing(hi_i, i, hi, 1))
+            seg = low[hi_i + 1:i + 1]
+            mode, lo, lo_i = -1, float(seg.min()), hi_i + 1 + int(seg.argmin())
+        elif mode <= 0 and lo_i >= 0 and lo_i < i and high[i] - lo >= th:
+            out.append(Swing(lo_i, i, lo, -1))
+            seg = high[lo_i + 1:i + 1]
+            mode, hi, hi_i = 1, float(seg.max()), lo_i + 1 + int(seg.argmax())
+    return out
+
+
 class _SwingFilter:
     """Alternation + ATR significance, applied as pivots confirm (causal)."""
 
@@ -322,9 +355,17 @@ def analyze(df: pd.DataFrame, cfg: StructureConfig = StructureConfig()) -> Struc
     n = len(df)
     a = _atr(df["high"], df["low"], df["close"], cfg.atr_period).to_numpy()
 
-    levels = {"ext": _Level("ext", cfg.ext_left, cfg.ext_right, cfg.ext_min_swing_atr),
-              "int": _Level("int", cfg.int_left, cfg.int_right, cfg.int_min_swing_atr)}
-    piv = {k: raw_pivots(h, l, lv.left, lv.right) for k, lv in levels.items()}
+    if cfg.swing_method == "zigzag":
+        # zig-zag swings are significant by construction -> no extra ATR filter
+        levels = {"ext": _Level("ext", cfg.ext_left, cfg.ext_right, 0.0),
+                  "int": _Level("int", cfg.int_left, cfg.int_right, 0.0)}
+        piv = {"ext": zigzag_pivots(h, l, a, cfg.ext_zz_atr), "int": zigzag_pivots(h, l, a, cfg.int_zz_atr)}
+    elif cfg.swing_method == "fractal":
+        levels = {"ext": _Level("ext", cfg.ext_left, cfg.ext_right, cfg.ext_min_swing_atr),
+                  "int": _Level("int", cfg.int_left, cfg.int_right, cfg.int_min_swing_atr)}
+        piv = {k: raw_pivots(h, l, lv.left, lv.right) for k, lv in levels.items()}
+    else:
+        raise ValueError(f"swing_method {cfg.swing_method!r}: fractal | zigzag")
     ptr = {k: 0 for k in levels}
     cols = {f"{k}_{x}": np.zeros(n) for k in levels for x in ("trend", "event")}
     for k in levels:
@@ -475,5 +516,5 @@ def mid_ohlc(df: pd.DataFrame) -> pd.DataFrame:
     return df[["open", "high", "low", "close"]]
 
 
-__all__ = ["StructureConfig", "StructureResult", "Swing", "Zone", "Pool", "analyze", "raw_pivots",
+__all__ = ["StructureConfig", "StructureResult", "Swing", "Zone", "Pool", "analyze", "raw_pivots", "zigzag_pivots",
            "mid_ohlc", "BOS_UP", "BOS_DN", "CHOCH_UP", "CHOCH_DN"]
