@@ -509,3 +509,19 @@ neighbours 86 %, placebo +0.32 R, PBO 0.13, but DSR 0.49; for 1.5 %/month it wou
 (4 of 5 markets better without it), 4h/15m beats 1h/5m, the liquidity target does not
 beat a fixed 3 R, FVG beats IFVG on indices. Verdict: no demonstrable SMC edge in train;
 GER40 is a lead, too thin to prove or to trade on a prop account.
+
+## 2026-10-28 — S-002: Fibonacci retracement with a wrong-level control
+
+Spec agreed with the user (`docs/specs/fib_retracement.yaml`), rules tested
+(`tests/test_fib_retracement.py`; the tests caught a look-ahead - one mutable impulse
+object shared across bars - and intraday entries after the session end), 384-variant
+grid, 5 markets, train 2019-2024, ftmo costs + swaps, holdout locked.
+
+Funnel: S1 20/32 -> S2 16 -> S3 2 -> **S4 0**; best US100 intraday 0.5 + confirmation,
++0.04 R/trade, DSR 0.08. **The control decides it:** pooled over markets and variants,
+intraday 0.5 / 0.618 = -0.057 R, control (random level in [0.40, 0.75] away from the fib
+numbers) = -0.057 R, 0.705 = -0.085 R - fib levels are exactly as good as wrong levels,
+as the Expert Systems 2021 study found. Swing: 0.5 +0.04 R / 0.618 +0.01 R vs control
+-0.06 R, but only ~10-25 trades per market in six years and the pooled figure counts
+shared trades several times - a hint, not evidence. Swing variants cannot reach S1's
+100 trades on any single market.
