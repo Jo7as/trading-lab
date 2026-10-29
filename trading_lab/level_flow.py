@@ -178,3 +178,81 @@ def classify(ev: pd.DataFrame, *, flow_thr: float = FLOW_THR, break_atr: float =
     out["trade"] = np.select([out["label"].isin(["absorption", "reclaim"]),
                               out["label"].isin(["cascade", "break"])], [-out["d"], out["d"]], default=0)
     return out
+
+
+# ── H9: follow the flow after absorption (pre-registered, FINDINGS 2026-10-29) ──
+def follow_absorption(ev: pd.DataFrame, *, flow_thr: float = FLOW_THR) -> pd.DataFrame:
+    """Absorption events (H8 definition: flow into the level, close not beyond it) traded in the
+    FLOW direction ``+d`` - the reverse of H8's fade. Returns only those events, ``trade = d``."""
+    push = ev["d"] * ev["flow"] >= flow_thr
+    out = ev[push & (ev["beyond_atr"] <= 0)].copy()
+    out["label"] = "absorption"
+    out["trade"] = out["d"]
+    return out
+
+
+def day_clustered_t(x: pd.Series, ts: pd.Series) -> float:
+    """Mean / standard error of the per-UTC-day means (the H8 statistic)."""
+    per_day = pd.Series(np.asarray(x, float)).groupby(pd.DatetimeIndex(ts).floor("1D")).mean()
+    if len(per_day) < 3 or per_day.std(ddof=1) == 0:
+        return float("nan")
+    return float(per_day.mean() / (per_day.std(ddof=1) / np.sqrt(len(per_day))))
+
+
+def cluster_diff_t(x_real, ts_real, x_ctl, ts_ctl) -> tuple[float, float]:
+    """Difference of means real - control and its t, OLS on a real dummy with standard errors
+    clustered by UTC day (CR1 small-sample factor). Returns (difference, t)."""
+    y = np.concatenate([np.asarray(x_real, float), np.asarray(x_ctl, float)])
+    r = np.concatenate([np.ones(len(x_real)), np.zeros(len(x_ctl))])
+    g = np.concatenate([pd.DatetimeIndex(ts_real).floor("1D").asi8, pd.DatetimeIndex(ts_ctl).floor("1D").asi8])
+    X = np.column_stack([np.ones_like(r), r])
+    bread = np.linalg.inv(X.T @ X)
+    beta = bread @ X.T @ y
+    u = y - X @ beta
+    _, gi = np.unique(g, return_inverse=True)
+    n_g = gi.max() + 1
+    scores = np.zeros((n_g, 2))
+    np.add.at(scores, gi, X * u[:, None])
+    n, k = X.shape
+    c = n_g / (n_g - 1) * (n - 1) / (n - k)
+    V = c * bread @ (scores.T @ scores) @ bread
+    return float(beta[1]), float(beta[1] / np.sqrt(V[1, 1]))
+
+
+def random_direction_p(ret: pd.Series, trade: pd.Series, *, n_draws: int = 2000, seed: int = 0) -> float:
+    """One-sided p: share of random +-1 directions on the same events whose mean signed return
+    is >= the observed mean of ``trade x ret``."""
+    r = np.asarray(ret, float)
+    obs = float(np.mean(np.asarray(trade, float) * r))
+    signs = np.random.default_rng(seed).choice([-1.0, 1.0], size=(n_draws, len(r)))
+    return float(np.mean(signs @ r / len(r) >= obs))
+
+
+def non_overlapping(ev: pd.DataFrame, hold: str) -> pd.DataFrame:
+    """Per market, keep an event only if it starts at least ``hold`` after the last kept one."""
+    keep = []
+    gap = pd.Timedelta(hold)
+    for _, g in ev.sort_values("ts").groupby("market", sort=False):
+        last = None
+        for i, t in zip(g.index, g["ts"]):
+            if last is None or t - last >= gap:
+                keep.append(i)
+                last = t
+    return ev.loc[sorted(keep, key=lambda i: ev.at[i, "ts"])]
+
+
+#: H9 decision thresholds (pre-registered 2026-10-29)
+H9_T_GROSS, H9_T_DIFF, H9_P_RANDOM = 2.0, 1.65, 0.05
+
+
+def h9_verdict(*, gross: float, t_gross: float, net: float, diff: float, t_diff: float,
+               p_random: float, gross_by_market: dict[str, float]) -> tuple[str, dict[str, bool]]:
+    """C1..C5 of the pre-registration; "confirmed" only if all hold."""
+    c = {"C1": gross > 0 and t_gross >= H9_T_GROSS, "C2": net > 0,
+         "C3": diff > 0 and t_diff >= H9_T_DIFF, "C4": p_random < H9_P_RANDOM,
+         "C5": all(v > 0 for v in gross_by_market.values())}
+    if all(c.values()):
+        return "confirmed: candidate for a spec (user must agree)", c
+    if c["C1"] and c["C2"] and c["C4"] and not c["C3"]:
+        return "rejected: flow continuation, not a level effect", c
+    return "rejected", c
