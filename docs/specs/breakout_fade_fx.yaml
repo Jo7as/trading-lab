@@ -1,0 +1,98 @@
+# S-004: Breakout-Fade FX - Durchbrüche interner Swings in Trendrichtung kurzfristig gegenhandeln
+# Herkunft: Schritt A (studies/sweep_continuation_study.py, docs/FINDINGS.md 2026-10-29):
+# schließt eine Kerze über einem internen Swing-Hoch in Trendrichtung, läuft FX in den
+# nächsten 4 Kerzen eher zurück (EURUSD 1h -0,12 ATR, t -2,7; 15m -0,09 ATR, t -4,1).
+# ACHTUNG: Märkte und Richtung stammen aus derselben Trainingsperiode - die Spec ist eine
+# Hypothese aus Daten, der unberührte Holdout (ab 2025) ist der eigentliche Test.
+
+id: S-004
+strategie: breakout_fade_fx
+titel: "Breakout-Fade FX: Schluss über ein internes Swing-Hoch in Trendrichtung -> Short für wenige Kerzen (Long spiegelbildlich)"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: ja lass uns das umsetzen)"
+abgestimmt_am: "2026-10-29"
+
+idee:
+  mechanismus: >
+    Auf FX ziehen Schlusskurse über ein internes Swing-Hoch Stop-Orders und Breakout-Käufer
+    an; die Liquidität dahinter wird von Gegenparteien (Market Maker, Mean-Reversion-Desks)
+    absorbiert, der Kurs fällt kurzfristig zurück. FX-Intraday ist als eher mean-reverting
+    bekannt; Mahadzva (SSRN 10.2139/ssrn.7430998) fand auf denselben Paaren, dass klassische
+    Reversal-Regeln versagen - unser Schritt A zeigt, dass der Rücklauf nach dem DURCHBRUCH
+    kommt, nicht nach dem Sweep.
+  quellen:
+    - "docs/FINDINGS.md 2026-10-29 (Schritt A, 768 Zellen)"
+    - "Mahadzva, SSRN 10.2139/ssrn.7430998 (Abstract)"
+
+handel:
+  maerkte: [EURUSD, GBPUSD, AUDUSD, USDJPY]
+  zeitrahmen: "Signal und Ausstieg auf 1h (Variante 15m); Fills auf 1m Bid/Ask"
+  kontotyp: prop_standard
+  max_haltedauer: "intraday bis wenige Stunden - Zeit-Exit nach 2/4/8 Signalkerzen, spätestens Freitag 21:00 UTC"
+  wochenende_halten: false
+  news_fenster: "nicht modelliert (Kalender fehlt) - offener Punkt"
+
+entry:
+  bedingungen:
+    - "1. Struktur-Trend (externe Struktur des Signal-Zeitrahmens, Stand der Vorkerze) ist aufwärts (ext_trend = +1). Variante: Trendfilter egal."
+    - "2. Die Signalkerze schließt über dem internen Swing-Hoch (internes Ereignis BOS oder CHoCH nach oben) - genau das in Schritt A gemessene Ereignis."
+    - "3. Variante session: nur Signale mit Kerzenschluss 07:00-17:00 UTC (London/NY) oder alle Stunden."
+    - "4. Höchstens eine offene Position je Paar."
+  ausfuehrung: "Short zum Eröffnungskurs der nächsten Signalkerze (Market, zum Geldkurs), 0,5 bp Slippage. Long spiegelbildlich beim Bruch eines internen Swing-Tiefs im Abwärtstrend."
+
+stop_loss:
+  regel: "Hoch der Signalkerze + x ATR(14, Signal-Zeitrahmen), x in {1,0 / 1,5 / 2,0} (Variante). Stop-Abstand mindestens 0,5 ATR."
+  begruendung: "Läuft der Ausbruch weiter, ist die Rücklauf-These falsch; der Puffer verhindert, dass normales Rauschen ausstoppt."
+
+take_profit:
+  regel: >
+    Variante zeit_2 / zeit_4 / zeit_8: Ausstieg zum Schluss der 2./4./8. Signalkerze nach dem
+    Einstieg (Market). Variante level_retest: Ziel = das durchbrochene Swing-Hoch (Rücklauf
+    auf das Level), spätestens nach 8 Kerzen.
+  begruendung: "Schritt A hat den Effekt über 4 Kerzen gemessen; der Zeit-Exit bildet das direkt ab."
+
+exit_sonst:
+  - "spätestens Freitag 21:00 UTC (kein Wochenende)"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  max_offene_positionen: 2
+  korrelation: "EURUSD und GBPUSD in gleicher USD-Richtung zählen als eine Position; höchstens 2 offene Positionen gesamt. Wird im Portfolio-Schritt angewendet."
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 10
+
+kosten:
+  profil: ftmo
+  swaps: "FX 1,0 % p.a. je Rollover auf das Volumen (Mittwoch dreifach) - bei 2-8 Stunden Haltedauer meist null oder ein Rollover"
+  slippage: "0,5 bp je Market- und Stop-Fill"
+
+daten:
+  quelle: "Dukascopy 1m Bid/Ask aus artifacts/cache/m1; Struktur auf Mid-OHLC, Fills auf Bid/Ask"
+  bekannte_probleme:
+    - "FX-Rollover 17:00 New York (Spread-Spitze) - Signale direkt davor/danach haben breite Spreads; die Session-Variante prüft das"
+    - "USDJPY zeigte in Schritt A keinen Rücklauf - bleibt als Kontrolle im Test"
+  warmup: "200 Kerzen des Signal-Zeitrahmens"
+
+varianten:
+  - name: basis
+    aenderung: "1h, Trendfilter an, alle Stunden, Stop 1,5 ATR, Zeit-Exit nach 4 Kerzen"
+  - name: gitter_zeitrahmen
+    aenderung: "zeitrahmen in {1h, 15min}"
+  - name: gitter_stop
+    aenderung: "stop_atr in {1.0, 1.5, 2.0}"
+  - name: gitter_exit
+    aenderung: "exit in {zeit_2, zeit_4, zeit_8, level_retest}"
+  - name: gitter_session
+    aenderung: "session in {alle, london_ny}"
+  - name: gitter_trend
+    aenderung: "trendfilter in {an, egal}"
+  # 2 x 3 x 4 x 2 x 2 = 96 Kombinationen
+
+referenz: >
+  Schritt A: EURUSD 1h -0,12 ATR, 15m -0,09 ATR über 4 Kerzen nach dem Ereignis; GBPUSD/AUDUSD
+  -0,04..-0,08; USDJPY +0,03..+0,07 (Kontrolle). Bei einem Stop von ~1,5 ATR entspricht
+  der EURUSD-1h-Effekt etwa +0,08 R vor Kosten. Plausibilitätsgrenze: > 0,2 R netto je Trade
+  oder > 60 % Trefferquote beim Zeit-Exit -> zuerst Fehler suchen.
+
+tests:
+  - tests/test_breakout_fade_fx.py

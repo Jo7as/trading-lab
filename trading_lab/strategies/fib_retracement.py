@@ -209,9 +209,10 @@ def prepare(m1: pd.DataFrame, asset: str, combos: tuple[str, ...] = tuple(COMBOS
 
 # ── execution on 1 minute ─────────────────────────────────────────────────
 
-def rollover_weights(entry_ns: int, exit_ns: int) -> float:
+def rollover_weights(entry_ns: int, exit_ns: int, triple_dow: int = 4) -> float:
     """Financing days between entry and exit: one per 17:00 NY rollover crossed, three for
-    the Friday rollover (it covers the weekend)."""
+    the rollover that covers the weekend - Friday for index/metal CFDs (default), Wednesday
+    (``triple_dow=2``) for spot FX, whose value date jumps the weekend there."""
     if exit_ns <= entry_ns:
         return 0.0
     a = pd.Timestamp(entry_ns, tz="UTC").tz_convert(NY)
@@ -221,7 +222,7 @@ def rollover_weights(entry_ns: int, exit_ns: int) -> float:
     for d in days:
         r = d + pd.Timedelta(hours=17)
         if a < r <= b and d.dayofweek < 5:
-            w += 3.0 if d.dayofweek == 4 else 1.0
+            w += 3.0 if d.dayofweek == triple_dow else 1.0
     return w
 
 
@@ -288,12 +289,22 @@ def manage(prep: Prepared, cfg: FibConfig, d: int, fill_k: int, entry: float, st
             "r": (pnl - fin) / risk, "swap_r": fin / risk, "exit_reason": reason}
 
 
+def friday_entry_allowed(t_ns: int) -> bool:
+    """No entry from Friday 21:00 UTC until the weekend is over: on an account that must be
+    flat for the weekend such a position could not be closed in time - the Friday cut would
+    point to the NEXT Friday and the trade would be held over the weekend."""
+    ts = pd.Timestamp(t_ns, tz="UTC")
+    return not (ts.dayofweek >= 5 or (ts.dayofweek == 4 and ts.hour >= 21))
+
+
 def _may_enter(prep: Prepared, cfg: FibConfig, t_ns: int) -> bool:
     """Intraday: no entry at or after the session end of that day (it would be closed in the
-    same minute - pure cost). Swing: always."""
-    if cfg.zeitrahmen != "intraday":
-        return True
-    return t_ns < flat_time_ns(pd.Timestamp(t_ns, tz="UTC"), prep.asset)
+    same minute - pure cost). Swing on a standard account: not after the Friday cut."""
+    if cfg.zeitrahmen == "intraday":
+        return t_ns < flat_time_ns(pd.Timestamp(t_ns, tz="UTC"), prep.asset)
+    if cfg.konto == "standard":
+        return friday_entry_allowed(t_ns)
+    return True
 
 
 def run_backtest(prep: Prepared, cfg: FibConfig) -> dict:

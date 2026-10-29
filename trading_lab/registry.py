@@ -186,6 +186,17 @@ def _fib_retracement(asset: str) -> Spec:
                 run=lambda c, d: M.run_backtest(d, c)["trades"])
 
 
+def _breakout_fade_fx(asset: str) -> Spec:
+    """S-004 (docs/specs/breakout_fade_fx.yaml): the agreed 96-variant grid."""
+    from .strategies import breakout_fade_fx as M
+    grid = {"zeitrahmen": ("1h", "15min"), "stop_atr": (1.0, 1.5, 2.0),
+            "exit": ("zeit_2", "zeit_4", "zeit_8", "level_retest"),
+            "session": ("alle", "london_ny"), "trendfilter": ("an", "egal")}
+    return Spec("breakout_fade_fx", asset, M.BreakoutFadeConfig(asset=asset), grid,
+                prepare=lambda m1: M.prepare(m1, asset),
+                run=lambda c, d: M.run_backtest(d, c)["trades"])
+
+
 REGISTRY = {
     "momentum": (_momentum, ASSETS),
     "pullback": (_pullback, ASSETS),
@@ -197,6 +208,7 @@ REGISTRY = {
     "orb_classic": (_orb_classic, ("US100", "SP500")),
     "smc_ict2022": (_smc_ict2022, ("US100", "SP500", "GER40", "XAUUSD", "EURUSD")),
     "fib_retracement": (_fib_retracement, ("US100", "SP500", "GER40", "XAUUSD", "EURUSD")),
+    "breakout_fade_fx": (_breakout_fade_fx, ("EURUSD", "GBPUSD", "AUDUSD", "USDJPY")),
 }
 
 # Slow engines get a smaller search (seconds per run measured on US100 train):
@@ -231,6 +243,8 @@ DESCRIPTIONS = {
                   "mit Trend- und Aktivitaetsfilter gehandelt.",
     "supertrend": "Supertrend-Wechsel mit Volumen- und EMA-Filter, optional Einstieg im Ruecksetzer.",
     "orb_classic": "Klassischer Opening-Range-Breakout auf 5-Minuten-Kerzen, Ziel als Vielfaches der Spanne.",
+    "breakout_fade_fx": "Breakout-Fade FX (Spec S-004): Schluss über ein internes Swing-Hoch in Trendrichtung "
+                        "wird für wenige Kerzen gegengehandelt.",
     "fib_retracement": "Fibonacci-Retracement (Spec S-002): nach externem Strukturbruch Einstieg im Rücksetzer "
                        "an 0,5/0,618/0,705, mit Kontrolle an falschen Levels.",
     "smc_ict2022": "ICT 2022 (Spec S-001): Sweep in der Killzone, MSS mit Displacement, Einstieg im FVG, "

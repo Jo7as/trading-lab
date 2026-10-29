@@ -213,3 +213,9 @@ def test_engine_never_enters_after_the_session_end(random_run) -> None:
     for tr in trades:
         flat = F.flat_time_ns(tr["entry_time"], "US100")
         assert tr["entry_time"].value < flat
+
+
+def test_standard_account_swing_does_not_enter_after_the_friday_cut() -> None:
+    p = _prep([FLAT], start="2024-07-05 21:30")                         # Friday 21:30 UTC
+    assert not F._may_enter(p, replace(CFG, zeitrahmen="swing", konto="standard"), int(p.m1_ns[0]))
+    assert F._may_enter(p, replace(CFG, zeitrahmen="swing", konto="swing"), int(p.m1_ns[0]))
