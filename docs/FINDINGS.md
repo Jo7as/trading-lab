@@ -684,3 +684,22 @@ statement day, shared budget, no variants), 1m bid/ask, train 2019-2024, 47 meet
 * Years 4/6 (2019 -1.3 R, 2021 -0.4 R) = 67 % < 70 % -> **fails S3** (1-day holds keep the
   70 % bar on the literature track). S4 would pass (t >= 2). Holdout untouched.
 * Size: +1.6 R per year ~ +0.8 % p.a. at 0.5 % per R - a small basket piece even if it held.
+
+## 2026-10-29 — Real FundedNext swaps (demo, MT5 cost logger): S-007 net Sharpe 0.51 -> 0.58
+
+`mt5/TradingLabCostLogger.mq5` on the FundedNext demo (FundedNext-Server3, netting). The demo
+**feed is frozen** (EURUSD 1.11921 for 20+ minutes, most symbols without quotes) - spreads and
+slippage cannot be measured there; swaps are account parameters and can.
+
+* FX swaps (points mode) are close to zero: EURUSD -0.2 % / -0.3 % p.a. long / short, USDJPY
+  -0.0 / -0.1, majors mostly within +-0.6 %; AUD pairs: long +2 to +3 %, short -4 to -8 %.
+  Metals: gold -1.1 % / -0.4 %, silver -1.5 % / +0.1 %. Our formula assumed rate differential
+  - 1 % (FX) and rate + 2.5 % (metals: -6.4 % long).
+* Index swaps are quoted as money per lot and the demo's contract data disagree without live
+  quotes - not used (UK100 points to ~-1.7 % long, model -6.2 %).
+* S-007 base with the measured FX/metal swaps (`--broker artifacts/broker_costs/fundednext_demo.json`):
+  financing -32 % instead of -46 % over 21 years, **net Sharpe 0.58 (was 0.51)**, metals
+  +36.8 R (was +25.7 R). Indices/bonds/commodities still on the formula - likely too
+  pessimistic as well.
+* The demo server lacks US30, oil, copper, bonds and crypto; FundedNext's help lists US30,
+  USOUSD/UKOUSD and BTCUSD for the paid Stellar accounts.
