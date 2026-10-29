@@ -853,3 +853,10 @@ markets (AUS200, CAC, STOXX 50, IBEX, Hang Seng, platinum, palladium, 14 FX cros
 USDNOK), train 2004-2024: Sharpe gross 0.79 -> 0.71, net 0.64 -> 0.46, 14/21 -> 12/21 years;
 FX crosses +37 R -> -1.5 R. With a fixed budget per asset class, more markets of the same
 class only dilute it ("Trends Everywhere" gains come from NEW classes). S-007 stays at 26.
+
+## 2026-10-29 — Quick check cross-sectional momentum (26 markets): weak and too close to S-007
+
+`studies/xsmom_check.py`: 12-1 month rank momentum within each class, vol-scaled, monthly,
+2004-2024: Sharpe 0.30 gross / 0.27 net (t 1.26), 12/21 years; equities +0.42, real assets
++0.45, FX crosses +0.29, FX vs USD -0.06. **Correlation with S-007 +0.69** - a 25 % mix lowers
+the basket Sharpe from 0.63 to 0.57. Not a building block.
