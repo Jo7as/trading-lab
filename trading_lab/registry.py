@@ -197,6 +197,15 @@ def _breakout_fade_fx(asset: str) -> Spec:
                 run=lambda c, d: M.run_backtest(d, c)["trades"])
 
 
+def _noise_area_momentum(asset: str) -> Spec:
+    """S-006 (docs/specs/noise_area_momentum.yaml): the agreed 4 variants per market."""
+    from .strategies import noise_area_momentum as M
+    grid = {"pruefung": ("30min", "15min"), "trailing": ("band_vwap", "band")}
+    return Spec("noise_area_momentum", asset, M.NoiseAreaConfig(asset=asset), grid,
+                prepare=lambda m1: M.prepare(m1, asset),
+                run=lambda c, d: M.run_backtest(d, c)["trades"])
+
+
 REGISTRY = {
     "momentum": (_momentum, ASSETS),
     "pullback": (_pullback, ASSETS),
@@ -209,6 +218,7 @@ REGISTRY = {
     "smc_ict2022": (_smc_ict2022, ("US100", "SP500", "GER40", "XAUUSD", "EURUSD")),
     "fib_retracement": (_fib_retracement, ("US100", "SP500", "GER40", "XAUUSD", "EURUSD")),
     "breakout_fade_fx": (_breakout_fade_fx, ("EURUSD", "GBPUSD", "AUDUSD", "USDJPY")),
+    "noise_area_momentum": (_noise_area_momentum, ("SP500", "US100", "US30", "GER40")),
 }
 
 # Slow engines get a smaller search (seconds per run measured on US100 train):
@@ -245,6 +255,9 @@ DESCRIPTIONS = {
     "orb_classic": "Klassischer Opening-Range-Breakout auf 5-Minuten-Kerzen, Ziel als Vielfaches der Spanne.",
     "breakout_fade_fx": "Breakout-Fade FX (Spec S-004): Schluss über ein internes Swing-Hoch in Trendrichtung "
                         "wird für wenige Kerzen gegengehandelt.",
+    "noise_area_momentum": "Noise-Area-Momentum (Spec S-006, Zarattini et al. 2024): verlässt ein Index die "
+                           "übliche Schwankung seit Tagesöffnung, wird mit der Richtung gehandelt; Trailing an "
+                           "Band/VWAP, flach zum Sessionende.",
     "fib_retracement": "Fibonacci-Retracement (Spec S-002): nach externem Strukturbruch Einstieg im Rücksetzer "
                        "an 0,5/0,618/0,705, mit Kontrolle an falschen Levels.",
     "smc_ict2022": "ICT 2022 (Spec S-001): Sweep in der Killzone, MSS mit Displacement, Einstieg im FVG, "

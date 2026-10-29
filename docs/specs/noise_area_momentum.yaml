@@ -1,0 +1,112 @@
+# S-006: Noise-Area-Intraday-Momentum auf Index-CFDs (Nachbau von Zarattini/Aziz/Barbon 2024)
+# Herkunft: Recherche 2026-10-29 (docs/FINDINGS.md). Zwei begutachtete Arbeiten belegen
+# Intraday-Momentum in Index-Futures (Gao et al. 2018, Baltussen et al. 2021); Zarattini et al.
+# machen daraus eine handelbare Regel. Wir haben bisher nur die GEGENRICHTUNG (M3 Mean
+# Reversion in der Noise Area, docs/RESEARCH_BACKLOG.md) geprüft - die Momentum-Regel nie.
+# Kein Data-Mining aus unseren Daten: die Regel kommt vollständig aus dem Paper.
+
+id: S-006
+strategie: noise_area_momentum
+titel: "Noise-Area-Momentum: verlässt der Index die übliche Schwankung seit Tagesöffnung, mit der Richtung handeln, Trailing-Stop an Band/VWAP, Schluss zum Sessionende"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: ja 0,5% sind in ordnung ... Wenn Ger40 sinn macht ja)"
+abgestimmt_am: "2026-10-29"
+
+idee:
+  mechanismus: >
+    An Tagen mit einem echten Ungleichgewicht zwischen Angebot und Nachfrage laufen Indizes
+    weiter in die Richtung des Tages. Treiber: Optionshändler mit negativem Gamma und
+    gehebelte ETFs müssen MIT der Bewegung absichern (Baltussen et al. 2021, über 60
+    Futures), dazu spät informierte Händler (Gao et al. 2018). Die "Noise Area" trennt
+    normale Schwankung (Uhrzeit-genau gemessen über 14 Tage) von einem Trendtag: erst wenn der
+    Kurs sie verlässt, wird gehandelt. Die meisten Tage bleiben drin -> kein Trade.
+  quellen:
+    - "Zarattini, Aziz, Barbon (2024, rev. 2025): Beat the Market - An Effective Intraday Momentum Strategy for S&P500 ETF (SPY), SSRN 4824172 / SFI RP 24-97"
+    - "Gao, Han, Li, Zhou (2018): Market intraday momentum, JFE 129, 394-414"
+    - "Baltussen, Da, Lammers, Martens (2021): Hedging demand and market intraday momentum, JFE 142, 377-403"
+    - "docs/RESEARCH_BACKLOG.md M3 (Mean Reversion in der Noise Area: nicht netto-positiv) - die Gegenrichtung"
+
+handel:
+  maerkte: [SP500, US100, US30, GER40]   # GER40: außerhalb der Paper-Daten, Kontrolle (Baltussen et al.: auch internationale Index-Futures)
+  zeitrahmen: "Entscheidung alle 30 Minuten (Variante 15 min) auf 1m-Mid-Kursen; Fills auf 1m Bid/Ask"
+  kontotyp: prop_standard
+  max_haltedauer: "intraday - spätestens zum Sessionende (US 15:59 NY, GER40 17:29 Berlin)"
+  wochenende_halten: false
+  news_fenster: "egal - das Paper handelt auch an News-Tagen (dort ist der Effekt laut Gao et al. am stärksten)"
+
+entry:
+  bedingungen:
+    - "1. Session: US-Indizes 09:30-16:00 New York, GER40 09:00-17:30 Berlin (DST-sicher über die Börsen-Zeitzone). Tagesöffnung O = Open der ersten Session-Minute, Vortagesschluss C1 = Close der letzten Session-Minute des Vortags."
+    - "2. sigma(m) für jede Minute m seit Sessionbeginn = Mittelwert über die VORHERIGEN 14 Handelstage von |Close(m) / O - 1|. Ohne 14 Vortage kein Handel."
+    - "3. Oberes Band = max(O, C1) x (1 + sigma(m)), unteres Band = min(O, C1) x (1 - sigma(m)) (Paper: Gap-Anpassung über den Vortagesschluss)."
+    - "4. Geprüft wird nur zu den Prüfzeiten: jede volle halbe Stunde ab 30 Minuten nach Sessionbeginn (US 10:00, 10:30, ... 15:30; GER40 09:30 ... 17:00), Variante alle 15 Minuten. Maßgeblich ist der Mid-Close der Minute, die zur Prüfzeit endet."
+    - "5. Long, wenn dieser Kurs über dem oberen Band liegt; Short, wenn unter dem unteren Band. Keine Position, solange der Kurs innerhalb liegt."
+    - "6. Höchstens eine Position je Markt. Nach einem Ausstieg ist ein neuer Einstieg (auch in Gegenrichtung) zur nächsten Prüfzeit erlaubt, wenn Bedingung 5 wieder erfüllt ist (wie im Paper)."
+  ausfuehrung: "Market-Order zum Open der Minute nach der Prüfzeit (Long zum Ask, Short zum Bid), 0,5 bp Slippage."
+
+stop_loss:
+  regel: >
+    Trailing-Stop, nur zu den Prüfzeiten geprüft (wie im Paper): Long wird geschlossen, wenn
+    der Mid-Close zur Prüfzeit unter max(oberes Band, VWAP der Session) liegt; Short, wenn er
+    über min(unteres Band, VWAP) liegt. Variante band: nur das Band, ohne VWAP. Ausführung
+    Market zum Open der nächsten Minute. Kein fester Stop innerhalb der 30 Minuten (Paper).
+  begruendung: >
+    Fällt der Kurs zurück in die Noise Area bzw. unter den Durchschnittspreis des Tages, ist
+    der Trendtag nicht bestätigt. Der VWAP kommt aus Dukascopy-Tickvolumen (siehe Daten).
+
+take_profit:
+  regel: "Kein festes Ziel - Trailing-Stop oder Sessionende (Paper)."
+  begruendung: "Trendtage sollen voll mitgenommen werden; das Paper erzielt die Rendite aus wenigen großen Tagen."
+
+exit_sonst:
+  - "Sessionende: US 15:59 NY, GER40 17:29 Berlin - Market zum Open dieser Minute"
+  - "Freitag automatisch flach (intraday)"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  sizing: >
+    Volatilitäts-Sizing wie im Paper statt Stop-Abstand (der Trailing-Stop liegt beim Einstieg
+    oft sehr nah am Kurs - Stop-basiertes Sizing gäbe riesige Positionen): Positionsgröße so,
+    dass EINE Tages-Standardabweichung des Markts (14 Tage, Close-zu-Close der Session) 0,5 %
+    des Kontos entspricht. 1 R = diese 0,5 %; Ergebnisse je Trade in R. 1 % je R ist laut
+    Nutzer möglich - Entscheidung im Portfolio-Schritt anhand des Drawdowns.
+  max_offene_positionen: 2
+  korrelation: "SP500, US100, US30 sind ein Block: zusammen höchstens 1 R offen (bei mehreren Signalen gleicher Richtung je 1/3 R). GER40 zählt eigenständig. Wird im Portfolio-Schritt angewendet; die Einzelmarkt-Tests laufen mit 1 R."
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 10
+
+kosten:
+  profil: ftmo
+  swaps: "keine - immer intraday flach"
+  slippage: "0,5 bp je Market-Fill (Einstieg, Trailing-Ausstieg, Sessionende)"
+
+daten:
+  quelle: "Dukascopy 1m Bid/Ask aus artifacts/cache/m1 (USA500/USATECH/USA30/DEU40 CFDs); Mid für Bänder/VWAP, Bid/Ask für Fills"
+  bekannte_probleme:
+    - "CFD statt SPY: Index-CFD folgt dem Future, nicht dem ETF - Session-Zeiten über die Börsen-Zeitzone, nicht UTC"
+    - "Volumen ist Dukascopy-Tickvolumen, kein echtes Börsenvolumen -> VWAP nur angenähert; die Variante band prüft die Regel ohne VWAP"
+    - "Verkürzte Handelstage (US: 3. Juli, Tag nach Thanksgiving, 24. Dezember) und Feiertage: Tage mit weniger als 80 % der normalen Session-Minuten werden übersprungen und zählen nicht in die 14-Tage-sigma"
+    - "Erste Session-Minute fehlt manchmal -> O = Open der ersten vorhandenen Minute innerhalb der ersten 5 Minuten, sonst Tag überspringen"
+  warmup: "14 Handelstage"
+
+varianten:
+  - name: basis
+    aenderung: "SP500, Prüfung alle 30 min, Trailing max/min(Band, VWAP) - die Regel des Papers"
+  - name: gitter_markt
+    aenderung: "markt in {SP500, US100, US30, GER40}"
+  - name: gitter_pruefung
+    aenderung: "pruefung in {30min, 15min}"
+  - name: gitter_trailing
+    aenderung: "trailing in {band_vwap, band}"
+  # 2 x 2 = 4 Varianten je Markt, 16 insgesamt; Bandbreite (Faktor 1,0) und 14 Tage bleiben fest wie im Paper
+
+referenz: >
+  Paper (SPY, 2007 bis Anfang 2024, netto, mit Vola-Sizing bis Hebel 4): 19,6 % p.a., Sharpe
+  1,33. Vergleichbar ist die Sharpe der Tagesrenditen (unabhängig vom Sizing). Erwartung für
+  SP500-CFD 2019-2024: positive Sharpe deutlich unter 1,33 (CFD-Spread, kürzerer Zeitraum).
+  Plausibilitätsgrenze: Sharpe netto > 2,5 oder > 60 % Trefferquote -> zuerst Fehler suchen.
+  Zweite Referenz: Gao et al. - Tage mit großer Bewegung bis 15:30 sollten die letzte halbe
+  Stunde in dieselbe Richtung laufen (eigene Kontrollmessung im Test-Skript).
+
+tests:
+  - tests/test_noise_area_momentum.py
