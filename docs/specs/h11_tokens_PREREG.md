@@ -51,22 +51,30 @@ median of the same window over the previous 20 sessions. **big** = `y` >= the 75
 `x_rel` = range of the 6 h before the open / 20-session median of the session window (H11-A).
 Quintile edges of `x_rel` per asset-session from the discovery years, frozen.
 
-## Tokens - 2 families x 4 timeframes x 2 (with / without volume) = **16 readings**
+## Tokens - a fixed grid of **200 readings**
 
 Each reading uses **one timeframe only**: TF in {**5, 15, 30, 60 min**} (mid bars resampled from
 1 min, aligned to the session open). 1 min (noise, moves below the spread) and 2 h / 4 h (2-3
 tokens per session) are left out on purpose. All tokens use only bars that **close at or before
 the open**.
 
-**Family S - shape of the path (SAX).** The last 8 TF bars before the open: z-normalise their
-closes (std 0 -> all middle letters), PAA to 4 segments, alphabet 3 with the normal breakpoints
--0.4307 / +0.4307 -> a word like `acbc` (81 words). Same shape at any price and any size -> same
-word.
+The user wants to try many window lengths and timeframes. That is allowed **inside this grid,
+written down now**; the multiple testing is paid for by a max-statistic permutation (below), so a
+bigger grid automatically means a higher bar. Nothing outside the grid is tried.
 
-**Family K - candles.** The last 3 TF bars, each one of 5 shapes, from its own range only:
+**Family S - shape of the path (SAX).** The last N TF bars before the open, N in
+{4, 6, 8, 12, 16}: z-normalise their closes (std 0 -> all middle letters), PAA to W segments,
+W in {3, 4} (W <= N), alphabet A in {3, 4} with the normal breakpoints (A=3: -0.4307 / +0.4307;
+A=4: -0.6745 / 0 / +0.6745) -> a word like `acbc`. Same shape at any price and any size -> same
+word. 5 x 2 x 2 = 20 settings.
+
+**Family K - candles.** The last C TF bars, C in {1, 2, 3, 4, 5}, each one of 5 shapes, from its
+own range only:
 `D` doji (|close - open| < 0.1 x range or range 0), `U` strong up (open in the lower third and
 close in the upper third of the bar), `N` strong down (mirror), `u` other up, `n` other down ->
-a word like `UnD` (125 words). Same candle at any price -> same letter.
+a word like `UnD` (5^C words). Same candle at any price -> same letter. 5 settings.
+
+**Grid:** (20 S + 5 K settings) x 4 TF x volume on/off = **200 readings**.
 
 **Size letter (both families, always on).** Range of the bars the word covers / median of the
 same bars' range (same clock) over the previous 20 sessions -> `s` / `m` / `l` by the discovery
@@ -76,7 +84,9 @@ tertiles of that ratio (per asset-session, frozen).
 over the previous 20 sessions at the same clock -> `v1` / `v2` / `v3` by discovery tertiles. The
 same-clock normalisation keeps the letter from measuring the time of day.
 
-A token = word + size letter (+ volume letter): 243 / 729 (S) and 375 / 1125 (K) possible tokens.
+A token = word + size letter (+ volume letter). Large vocabularies (e.g. K with C = 5: 9375
+tokens with volume) are sparse by design; the shrinkage below pulls rare tokens to the base rate,
+so they cannot win by luck on a handful of days.
 
 ## Score
 
@@ -99,19 +109,27 @@ many different ones there are.
 asset-session (AUC per stratum, averaged with stratum sizes as weights). A token reading that
 only re-measures volatility has a stratified AUC of ~0.50.
 
-* Permutation p: the token scores are shuffled inside (asset-session x quintile) strata,
-  2000 times; p = share of shuffles with a stratified AUC >= the real one.
+* **Family-wise p (max statistic):** the `big` labels are shuffled inside (asset-session x year x
+  `x_rel` quintile) strata, 1000 times; for each shuffle the scores of **all 200 readings** are
+  re-learned (leave-one-year-out, as for the real data) and the **largest** stratified AUC over
+  the grid is kept. p_fw(reading) = share of shuffles whose maximum >= the reading's real
+  stratified AUC. This is the "best of 200 by luck" bar - trying more settings raises it.
 * Reported, no weight: the plain AUC of the score, the AUC of `x_rel` alone, per asset-session
   and per year, and the 10 tokens with the highest discovery score (n >= 30), each with its
   count and big rate.
 
 ## Verdict stage 1 (fixed now)
 
-A reading **passes** iff
-1. discovery (leave-one-year-out): stratified AUC >= 0.55 and permutation p <= 0.003
-   (0.05 / 16 readings),
-2. confirmation 2022-2024: stratified AUC >= 0.53 and permutation p <= 0.05,
-3. confirmation stratified AUC > 0.50 in at least 5 of the 7 asset-sessions.
+1. **Discovery** (leave-one-year-out): readings with p_fw <= 0.05 are candidates. At most the
+   **3 best** (highest stratified AUC) go on. No candidate -> H11 is closed.
+2. **Confirmation 2022-2024**, run once, only on those <= 3 readings with the score learned on
+   all discovery years. A reading **passes** iff stratified AUC > 0.50 with a permutation p
+   <= 0.05 / (number of readings sent) (labels shuffled inside asset-session x year x quintile,
+   2000 times), and its stratified AUC > 0.50 in at least 5 of the 7 asset-sessions.
+
+The confirmation bar is deliberately low ("real and on most markets"), and it is **not moved
+after the discovery result is known**. Loosening is only possible by changing this document
+before the discovery run.
 
 **No reading passes -> H11 is closed** ("chart tokens add nothing beyond the pre-session range").
 Stage 2 is then not run.
@@ -148,10 +166,11 @@ and the holdout is opened only through that pipeline.
 
 ## Cells (counted up front)
 
-Stage 1: 16 readings (2 families x 4 TF x volume on/off), pooled; 7 asset-sessions reported.
+Stage 1: 200 readings (25 settings x 4 TF x volume on/off), pooled, family-wise corrected;
+<= 3 readings to confirmation; 7 asset-sessions reported.
 Stage 2: 4 rules on 1 reading. Nothing else is tried; extra ideas get their own pre-registration.
 
 ## Not in this test
 
 Path tokens inside the session toward a level (H11-B: the setup itself is null); 1-min and
-2 h / 4 h token readings; exchange (CME) volume; FX pairs (data audit not done for FX yet).
+2 h / 4 h token readings; anything outside the grid above; exchange (CME) volume; FX pairs (data audit not done for FX yet).
