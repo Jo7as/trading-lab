@@ -611,3 +611,23 @@ Spec `docs/specs/noise_area_momentum.yaml` (rules from the paper, no tuning), in
   convincingly; the SP500+US100 block (1/2 R each) lost -3.75 R in the holdout with a
   max DD of 11.2 R - at 1 % per R that is an 11 % drawdown, beyond the prop limit. Not tradable as is; the holdout is spent for S-006 - no
   re-tuning on it.
+
+## 2026-10-29 — S-007: Time-series momentum over 26 markets / 7 classes - real, but not past S3/S4
+
+Spec `docs/specs/tsmom_multi_asset.yaml` (Moskowitz/Ooi/Pedersen rules), long daily data
+2004-2024 (`trading_lab/long_daily.py`, yfinance; FX re-dated - the yfinance "=X" close is
+the 00:00 UTC price of the label day, fixed and tested), costs measured on the CFD data
+(0.9-1.9 bp per side on indices/FX), swaps by the CFD formula (rate + 2.5 % / FX
+differential - 1 %). Portfolio = unit (agreed), 8 % target vol.
+
+* Reference passed: monthly correlation with the AQR TSMOM factor 0.71 (252 months),
+  Sharpe 0.79 before costs, 0.51 net (0.45 with double swap markup); big years 2013/2014/
+  2017/2022, losing years 2011/2012/2016/2018/2023 - the textbook pattern.
+* Swaps are the main cost (~-2.2 % p.a. vs -0.35 % p.a. spread+slippage); UST10Y loses
+  -14 R (low vol -> large notional -> financing); BTC brings +31 R from 12 positions.
+* Funnel: 12m/no stop n 1642 episodes, +0.150 R gross / +0.094 R net, placebo +0.004 R,
+  t 2.37, DSR 0.906, 13/21 positive years (62 %) -> **fails S3** (>= 70 % years) and would
+  fail S4 (DSR < 0.95) too. 12m + 3-ATR stop weaker (DSR 0.85); the blend with the 1- and
+  3-month signals much weaker (Sharpe 0.15/0.11) - faster signals do not help here.
+* Verdict: the effect is real (placebo edge +0.15 R, AQR match) but at CFD costs and a 8 %
+  vol it is not significant enough for our bar. Holdout untouched.
