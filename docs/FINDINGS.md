@@ -915,3 +915,13 @@ continuation). H9 tests that reading as its own hypothesis on data H8 never saw.
   touch" and "cascade" (flow in, close through).
 * Code: `studies/crypto_absorption_follow_study.py` + `tests/test_absorption_follow.py`; no
   threshold, window, horizon or level is changed after the first look at 2023.
+
+## 2026-10-29 — Quick check: Krohn/Mueller/Whelan long fix windows on our data - every window negative net
+
+`studies/fx_fix_windows.py`, 7 USD pairs, 2019-2024 (train), 1m bid/ask + 0.5 bp per side. Windows as in
+the paper's Section V.E (USD long 02:00 NY -> ECB fix; foreign long London fix -> 17:00 NY; Tokyo pair).
+* Mid: the pattern is partly visible (+0.4..+1.7 bp per window; Tokyo windows t up to 2.9), weaker than
+  the paper's ~2.5 bp/day.
+* Net: **all 28 pair-windows negative**, portfolio -1.1 (pre-ECB) to -4.3 bp/day (pre-Tokyo). Windows that
+  start or end at 17:00 NY pay the rollover spread spike. Matches the paper (full spreads -> negative);
+  not tradable for a retail CFD account.
