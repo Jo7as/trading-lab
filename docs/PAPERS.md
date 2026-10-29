@@ -118,3 +118,28 @@ Texte lokal aus den PDFs extrahiert (pdftotext); Zitate kurz gehalten.
   - bei FX fehlt damit der Zinsanteil im Signal; (4) 26 statt 58 Märkte, kaum Rohstoffe/Anleihen.
   Unsere Brutto-Sharpe 0,79 (2004-2024) vs. > 1 (1985-2009) passt zur bekannten Schwäche nach 2009 und zum
   kleineren Universum.
+
+## Hurst, Ooi, Pedersen (2017): A Century of Evidence on Trend-Following Investing - J. Portfolio Mgmt 44(1)
+
+* **Daten:** 67 Märkte (29 Rohstoffe, 11 Aktienindizes, 15 Anleihen, 12 Währungspaare), Monatsrenditen
+  **1880-2016**; Futures wo vorhanden (Roll des liquidesten Kontrakts), sonst Kassa-Renditen finanziert zum
+  lokalen Geldmarktzins; CBOT-Berichte 1877-1951 von Hand abgeschrieben (doppelt kontrolliert).
+* **Regel:** gleichgewichtete Kombination aus **1-, 3- und 12-Monats-TSMOM** (Vorzeichen der Überschussrendite),
+  jede Position auf gleiche Vola, Gesamtportfolio auf **10 % ex-ante-Vola**, monatlich. 3 Jahre Daten für
+  die Vola-Schätzung. Kosten aus AQR-Schätzungen 2012, für 1993-2002 doppelt, für 1880-1992 sechsfach;
+  zusätzlich 2/20-Gebühren simuliert; Roll-Kosten NICHT enthalten.
+* **Ergebnisse (Zahlen stehen in den Grafiken, im Text):** positiv in **jedem Jahrzehnt** seit 1880, auch
+  netto; jede der drei Signallängen in jedem Jahrzehnt positiv; mit einem Monat Verzögerung schwächer,
+  v. a. die kurzen Signale. Ø Sharpe je Einzelmarkt ~0,4. Positiv in 8 der 10 schlimmsten 60/40-Drawdowns
+  ("Smile"). Eigene Drawdowns bis ~25 %, lang. 20 % Beimischung zu 60/40 senkt Drawdown und Vola und hebt
+  die Rendite.
+* **Wann gut/schlecht:** kaum Unterschied nach Rezession/Boom, Inflation, Krieg, Zinsniveau, Vola-Änderung.
+  **Einziger klarer Zusammenhang: Korrelation zwischen den Märkten** - niedrige Korrelation = bessere
+  Rendite. Von Ende 2008 bis Mitte 2014 hohe "Risk-on/Risk-off"-Korrelation -> schwache Phase.
+* **Fußnote wichtig:** Trendfolge auf KASSA-Preisen ist nicht umsetzbar, wenn Futures den Trend über die
+  Roll-Rendite vorwegnehmen - realistisch ist nur die Rechnung mit Finanzierung/Roll.
+* **Für S-007:** (1) unsere Finanzierungs-Modellierung (Swaps) ist genau die richtige Korrektur zu dieser
+  Fußnote; (2) unsere schwachen Jahre 2011-2018 passen zur dokumentierten Hoch-Korrelationsphase;
+  (3) offene Frage: im Paper hilft die 1/3/12-Mischung, bei uns war sie viel schwächer (netto Sharpe 0,15) -
+  wahrscheinlich Kosten/Umschlag der kurzen Signale bei wöchentlicher Umschichtung auf CFDs (Paper: monatlich,
+  institutionelle Kosten). Nicht nachträglich ändern; ggf. eigene Spec mit monatlicher Umschichtung.
