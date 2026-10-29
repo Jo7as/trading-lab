@@ -143,3 +143,63 @@ Texte lokal aus den PDFs extrahiert (pdftotext); Zitate kurz gehalten.
   (3) offene Frage: im Paper hilft die 1/3/12-Mischung, bei uns war sie viel schwächer (netto Sharpe 0,15) -
   wahrscheinlich Kosten/Umschlag der kurzen Signale bei wöchentlicher Umschichtung auf CFDs (Paper: monatlich,
   institutionelle Kosten). Nicht nachträglich ändern; ggf. eigene Spec mit monatlicher Umschichtung.
+
+## Zarattini, Aziz, Barbon (2024/2025): Beat the Market - Intraday Momentum for SPY (SFI RP 24-97; Grundlage S-006)
+
+* **Daten:** SPY 1-Minuten-OHLCV (IQFeed) Mai 2007 - Apr 2024, VIX. **Erste Version Mai 2024**.
+* **Regel:** Noise Area wie in S-006 umgesetzt (14 Tage Ø |Close(HH:MM)/Open - 1|, Grenzen mit
+  max/min(Open, Vortagesschluss)), Entscheidung nur zu HH:00/HH:30, flach zum Schluss, 100 % des Kapitals.
+  Kosten: IB 0,0035 $/Aktie (teils 0,002) + Slippage 0,001 $/Aktie (selbst gemessen: >1.000 Orders,
+  50 Mio. $, Ø 0,001 $, Median 0,0005 $) - bei SPY ~400 $ etwa **1 bp je Seite**.
+* **Ergebnisse (netto):** Basis (Stop am Gegenband) Sharpe **0,61**, 6,2 % p.a., MDD 21 %; mit Trailing
+  max(Band, VWAP) Sharpe **1,24**, 9,7 % p.a., Vola 7,7 %, Trefferquote 43 %, 7.668 Trades (1,8/Tag);
+  plus Vola-Sizing (2 % Tagesvola-Ziel, Hebel bis 4) Sharpe **1,33**, 19,6 % p.a., MDD 25 %.
+  Ø 12 bp/Tag (t 5,34). Besser bei hohem VIX (Sharpe ~3,5 bei VIX > 40), nach NR4-Tagen (22 bp, t 5,1),
+  mittwochs (FOMC), wenn der 5-Tage-RSI niedrig ist (Dealer-Gamma negativ; Regression Beta -3,25, p 0,001).
+  Volatility-Multiplier 1,5 statt 1 bessere Sharpe (nachträglich, im Paper bewusst nicht genutzt).
+* **Grenzen:** ein Instrument, Backtest der Autoren (kommerzieller Hintergrund: Concretum, Bear Bull
+  Traders), keine Out-of-Sample-Periode nach Veröffentlichung.
+* **Abgleich mit S-006:** unsere Umsetzung reproduzierte das Paper (SP500-CFD auf Mittelkursen Sharpe 1,52,
+  netto 0,65 mit CFD-Spread). **Unser Holdout (2025-26) - also genau die Zeit NACH der Veröffentlichung -
+  war negativ.** Das passt zum Muster "veröffentlichte Effekte lassen nach" (bei Gao et al. dokumentiert
+  Rosa einen Rückgang schon nach 2013). Die Bedingungen hoher VIX/niedriger RSI wären nachträgliche
+  Filter - nur als eigene, neue Hypothese mit frischen Daten vertretbar.
+
+## Lucca & Moench (2011/2015): The Pre-FOMC Announcement Drift - NY Fed SR 512 (J. of Finance 2015; Grundlage S-009)
+
+* **Daten:** S&P 500 (Kassa, ab Sept. 1997 auch E-mini), intraday Sept. 1994 - März 2011 (Erklärung
+  verlässlich um ~14:15 ET); 1980-1993 Tagesrenditen am Sitzungstag; internationale Indizes (DAX, FTSE,
+  CAC, IBEX, SMI, TSX, Nikkei). Termine von federalreserve.gov, nur GEPLANTE Sitzungen.
+* **Regel/Fenster:** **14:00 ET am Vortag bis 14:00 ET am Tag der Erklärung** (vor der Veröffentlichung).
+* **Ergebnisse:** seit 1994 **+49 bp** im Mittel je Fenster; ~80 % der jährlichen Überschussrendite seit 1994
+  fallen in diese Fenster; Strategie "nur in diesen 24 h investiert" **Sharpe > 1,1**. 1980-1993: +20 bp am
+  Sitzungstag. Vor 1980 nichts. Kehrt in den Folgetagen NICHT um. Ausländische Indizes ähnlich (Nikkei als
+  Ausnahme schwächer). Anleihen und Geldmarkt-Futures: kein Effekt; andere US-Makrodaten: kein Effekt.
+  Vor der Erklärung niedrige Vola und wenig Volumen; vom Zeitpunkt der Erklärung bis zum Schluss Ø ~0.
+  Größer bei **flacher Zinskurve, hohem VIX** und wenn frühere Pre-FOMC-Renditen hoch waren
+  (Persistenz). Unabhängig von Zinssenkungs-/-erhöhungszyklen und von der Überraschung. Data-Snooping
+  geprüft (White Reality Check). Erklärung offen (Risikoprämie? langsames Kapital nach Duffie 2010?).
+* **Wichtiges Detail:** seit April 2011 kommt die Erklärung bei Sitzungen MIT Pressekonferenz früher
+  (12:30, später 14:00) - das Fenster muss VOR der jeweiligen Uhrzeit enden. Update 2018 (Liberty Street):
+  Effekt nur noch bei Pressekonferenz-Sitzungen (seit 2019 alle).
+* **Abgleich mit S-009:** Fenster stimmt (14:00 Vortag -> 13:50, Erklärung seit 2019 um 14:00).
+  Unsere Messung 2019-2024: SP500 +28 bp, US100 +45, GER40 +40 - kleiner als 1994-2011, aber derselbe
+  Effekt. S-009 scheiterte nur an 4/6 positiven Jahren. Die Bedingungen hoher VIX / flache Kurve sind im
+  Paper dokumentiert und wären eine eigene, vorab festgelegte Filter-Hypothese.
+
+## Baltussen, Da, Lammers, Martens (2021): Hedging Demand and Market Intraday Momentum - JFE 142, 377-403
+
+* **Daten:** Intraday-Futures, Dez. 1974 - Mai 2020: 17 Aktienindizes, 16 Anleihen, 21 Rohstoffe, 8 Währungen.
+* **Definition:** Handelstag = Schluss t-1 bis Schluss t, zerlegt in ON (über Nacht), FH (erste 30 Min.),
+  M (Mitte), SLH (vorletzte 30 Min.), LH (letzte 30 Min.). **ROD = alles vor den letzten 30 Min.**
+  Hauptbefund: r_ROD sagt r_LH positiv voraus - in ALLEN Anlageklassen; besser als Gaos r_ONFH (höhere
+  Out-of-Sample-R², bei Widerspruch der Vorzeichen gewinnt r_ROD). Pooled OOS-R² für Aktienindizes 2,88 %;
+  14 von 17 Index-Futures mit positiver, signifikanter OOS-R². Einfache Strategie: **Sharpe 0,87-1,73
+  je Anlageklasse (brutto)**; Effekt kehrt in den Folgetagen um (Preisdruck, keine Information).
+* **Mechanismus:** Absicherung von **negativem Gamma** (Options-Market-Maker, gehebelte ETFs, Vola-Targeting,
+  Portfolio-Insurance) handelt MIT der Bewegung. Mit einem direkten Maß der Dealer-Gamma-Position: Momentum
+  nur bei negativem Gamma, stärker je negativer; LETF-Rebalancing (bis 50 % des Schlussvolumens an 5 %-Tagen).
+* **Grenzen:** brutto; die letzten 30 Minuten sind teuer zu handeln; Gamma-Daten (SqueezeMetrics) kostenpflichtig.
+* **Für uns:** unsere Messung 2019-2024 (Rendite bis 15:30 sagt 15:30-15:59 voraus) ergab +1,0..1,5 bp je Tag
+  bei 1,7-2,2 bp CFD-Kosten - derselbe Effekt, zu klein für uns. Nur mit einem Gamma-Filter (stark negatives
+  Dealer-Gamma) wäre er größer; dafür bräuchten wir Gamma-Daten (z. B. SqueezeMetrics GEX) - offener Punkt.
