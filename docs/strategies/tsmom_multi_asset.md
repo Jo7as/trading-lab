@@ -2,7 +2,7 @@
 
 * Spec: [`docs/specs/tsmom_multi_asset.yaml`](../specs/tsmom_multi_asset.yaml) (Moskowitz/Ooi/Pedersen 2012),
   Code `trading_lab/strategies/tsmom_multi_asset.py`, Tests `tests/test_tsmom_multi_asset.py`,
-  Lauf `studies/tsmom_check.py`, Korb `configs/portfolios/KORB.yaml`.
+  Lauf `studies/tsmom_check.py`, Korb `configs/korb/KORB.yaml`.
 * Regel: je Markt Vorzeichen der 12-Monats-Rendite, Größe nach EWMA-Vola, gleiches Risiko je
   Anlageklasse (Krypto halb), Portfolio auf Ziel-Vola skaliert, wöchentlich (Mi 15:00 NY), 25 %-Puffer.
 * Prüfung (Literatur-Spur, `docs/PRUEFABLAUF.md`): Training 2004-2024 Sharpe 0,79 brutto / 0,51 netto
