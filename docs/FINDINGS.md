@@ -1032,3 +1032,34 @@ x_reg = 20/100-session median ratio.
 * Meaning for H11: a token reading of the pre-session must beat AUC ~0.70 (indices) to add anything.
   A predicted big range is not yet a trade - direction is the open question (stage 2: tokens /
   two-sided breakout / EMA trend / 15m BOS as a fixed list).
+
+## 2026-10-30 — H11 stage 1: chart tokens add nothing beyond recent volatility - H11 closed
+
+Pre-registration `docs/specs/h11_tokens_PREREG.md` (released 2026-10-30, code committed before the
+run, 666c4c3). `trading_lab/chart_tokens.py`, `studies/h11_tokens_study.py`, report
+`artifacts/h11_tokens_discovery.json`. 7 asset-sessions, 2016-2021, 200 readings (SAX N/W/A and
+candles 1-5 x TF 5/15/30/60 x volume letter), stratified AUC inside the pre-session-range quintiles,
+leave-one-year-out, max-statistic over the grid (1000 shuffles).
+
+* **Verdict per prereg: no reading has p_fw <= 0.05 -> H11 closed, no confirmation run, stage 2
+  not run.** Best: K1@15m+v 0.583 (p_fw 0.19), S12w3a3@60m+v 0.581, K1@30m+v 0.578. Median of all
+  readings 0.549. Null maximum: median 0.539, 95 % 0.639.
+* **Design weakness, reported:** readings with 12-16 hourly bars need 12-16 h of gap-free pre-open
+  data, which the daily CFD break rarely allows (S16@60m: n = 109). Those tiny readings swing
+  wildly (real AUC down to 0.34 - leave-one-year-out on sparse tokens) and inflate the null maximum;
+  a single large reading's own null 95 % is only ~0.52. A minimum n per reading should have been in
+  the prereg. **It does not change the conclusion**, see next point.
+* **Diagnostic (discovery years, already seen, no new data): the shape carries nothing.** Splitting
+  the best readings into their parts, each with its own null (300 shuffles):
+
+  | reading | full token | size + volume letters only | shape only |
+  |---|---|---|---|
+  | K1@15m+v | 0.583 | 0.580 | 0.507 (p 0.22) |
+  | K1@30m+v | 0.578 | 0.583 | 0.490 (p 0.82) |
+  | K1@15m | 0.566 | 0.554 | 0.507 (p 0.23) |
+
+  The real, stable part (every asset-session 0.54-0.63, 5/6 years > 0.5) is **how big and how
+  active the last 15-30 min before the open were** - finer-grained volatility clustering on top of
+  the 6 h range. The candle / path shape adds 0.00-0.01. "Patterns" in the shape sense: none.
+* Lessons for H12 (fuzzy frequent patterns): a minimum n per reading, and a **size/volume-only
+  control** in every comparison - otherwise a pattern search rediscovers volatility.
