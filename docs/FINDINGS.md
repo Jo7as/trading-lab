@@ -603,3 +603,11 @@ Spec `docs/specs/noise_area_momentum.yaml` (rules from the paper, no tuning), in
 * Size: ~20 trades/month, +0.02..0.03 R net each -> ~2.5 % p.a. at 0.5 %/R. SP500 and US100
   are one bet (correlated). A basket component, not the 1 %/month on its own.
 * Holdout (2025+) not opened yet - needs the user's release.
+* **Holdout (2025-01 .. 2026-10, opened once with the user's release 2026-10-29):**
+  SP500 30min/band n 405, net -0.030 R (t -1.13), 27 % positive months, max DD 16.8 R -
+  FAILED; SP500 30min/band_vwap -0.029 R - FAILED; US100 30min/band n 358, net +0.012 R
+  (t 0.41), 50 % positive months, max DD 11.2 R - formally passes S5 (mean > 0) but is not
+  distinguishable from zero. Verdict: the train edge (Sharpe ~0.65 net) did not carry over
+  convincingly; at 1 % per R the holdout DD of the SP500+US100 block would have been
+  roughly 7-8 % with no gain. Not tradable as is; the holdout is spent for S-006 - no
+  re-tuning on it.
