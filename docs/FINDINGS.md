@@ -546,3 +546,22 @@ unconditional drift in ATR, events thinned so windows do not overlap. 768 cells.
   exactly the events that pull back.
 * Only EURUSD 1h shows a fade effect larger than its cost (0.12 vs 0.065 ATR) - a lead,
   one cell among 768, needs a spec, the pipeline and the (unspent) holdout.
+
+## 2026-10-29 — S-004: Breakout-Fade FX (spec `docs/specs/breakout_fade_fx.yaml`) - rejected at S2
+
+Fade an internal swing break in the trend direction (short a close above the internal
+swing high in an uptrend, long mirrored), stop = signal-bar extreme + x ATR, time exit
+2/4/8 bars or retest of the broken level; 1m bid/ask fills, ftmo costs, 0.5 bp slippage
+per fill. Grid 96 per pair, EURUSD/GBPUSD/AUDUSD/USDJPY (control), train 2019-2024.
+
+* **Reference check passed - no implementation bug.** Base variant (1h, trend on, 1.5 ATR,
+  4 bars) on mid prices: EURUSD +0.051 R (t 2.4), GBPUSD +0.040 R, AUDUSD +0.024 R,
+  USDJPY -0.028 R - the step-A effect (EURUSD +0.09..0.115 ATR) at an average risk of
+  1.8 ATR. The spec's "+0.08 R" assumed 1.5 ATR risk and was too optimistic.
+* **Costs ~0.09 R per trade eat it:** spread 0.02-0.05 R, slippage 0.03-0.05 R (largest
+  item), commission 0.02 R.
+* Fixed RR targets (1:1 / 2:1 / 3:1, diagnostic only, not in the grid) do not help: best
+  +0.06 R before costs; costs in R depend on the stop distance, not on the RR.
+* **Grid: best variant per pair net -0.030 (EURUSD, GBPUSD), -0.048 (AUDUSD), -0.071 R
+  (USDJPY); none passes S2.** Holdout untouched. Lesson: a fade effect of ~0.1 ATR is too
+  small for market entries on FX; a limit-entry variant would be a new spec.
