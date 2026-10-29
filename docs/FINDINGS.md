@@ -608,6 +608,6 @@ Spec `docs/specs/noise_area_momentum.yaml` (rules from the paper, no tuning), in
   FAILED; SP500 30min/band_vwap -0.029 R - FAILED; US100 30min/band n 358, net +0.012 R
   (t 0.41), 50 % positive months, max DD 11.2 R - formally passes S5 (mean > 0) but is not
   distinguishable from zero. Verdict: the train edge (Sharpe ~0.65 net) did not carry over
-  convincingly; at 1 % per R the holdout DD of the SP500+US100 block would have been
-  roughly 7-8 % with no gain. Not tradable as is; the holdout is spent for S-006 - no
+  convincingly; the SP500+US100 block (1/2 R each) lost -3.75 R in the holdout with a
+  max DD of 11.2 R - at 1 % per R that is an 11 % drawdown, beyond the prop limit. Not tradable as is; the holdout is spent for S-006 - no
   re-tuning on it.
