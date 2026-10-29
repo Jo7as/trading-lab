@@ -221,6 +221,34 @@ Texte lokal aus den PDFs extrahiert (pdftotext); Zitate kurz gehalten.
 * **Update (Liberty Street 2026):** seit 2021 im Mittel ~0; nach Spread negativ. Für uns kein Baustein
   (1,5 bp < Kosten) - Lehrbeispiel für das Verschwinden nach Veröffentlichung.
 
-## Noch offen (heruntergeladen, nicht gelesen)
-Evans (2018, WMR-Fix), Lou/Polk/Skouras (2019, Tug of War), Cont/Kukanov/Stoikov (2014, OFI); nicht frei
-gefunden: Gao et al. (2018), Babu et al. (Trends Everywhere), McConnell/Xu (2008); Mahadzva (SSRN gesperrt).
+## Evans (2018): Forex Trading and the WMR Fix - J. of Banking & Finance (Abstract, Einleitung, Ergebnisse)
+
+* 21 Währungspaare, ein Jahrzehnt; 4-pm-London-Fix (1-Min.-Fenster, ab 2015 5 Min.).
+* Ein Wettbewerbsmodell sagt: Fix-Orders bewegen den Kurs erst NACH dem Fix, keine Korrelation vor/nach.
+  **Daten widersprechen:** außergewöhnliche Volatilität direkt VOR dem Fix (in allen 21 Paaren, jedes Jahr),
+  besonders am **Monatsende** (Absicherer-Orders am größten); **negative Korrelation** zwischen Bewegung vor
+  und nach dem Fix, vor allem am letzten Handelstag des Monats - laut Autor groß genug für attraktive
+  Strategien (vor Kosten). Hintergrund: Banken wurden wegen Handel um den Fix mit > 5,6 Mrd. $ bestraft.
+* **Für uns:** unsere Messung bestätigt es (Umkehr nach dem Fix t 3-5,6; Monatsende GBPUSD +3,4 bp, EURGBP
+  +2,6 bp), aber im 30-Min.-Fenster ~Kostenhöhe. Monatsende = 12 Ereignisse/Jahr je Paar.
+
+## Lou, Polk, Skouras (2019): A Tug of War - Overnight versus Intraday Expected Returns - JFE 134 (Abstract, Einleitung)
+
+* Einzelaktien: Fortsetzung jeweils über Nacht und tagsüber, aber gegenläufige Umkehr zwischen beiden,
+  über Jahre. Bei 14 Strategien entsteht der Gewinn entweder komplett über Nacht (Momentum, Umkehr) oder
+  komplett tagsüber - oft mit entgegengesetzten Vorzeichen. Erklärung: verschiedene Anlegergruppen handeln
+  zu verschiedenen Zeiten ("Klientel").
+* **Für uns:** Querschnitt von Einzelaktien - nicht unser Markt. Idee für Indizes/FX: Rendite getrennt in
+  Nacht-/Tagesanteil messen (z. B. ob Trendfolge-Gewinne über Nacht oder tagsüber entstehen).
+
+## Cont, Kukanov, Stoikov (2014): The Price Impact of Order Book Events - J. Financial Econometrics (Abstract, Einleitung)
+
+* NYSE-TAQ, 50 US-Aktien: über kurze Intervalle wird die Preisänderung fast linear von der **Order-Flow-
+  Imbalance (OFI)** am besten Bid/Ask bestimmt, Steigung ~ 1/Markttiefe; robuster als Handelsvolumen.
+* **Für uns:** braucht Level-1-Orderbuchdaten (Börse) und Sekunden-Horizonte - mit CFD-Daten nicht machbar.
+  Relevant für das Krypto-Orderflow-Projekt (andere Sitzung), nicht für den Korb.
+
+## Nicht gelesen
+Gao, Han, Li, Zhou (2018) - kein freier Volltext gefunden (Kern bei Baltussen/Zarattini zitiert);
+Babu u. a. ("Trends Everywhere") - kein freier Volltext; McConnell & Xu (2008) - FAJ, kein freier Volltext;
+Mahadzva - SSRN gesperrt (nicht umgangen).
