@@ -59,6 +59,8 @@ class TsmomConfig:
     markup_fx: float = 0.010
     markup_cfd: float = 0.025
     markup_factor: float = 1.0      # robustness run: 2.0
+    # measured broker swaps (trading_lab/broker_costs.py): ((asset, long p.a., short p.a.), ...)
+    swaps_pa: tuple = ()
 
 
 @dataclass
@@ -165,7 +167,12 @@ def needs_trade(cur: float, tgt: float, buffer: float) -> bool:
 
 
 def carry_rates(asset: str, rates: pd.DataFrame, cfg: TsmomConfig) -> tuple[pd.Series, pd.Series]:
-    """(long, short) financing in fraction p.a. per day; negative = the position pays."""
+    """(long, short) financing in fraction p.a. per day; negative = the position pays.
+    A measured broker swap (``cfg.swaps_pa``) replaces the formula for that market."""
+    measured = {a: (lo, sh) for a, lo, sh in cfg.swaps_pa}
+    if asset in measured:
+        lo, sh = measured[asset]
+        return pd.Series(lo, index=rates.index), pd.Series(sh, index=rates.index)
     if GROUP_OF[asset] in ("fx_usd", "fx_kreuz"):
         base, quote = asset[:3], asset[3:]
         diff = (rates[base] - rates[quote]) / 100.0

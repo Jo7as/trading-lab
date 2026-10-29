@@ -40,6 +40,7 @@ AQR = Path("artifacts/cache/aqr/tsmom.xlsx")
 AQR_URL = "https://www.aqr.com/-/media/AQR/Documents/Insights/Data-Sets/Time-Series-Momentum-Factors-Monthly.xlsx"
 GRID = {"signal": ("12m", "blend_1_3_12"), "stop": ("keiner", "stop_3atr")}
 PLACEBO_RUNS = 100
+BROKER: dict = {}                  # --broker <json> from trading_lab/broker_costs.write_override
 CCYS = ("USD", "EUR", "JPY", "GBP", "CHF", "CAD", "AUD", "NZD")
 
 
@@ -86,6 +87,7 @@ def load_all(end: pd.Timestamp | None) -> tuple[M.Prepared, dict]:
         if bad:
             cleaned[a] = [str(b.date()) for b in bad]
     cost = json.loads(COSTS.read_text())
+    cost.update(BROKER.get("cost_bp", {}))
     r = rates.load_rates(CCYS).ffill()
     p = M.prepare(frames, r, cost, start="2003-01-01", end=str(end.date()) if end is not None else None)
     return p, cleaned
@@ -119,7 +121,8 @@ def aqr_corr(ev: dict, aqr: pd.Series) -> float:
 
 
 def _cfg(params: dict) -> M.TsmomConfig:
-    return replace(M.TsmomConfig(), **params)
+    swaps = tuple((a, lo, sh) for a, (lo, sh) in BROKER.get("swaps_pa", {}).items())
+    return replace(M.TsmomConfig(swaps_pa=swaps), **params)
 
 
 def evaluate(p: M.Prepared, params: dict, start: str) -> dict:
@@ -245,7 +248,12 @@ def main() -> int:
     ap.add_argument("--referenz", action="store_true")
     ap.add_argument("--trichter", action="store_true")
     ap.add_argument("--holdout", metavar="FREIGABE")
+    ap.add_argument("--broker", metavar="JSON", help="gemessene Kosten/Swaps (trading_lab/broker_costs.py)")
     a = ap.parse_args()
+    if a.broker:
+        BROKER.update(json.loads(Path(a.broker).read_text()))
+        print(f"Gemessene Broker-Kosten: {BROKER.get('source')} - {len(BROKER.get('cost_bp', {}))} Spreads, "
+              f"{len(BROKER.get('swaps_pa', {}))} Swaps")
     if a.fetch:
         fetch()
     if a.referenz:
