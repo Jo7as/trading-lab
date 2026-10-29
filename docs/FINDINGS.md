@@ -730,3 +730,31 @@ against the paper PDF; remaining gaps: no reversal controls W_t, openings-only r
   -6.4 % / +1.4 %). With SP500 + UK100 measured and US100/US30/GER40/JP225 estimated as their
   mean: financing -22 % over 21 years, **S-007 net Sharpe 0.64** (14/21 positive years,
   indices +44.9 R instead of +29.3 R). Bonds/commodities/crypto still on the formula.
+
+## 2026-10-29 — Crypto order flow, H3 + H5: extreme openings, market vs limit entry - no robust edge
+
+`studies/crypto_opening_entry_study.py` (+ `tests/test_crypto_opening_entry.py`), 2024, Binance prices,
+Bybit costs (taker 11.1-11.8 bp round trip, limit entry 7.5-7.9 bp), non-overlapping trades, limit
+fills only on trade-through, thresholds and offsets fixed before the run (2 x 2 x 4 cells per market).
+
+* 64 cells: a handful net positive (best BTC |OI| >= 0.8, 8 h, limit 5 bp: +5.4 bp net, t 2.4;
+  SOL |OI| >= 0.6, 8 h, limit 10 bp: +10.7 bp, t 2.3), but scattered and inconsistent - SOL's
+  stricter threshold is worse, neighbouring offsets flip sign. With 64 cells, t ~ 2 is what chance
+  gives. No robust pattern beyond "8 h holds look better than 4 h".
+* **Adverse selection is clear:** the signals whose limit order was NOT filled would have earned
+  +12..+75 bp gross - the limit fills exactly when the move goes the wrong way first.
+* Verdict: the quarter-hour opening signal stays a component, not a strategy. Next: H8 (levels x flow).
+
+## 2026-10-29 — Basket scan: OpEx, close momentum, FX fix - effects too small for CFD costs
+
+`studies/baustein_scan.py` (measurements, train only):
+
+* **Options expiration week** (indices 2004-2024): OpEx week +2.5..+3.0 bp/day vs +3.3..+5.6 on
+  other days (t -0.1..-0.7) - no effect.
+* **Intraday momentum into the close** (Gao/Baltussen, 2019-2024 1m): correlation +0.05..+0.08,
+  trading the sign +1.0..+1.5 bp (t 1.1-1.7) vs ~1.7-2.2 bp round trip - below costs; big days no better.
+* **FX fix reversal** (Evans): the move 15:30->16:00 London reverses 16:00->16:30 - statistically
+  real (t 3.3-5.6 on EURUSD, GBPUSD, AUDUSD, EURGBP) but only +0.7..+1.1 bp vs 1.7-3.2 bp cost;
+  month end GBPUSD +3.4 bp / EURGBP +2.6 bp (t ~2.5, n 72) ~ cost. Not tradable with market orders.
+* Lesson: intraday flow effects exist but are 1-3 bp; retail CFD costs are 2-3 bp. Basket
+  blocks have to come from multi-day holding periods.
