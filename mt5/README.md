@@ -50,7 +50,9 @@ bricht sonst ab) und schließt nur seine eigenen Positionen (Magic 20261029).
    Brokers. Stimmen Namen nicht (z.B. `US500` vs. `SPX500`, `UKOIL` vs. `BRENT`), in den
    Eingaben `InpMap1..4` anpassen (`Labor-Name=Broker-Name`). Fehlende Symbole stehen im
    Journal ("symbol not found").
-4. **Mindestens 2 Wochen** laufen lassen (Swaps ändern sich, Spreads schwanken nach Uhrzeit).
+4. **Kurz-Sitzung** (reicht für Swaps + eine Slippage-Messung): `InpProbe = true` und `InpProbeNow = true`,
+   ~5 Minuten laufen lassen, bis im Journal "one-shot session finished" steht, dann den EA entfernen.
+   Für Spreads über den Tag: optional länger laufen lassen (Spreads schwanken nach Uhrzeit).
 5. Dateien liegen unter `Datei -> Datenordner öffnen -> MQL5/Files`. Auswertung:
 
        uv run python studies/broker_costs_report.py "<Pfad zu MQL5/Files>" <Login> --name fundednext_demo

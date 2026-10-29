@@ -34,8 +34,10 @@ input group "=== Slippage probe (DEMO only) ==="
 input bool   InpProbe        = false;   // send minimal market orders to measure fills
 input int    InpProbeHourNY  = 15;      // New York hour of the daily probe (S-007 rebalances 15:00 NY)
 input int    InpProbeHoldSec = 5;       // seconds until the probe is closed again
+input bool   InpProbeNow     = false;   // one-shot session: probe once ~1 min after start, then done
 input ulong  InpMagic        = 20261029;
 
+bool     g_onceDone = false;
 string   g_lab[];
 string   g_sym[];
 int      g_n = 0;
@@ -89,7 +91,6 @@ int OnInit()
    g_trade.SetExpertMagicNumber(InpMagic);
    g_trade.SetTypeFillingBySymbol(_Symbol);
    DumpAllSymbols();
-   LogSymbols();
    EventSetTimer(MathMax(InpEverySeconds, 5));
    return INIT_SUCCEEDED;
 }
@@ -235,6 +236,13 @@ void OnTimer()
 {
    LogSpreads();
    if(iTime(_Symbol, PERIOD_D1, 0) != g_lastSymbolsDay) LogSymbols();
+   if(InpProbeNow && !g_onceDone)
+   {
+      g_onceDone = true;
+      if(InpProbe) Probe();
+      Print("CostLogger: one-shot session finished - the EA can be removed now.");
+      return;
+   }
    MqlDateTime d; TimeToStruct(TimeGMT(), d);
    if(InpProbe && NyHour() == InpProbeHourNY && d.day_of_week >= 1 && d.day_of_week <= 5 && g_lastProbeDay != d.day_of_year)
    {
