@@ -1,6 +1,7 @@
 # H12: Mining token combinations before London / NY moves - PRE-REGISTRATION
 
-Written 2026-10-30. **Status: DRAFT - waits for the user's release.** Measurement only, no
+Written 2026-10-30. **Status: released by the user in chat on 2026-10-30 (defaults of the open
+points accepted: top-decile hour, 60 min, Asia = Tokyo 09:00, one mismatch, thresholds as written).** Measurement only, no
 strategy. Planned code: `trading_lab/pattern_mining.py` (+ tests), `studies/h12_mining_study.py`.
 Nothing below is changed after the first run on the mining years.
 
