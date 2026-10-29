@@ -1,0 +1,97 @@
+# S-009: Pre-FOMC-Drift - Aktienindizes long in den 24 Stunden vor einer Fed-Entscheidung
+# Herkunft: Kurzmessung 2026-10-29 (studies/satellite_check.py, docs/FINDINGS.md): der Effekt
+# besteht 2019-2024 auf unseren CFD-Daten (+17..+45 bp je Sitzung, t 1,4-2,4). Veröffentlichte
+# Regel, Literatur-Spur (docs/PRUEFABLAUF.md). Satellit: 8 Einsätze pro Jahr.
+
+id: S-009
+strategie: pre_fomc
+titel: "Pre-FOMC: Aktienindizes long von 14:00 New York am Vortag bis 13:50 am Tag einer geplanten Fed-Entscheidung"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: okay mach weiter)"
+abgestimmt_am: "2026-10-29"
+
+idee:
+  mechanismus: >
+    Vor geplanten Fed-Entscheidungen steigen Aktien überdurchschnittlich - Lucca/Moench
+    (2015): seit 1994 entfällt ein Großteil der US-Aktienprämie auf die 24 Stunden davor.
+    Erklärungen: Abbau von Unsicherheit und Risikoprämie vor einem bekannten Ereignis,
+    Positionierung großer Händler. Update 2018: nur noch bei Sitzungen MIT Pressekonferenz
+    (seit 2019 alle). Martello/Ribeiro: vor allem in unsicheren Phasen. International
+    (DAX u.a.) ähnlich stark.
+  quellen:
+    - "Lucca, Moench (2015): The Pre-FOMC Announcement Drift, Journal of Finance 70(1)"
+    - "Lucca, Moench (2018): The Pre-FOMC Announcement Drift: More Recent Evidence, Liberty Street Economics"
+    - "Martello, Ribeiro: FOMC equity drift occurs in periods of high uncertainty (Quantpedia-Zusammenfassung)"
+    - "docs/FINDINGS.md 2026-10-29 Kurzmessung (Training 2019-2024)"
+
+handel:
+  maerkte: [SP500, US100, US30, GER40]
+  zeitrahmen: "1m-Daten, feste Uhrzeiten New York"
+  kontotyp: prop_swing
+  zielkonto: "FundedNext Stellar Instant (Halten über Nacht erlaubt; News-Fenster 5 min vor/nach)"
+  max_haltedauer: "eine Nacht (~24 Stunden)"
+  wochenende_halten: false
+  news_fenster: >
+    Ausstieg 13:50 NY - 10 Minuten VOR der Veröffentlichung um 14:00, also außerhalb des
+    FundedNext-Fensters (13:55-14:05). Am Vortag kein Einstieg, wenn um 14:00 eine andere
+    High-Impact-Zahl kommt (kommt praktisch nie vor; nicht modelliert).
+
+entry:
+  bedingungen:
+    - "1. Termine: geplante FOMC-Sitzungen aus trading_lab/fomc_meetings.json (Fed-Webseite), Tag der Erklärung = letzter Sitzungstag. Außerplanmäßige Sitzungen zählen nicht."
+    - "2. Einstieg: Market-Kauf um 14:00 New York am letzten Handelstag vor dem Tag der Erklärung (Ask + 0,5 bp)."
+    - "3. Jede Sitzung, ohne Filter (seit 2019 haben alle eine Pressekonferenz)."
+  ausfuehrung: "1m Bid/Ask: Kauf zum Ask-Open der Minute 14:00 NY, Verkauf zum Bid-Open der Minute 13:50 NY; Uhrzeiten über America/New_York (DST-sicher)."
+
+stop_loss:
+  regel: "Kein Stop (Paper): die Haltedauer ist fest ~24 Stunden; das Risiko begrenzt das Sizing."
+  begruendung: "Ein Stop schneidet in einem Fenster mit planbarem Ende nur zufällige Schwankungen ab."
+
+take_profit:
+  regel: "Zeit-Exit 13:50 New York am Tag der Erklärung."
+  begruendung: "Das Fenster des Papers, mit 10 min Abstand zur Veröffentlichung (Prop-News-Regel)."
+
+exit_sonst:
+  - "nur der Zeit-Exit"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  sizing: "Die 4 Indizes teilen sich EIN Budget: je Index (0,5 % / 4) / Tages-Sigma (EWMA 60 Tage) des Index; 1 R = 0,5 % des Kontos."
+  max_offene_positionen: 4
+  korrelation: "Die 4 Indizes reagieren auf dasselbe Ereignis - ein gemeinsames Budget, nicht vier."
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 6
+
+kosten:
+  profil: ftmo
+  swaps: "eine Nacht: Long zahlt Zins der Kurswährung + 2,5 % p.a. / 365 (Formel von S-007)"
+  slippage: "0,5 bp je Fill zusätzlich zum echten Bid/Ask der Minute"
+
+daten:
+  quelle: "Dukascopy 1m Bid/Ask (artifacts/cache/m1), Training 2019-2024 (47 Sitzungen), Holdout ab 2025 (16 Sitzungen bis Okt. 2026)"
+  bekannte_probleme:
+    - "Nur 6 Jahre Minutendaten -> 47 Ereignisse; je Index wenig - daher gepoolt über 4 Indizes (188 Positionen, stark korreliert)"
+    - "Vor 2019 keine Minutendaten - der Zeitraum mit Pressekonferenz bei jeder Sitzung ist genau der, den wir haben"
+    - "GER40-CFD handelt um 14:00 NY (20:00 MEZ) - ok; Feiertage: fehlt die Minute, wird die nächste vorhandene genommen"
+  warmup: "60 Handelstage (Vola)"
+
+varianten:
+  - name: basis
+    aenderung: "14:00 Vortag -> 13:50 Tag der Erklärung, alle 4 Indizes - keine weiteren Varianten"
+
+bewertung:
+  einheit: "Portfolio der 4 Indizes; Trades = jede Index-Position; Tagesrenditen in R"
+  spur: >
+    Literatur-Spur (veröffentlichte Regel, Referenz muss bestehen). Haltedauer 1 Tag -> S3
+    bleibt bei 70 % positiven Jahren (die 60 %-Regel gilt erst ab > 5 Tagen); S4 t >= 2,0.
+  placebo: "gleiches Fenster (14:00 -> 13:50) und Sizing an zufälligen Nicht-FOMC-Tagen mit gleicher Wochentag-Verteilung, 100 Läufe"
+  zeitraeume: "Training 2019-2024, Holdout ab 2025 - einmalig mit Freigabe"
+
+referenz: >
+  Lucca/Moench: ~+49 bp je Pre-FOMC-Fenster für den S&P 500 (1994-2011), danach nur noch bei
+  Pressekonferenz-Sitzungen. Unsere Kurzmessung 2019-2024: SP500 +28 bp. Erwartung: Ø je
+  Fenster deutlich positiv und über den übrigen Tagen. Plausibilitätsgrenze: Ø > 100 bp oder
+  > 85 % Trefferquote -> Fehler suchen.
+
+tests:
+  - tests/test_pre_fomc.py

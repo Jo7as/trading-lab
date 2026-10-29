@@ -672,3 +672,15 @@ press-conference flag).
 * **FX carry G10** (13 pairs, vol-scaled, monthly, 2004-2024): carry income +5.2 % p.a. before
   the swap markup, +1.9 % after 1 % per side; price -3.4 % p.a. (2008 -37 %, 2015 -26 %);
   Sharpe 0.12 before / -0.10 after the markup. Dead on CFDs - no spec.
+
+## 2026-10-29 — S-009: Pre-FOMC drift (Lucca/Moench) - real, but fails S3 by one year
+
+Spec `docs/specs/pre_fomc.yaml` (long SP500/US100/US30/GER40 14:00 NY day before -> 13:50
+statement day, shared budget, no variants), 1m bid/ask, train 2019-2024, 47 meetings.
+
+* 184 positions, move (mid) GER40 +41 bp, US100 +42, SP500 +26, US30 +15 per meeting;
+  +0.062 R gross / +0.053 R net per position; placebo (same window, random non-FOMC days,
+  same weekdays, 100 runs) +0.006 R -> edge +0.056 R; t 2.11; reference 4/4.
+* Years 4/6 (2019 -1.3 R, 2021 -0.4 R) = 67 % < 70 % -> **fails S3** (1-day holds keep the
+  70 % bar on the literature track). S4 would pass (t >= 2). Holdout untouched.
+* Size: +1.6 R per year ~ +0.8 % p.a. at 0.5 % per R - a small basket piece even if it held.
