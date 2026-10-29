@@ -24,6 +24,16 @@ Percentages are always of the account size. The caller supplies ``risk_usd``
 
 ``intraday_trailing`` is accepted but falls back to ``eod_trailing`` (a
 1-minute intrabar equity path is not available here); it is reported as such.
+
+Rule variants of instant / one-step accounts (2026 research, ``docs/PROP_FIRMS.md``):
+
+* ``daily_mode``: ``hard`` (the account is lost), ``pause`` (trading stops for the rest
+  of the day, the loss is capped at the limit - The5ers) or ``none`` (FundedNext Instant);
+* ``trail_lock_at_initial``: a trailing floor that stops rising once it reaches the
+  initial balance (FundedNext / FundingPips wording);
+* ``consistency_max_day_frac``: no single day may exceed this share of the profit -
+  a payout (instant) or the pass (challenge) waits until it holds;
+* ``min_days_before_payout`` and ``instant_price`` (fee, subtracted from the EV).
 """
 from __future__ import annotations
 
@@ -33,6 +43,7 @@ from typing import Iterable, Sequence
 import numpy as np
 
 DRAWDOWN_TYPES = ("static", "eod_trailing", "intraday_trailing")
+DAILY_MODES = ("hard", "pause", "none")
 _OUTCOMES = ("pass", "daily", "total", "min_days", "timeout")
 
 
@@ -58,11 +69,19 @@ class PropFirm:
     payout_split: float = 0.8                    # trader's share of profit at payout
     payout_cycle_days: int = 14                  # how often payouts are taken
     min_profit_before_payout: float = 0.0
+    daily_mode: str = "hard"                     # hard | pause | none
+    trail_lock_at_initial: bool = False          # trailing floor stops at the initial balance
+    consistency_max_day_frac: float | None = None  # best day <= frac x profit (payout / pass gate)
+    min_days_before_payout: int = 0              # trading days since the last payout
+    instant_price: float = 0.0                   # fee of an instant account (USD)
+    verified: bool = False                       # rules checked on the firm's own page?
     note: str = ""
 
     def __post_init__(self) -> None:
         if self.drawdown_type not in DRAWDOWN_TYPES:
             raise ValueError(f"drawdown_type must be one of {DRAWDOWN_TYPES}")
+        if self.daily_mode not in DAILY_MODES:
+            raise ValueError(f"daily_mode must be one of {DAILY_MODES}")
 
     @property
     def is_instant(self) -> bool:
@@ -123,9 +142,45 @@ INSTANT_100K = PropFirm(
     time_limit_days=None, payout_split=0.8, payout_cycle_days=14,
 )
 
+# ── 2026 presets from the research in docs/PROP_FIRMS.md ───────────────
+# Only FundedNext's numbers come from the firm's own page; the rest from reviews that
+# partly disagree (``verified=False``). Fees and splits vary by size - fill in the real
+# fee (``instant_price`` / ``eval_price_per_phase``) before reading the EV.
+FUNDEDNEXT_INSTANT = PropFirm(
+    name="FundedNext Stellar Instant (no daily / 6% trailing, locks at start)",
+    account_size=25_000.0, phase_targets=(), daily_mode="none", max_daily_loss_frac=1.0,
+    max_total_loss_frac=0.06, drawdown_type="eod_trailing", trail_lock_at_initial=True,
+    time_limit_days=None, payout_split=0.8, payout_cycle_days=14, verified=True,
+    note="official page 2026-10: no daily limit, 6% trailing max loss, no consistency; split/fee: check",
+)
+THE5ERS_HYPER_GROWTH = PropFirm(
+    name="The5ers Hyper Growth (10% target / 3% daily pause / 6% static)",
+    account_size=20_000.0, phase_targets=(0.10,), daily_mode="pause", max_daily_loss_frac=0.03,
+    max_total_loss_frac=0.06, drawdown_type="static", time_limit_days=None, eval_price_per_phase=0.0,
+    payout_split=0.5,
+    note="reviews 2026: daily 3% is a pause per most sources (one says termination); fee: check",
+)
+FUNDINGPIPS_ZERO = PropFirm(
+    name="FundingPips Zero (3% daily / 5% trailing / 15% consistency)",
+    account_size=25_000.0, phase_targets=(), daily_mode="hard", max_daily_loss_frac=0.03,
+    max_total_loss_frac=0.05, drawdown_type="eod_trailing", trail_lock_at_initial=True,
+    consistency_max_day_frac=0.15, min_days_before_payout=7, time_limit_days=None,
+    payout_split=0.95, payout_cycle_days=14,
+    note="reviews 2026, partly contradictory (trailing mechanics, weekend ban unconfirmed)",
+)
+FTMO_1STEP = PropFirm(
+    name="FTMO 1-Step (10% target / 3% daily / 10% EOD trailing / best day 50%)",
+    account_size=100_000.0, phase_targets=(0.10,), daily_mode="hard", max_daily_loss_frac=0.03,
+    max_total_loss_frac=0.10, drawdown_type="eod_trailing", consistency_max_day_frac=0.5,
+    time_limit_days=None, eval_price_per_phase=0.0,
+    note="reviews 2026 (one says 5% daily); fee: check",
+)
+
 FIRMS: dict[str, PropFirm] = {
     "ftmo": FTMO, "lucid": LUCID, "one_step": ONE_STEP,
     "instant_25k": INSTANT_25K, "instant_100k": INSTANT_100K,
+    "fundednext_instant": FUNDEDNEXT_INSTANT, "the5ers_hyper_growth": THE5ERS_HYPER_GROWTH,
+    "fundingpips_zero": FUNDINGPIPS_ZERO, "ftmo_1step": FTMO_1STEP,
 }
 
 
@@ -159,6 +214,35 @@ def daily_pnl(trades: Iterable[dict], *, risk_usd: float, days: Sequence | None 
     return np.array([by_day.get(str(getattr(d, "date", lambda: d)()), 0.0) for d in days], dtype=float)
 
 
+# ── Shared rule helpers ─────────────────────────────────────────────
+
+
+def apply_daily(pnl: float, firm: PropFirm) -> tuple[float, bool]:
+    """(effective day P&L, account lost?) under the firm's daily rule."""
+    if firm.daily_mode == "none":
+        return pnl, False
+    if pnl <= -firm.daily_limit_usd:
+        if firm.daily_mode == "pause":
+            return -firm.daily_limit_usd, False      # trading stops at the limit
+        return pnl, True
+    return pnl, False
+
+
+def floor_of(firm: PropFirm, peak: float) -> float:
+    """Balance at which the total-loss rule breaches."""
+    if firm.drawdown_type == "static":
+        return firm.account_size - firm.total_limit_usd
+    floor = peak - firm.total_limit_usd
+    if firm.trail_lock_at_initial:
+        floor = min(floor, firm.account_size)
+    return floor
+
+
+def consistent(best_day: float, profit: float, firm: PropFirm) -> bool:
+    frac = firm.consistency_max_day_frac
+    return frac is None or (profit > 0 and best_day <= frac * profit)
+
+
 # ── One evaluation phase ────────────────────────────────────────────
 
 
@@ -173,22 +257,22 @@ def run_phase(daily: np.ndarray, firm: PropFirm, target_frac: float) -> tuple[st
     target = firm.account_size * target_frac
     limit_days = firm.time_limit_days if firm.time_limit_days is not None else len(daily)
     trading_days = 0
-    for i, pnl in enumerate(daily[:limit_days], start=1):
+    best_day = 0.0
+    for i, raw in enumerate(daily[:limit_days], start=1):
+        pnl, lost = apply_daily(float(raw), firm)
         balance += pnl
         if pnl != 0:
             trading_days += 1
-        if pnl <= -firm.daily_limit_usd:
+        best_day = max(best_day, pnl)
+        if lost:
             return "daily", i, trading_days
-        if firm.drawdown_type == "static":
-            if balance <= firm.account_size - firm.total_limit_usd:
-                return "total", i, trading_days
-        else:  # eod_trailing (intraday_trailing falls back to this)
-            peak = max(peak, balance)
-            if balance <= peak - firm.total_limit_usd:
-                return "total", i, trading_days
-        # min_trading_days is a completion gate: the target only counts once the
-        # minimum number of trading days is met (we keep going, and can still fail).
-        if balance - firm.account_size >= target and trading_days >= firm.min_trading_days:
+        peak = max(peak, balance)                   # eod_trailing (intraday falls back to it)
+        if balance <= floor_of(firm, peak):
+            return "total", i, trading_days
+        # min_trading_days / consistency are completion gates: the target only counts once
+        # they hold (we keep going, and can still fail).
+        profit = balance - firm.account_size
+        if profit >= target and trading_days >= firm.min_trading_days and consistent(best_day, profit, firm):
             return "pass", i, trading_days
     return "timeout", min(len(daily), limit_days), trading_days
 
@@ -275,22 +359,26 @@ def _one_funded(daily: np.ndarray, firm: PropFirm, horizon: int) -> tuple[bool, 
     balance = firm.account_size
     peak = firm.account_size
     payout = 0.0
-    for i, pnl in enumerate(daily[:horizon], start=1):
+    best_day, days_since = 0.0, 0
+    for i, raw in enumerate(daily[:horizon], start=1):
+        pnl, lost = apply_daily(float(raw), firm)
         balance += pnl
-        if pnl <= -firm.daily_limit_usd:
+        if pnl != 0:
+            days_since += 1
+        best_day = max(best_day, pnl)
+        if lost:
             return False, i, payout
-        if firm.drawdown_type == "static":
-            floor = firm.account_size - firm.total_limit_usd
-        else:
-            peak = max(peak, balance)
-            floor = peak - firm.total_limit_usd
-        if balance <= floor:
+        peak = max(peak, balance)
+        if balance <= floor_of(firm, peak):
             return False, i, payout
         if firm.payout_cycle_days and i % firm.payout_cycle_days == 0:
             profit = balance - firm.account_size
-            if profit >= firm.min_profit_before_payout:
+            if (profit > 0 and profit >= firm.min_profit_before_payout
+                    and days_since >= firm.min_days_before_payout and consistent(best_day, profit, firm)):
                 payout += firm.payout_split * profit
                 balance = firm.account_size          # reset after a payout
+                peak = balance
+                best_day, days_since = 0.0, 0
     return True, min(len(daily), horizon), payout
 
 
@@ -325,7 +413,7 @@ def simulate_funded(daily: np.ndarray, firm: PropFirm, *, runs: int = 5000,
         payout_rate=float((payouts > 0).mean()),
         mean_payout_usd=float(payouts.mean()),
         median_payout_usd=float(np.median(payouts)),
-        ev_per_account_usd=float(payouts.mean()),
+        ev_per_account_usd=float(payouts.mean()) - firm.instant_price,
         worst_day=worst_day,
     )
 
@@ -379,3 +467,41 @@ def evaluate(daily: np.ndarray, firm: PropFirm, *, runs: int = 5000,
         fails=fails, cost_per_funded=(price / rate) if rate > 0 else float("inf"),
         worst_day=worst_day,
     )
+
+
+# ── Risk sweep over firms (used by studies/prop_firms.py and the reports) ─────
+
+def trade_log_days(trades) -> tuple[list[dict], list]:
+    """(day log, business-day calendar) from a normalised trade frame (``exit_time``, ``r``)."""
+    import pandas as pd
+    if len(trades) == 0:
+        return [], []
+    ex = pd.to_datetime(trades["exit_time"], utc=True).dt.tz_localize(None)
+    en = pd.to_datetime(trades["entry_time"], utc=True).dt.tz_localize(None)
+    log = [{"day": str(t.date()), "r": float(r)} for t, r in zip(ex, trades["r"])]
+    days = [d.date() for d in pd.bdate_range(en.min().normalize(), ex.max().normalize())]
+    return log, days
+
+
+def risk_sweep(trades, firms: Sequence[str], risks: Sequence[float] = (0.25, 0.5, 0.75, 1.0),
+               *, runs: int = 2000, seed: int = 7) -> list[dict]:
+    """One row per (firm, risk % per trade): pass rate / survival and payouts."""
+    log, days = trade_log_days(trades)
+    rows = []
+    for name in firms:
+        firm = get_firm(name)
+        for risk in risks:
+            daily = daily_pnl(log, risk_usd=risk_usd_for(firm.account_size, risk), days=days)
+            row = {"firm": name, "risk_pct": risk, "verified": firm.verified}
+            if firm.is_instant:
+                fr = simulate_funded(daily, firm, runs=runs, seed=seed)
+                row.update({"type": "instant", "survive_1y": fr.survival_rate, "payout_rate": fr.payout_rate,
+                            "mean_payout_1y_usd": fr.mean_payout_usd, "ev_1y_usd": fr.ev_per_account_usd,
+                            "payout_pct_of_account": 100 * fr.mean_payout_usd / firm.account_size,
+                            "fee_known": firm.instant_price > 0})
+            else:
+                pr = evaluate(daily, firm, runs=runs, seed=seed)
+                row.update({"type": "challenge", "pass_rate": pr.pass_rate, "median_days": pr.median_days,
+                            "fails": pr.fails})
+            rows.append(row)
+    return rows

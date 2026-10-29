@@ -123,3 +123,73 @@ def test_evaluate_reports_failure_reasons() -> None:
     assert res.pass_rate == 0.0 and res.fails.get("total", 0) > 0
     flat = np.zeros(300)                # nothing happens → timeout
     assert evaluate(flat, LUCID, runs=20, seed=3).fails.get("timeout", 0) > 0
+
+
+# ── 2026 rule variants (instant / one-step accounts) ─────────────────────
+
+from dataclasses import replace as _replace  # noqa: E402
+
+from trading_lab.prop_sim import FUNDEDNEXT_INSTANT, FUNDINGPIPS_ZERO, THE5ERS_HYPER_GROWTH  # noqa: E402
+
+BASE_INSTANT = PropFirm(name="t-inst", account_size=10_000.0, phase_targets=(), max_daily_loss_frac=0.03,
+                        max_total_loss_frac=0.05, drawdown_type="static", time_limit_days=None,
+                        payout_split=1.0, payout_cycle_days=5)
+
+
+def test_daily_pause_caps_the_day_instead_of_losing_the_account() -> None:
+    hard = BASE_INSTANT
+    pause = _replace(BASE_INSTANT, daily_mode="pause")
+    none = _replace(BASE_INSTANT, daily_mode="none")
+    day = np.array([-400.0])                                  # -4 % > 3 % limit
+    assert _one_funded(day, hard, 1)[0] is False
+    assert _one_funded(day, pause, 1)[0] is True               # capped at -300, account lives
+    seq = np.array([-400.0, -400.0])                           # pause: -300 -300 = -600 > -500 total
+    assert _one_funded(seq, pause, 2)[0] is False
+    assert _one_funded(np.array([-450.0]), none, 1)[0] is True
+
+
+def test_trailing_floor_locks_at_the_initial_balance() -> None:
+    trail = _replace(BASE_INSTANT, drawdown_type="eod_trailing", payout_cycle_days=0, daily_mode="none")
+    lock = _replace(trail, trail_lock_at_initial=True)
+    seq = np.array([1000.0, -600.0])                           # peak 11 000 -> floors 10 500 vs 10 000
+    assert _one_funded(seq, trail, 2)[0] is False
+    assert _one_funded(seq, lock, 2)[0] is True
+
+
+def test_consistency_rule_holds_back_the_payout() -> None:
+    firm = _replace(BASE_INSTANT, consistency_max_day_frac=0.5)
+    lumpy = np.array([400.0, 10.0, 10.0, 10.0, 10.0])          # best day 400 of 440 profit
+    even = np.array([100.0, 100.0, 100.0, 100.0, 100.0])
+    assert _one_funded(lumpy, firm, 5)[2] == 0.0
+    assert _one_funded(lumpy, BASE_INSTANT, 5)[2] == pytest.approx(440.0)
+    assert _one_funded(even, firm, 5)[2] == pytest.approx(500.0)
+
+
+def test_minimum_days_before_payout() -> None:
+    firm = _replace(BASE_INSTANT, min_days_before_payout=4)
+    sparse = np.array([300.0, 0.0, 0.0, 0.0, 0.0])             # 1 trading day in the cycle
+    assert _one_funded(sparse, firm, 5)[2] == 0.0
+    assert _one_funded(sparse, BASE_INSTANT, 5)[2] == pytest.approx(300.0)
+
+
+def test_trailing_peak_resets_after_a_payout() -> None:
+    firm = _replace(BASE_INSTANT, drawdown_type="eod_trailing", payout_cycle_days=2)
+    # +400 +400 -> payout, balance back to 10 000; a small loss must not breach the old peak
+    assert _one_funded(np.array([400.0, 400.0, -100.0]), firm, 3)[0] is True
+
+
+def test_challenge_consistency_gate_and_fee() -> None:
+    firm = PropFirm(name="best-day", account_size=10_000.0, phase_targets=(0.05,), max_daily_loss_frac=0.05,
+                    max_total_loss_frac=0.10, drawdown_type="static", consistency_max_day_frac=0.5,
+                    time_limit_days=None)
+    assert run_phase(np.array([600.0]), firm, 0.05)[0] == "timeout"           # one day = 100 % of profit
+    assert run_phase(np.array([600.0, 600.0]), firm, 0.05)[:2] == ("pass", 2)
+    paid = _replace(BASE_INSTANT, instant_price=99.0)
+    assert simulate_funded(np.zeros(10), paid, runs=5).ev_per_account_usd == pytest.approx(-99.0)
+
+
+def test_2026_presets_are_registered_with_their_rule_types() -> None:
+    assert FIRMS["fundednext_instant"] is FUNDEDNEXT_INSTANT and FUNDEDNEXT_INSTANT.daily_mode == "none"
+    assert FUNDEDNEXT_INSTANT.trail_lock_at_initial and FUNDEDNEXT_INSTANT.is_instant
+    assert THE5ERS_HYPER_GROWTH.daily_mode == "pause" and THE5ERS_HYPER_GROWTH.drawdown_type == "static"
+    assert FUNDINGPIPS_ZERO.consistency_max_day_frac == 0.15 and not FUNDINGPIPS_ZERO.verified

@@ -36,7 +36,8 @@ from trading_lab.optimizer import run_variant  # noqa: E402
 
 OUT = Path("artifacts/optimize")
 NEAR_DSR = 0.80
-FIRMS = ("ftmo", "one_step", "instant_100k")
+FIRMS = ("ftmo", "one_step", "instant_100k", "fundednext_instant", "fundingpips_zero",
+         "the5ers_hyper_growth", "ftmo_1step")
 
 
 def stage_reached(df: pd.DataFrame) -> pd.Series:
