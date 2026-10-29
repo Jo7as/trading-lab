@@ -203,3 +203,24 @@ Texte lokal aus den PDFs extrahiert (pdftotext); Zitate kurz gehalten.
 * **Für uns:** unsere Messung 2019-2024 (Rendite bis 15:30 sagt 15:30-15:59 voraus) ergab +1,0..1,5 bp je Tag
   bei 1,7-2,2 bp CFD-Kosten - derselbe Effekt, zu klein für uns. Nur mit einem Gamma-Filter (stark negatives
   Dealer-Gamma) wäre er größer; dafür bräuchten wir Gamma-Daten (z. B. SqueezeMetrics GEX) - offener Punkt.
+
+## Asness, Moskowitz, Pedersen (2013): Value and Momentum Everywhere - J. of Finance 68(3) (Abstract + Einleitung gelesen)
+
+* Value- und Momentum-Prämien in 8 Märkten/Anlageklassen (Aktien USA/UK/Europa/Japan, Index-Futures,
+  Staatsanleihen, Währungen, Rohstoffe); Value-Strategien korrelieren untereinander, Momentum ebenso;
+  **Value und Momentum sind negativ korreliert** - innerhalb und zwischen Klassen; teils globales
+  Finanzierungs-Liquiditätsrisiko.
+* **Für uns:** genau deshalb FX-Value gemessen - aber seit 2004 Sharpe nur 0,20, 2020er negativ
+  (FINDINGS 2026-10-29). Die Prämie ist in unseren Daten verblasst.
+
+## Boyarchenko, Larsen, Whelan (2020/2023): The Overnight Drift - NY Fed SR 917 (RFS 2023) (Abstract + Einleitung)
+
+* S&P-500-Futures: größte positive Rendite **2:00-3:00 ET** (Europa-Öffnung), 3,7 % p.a. = **1,48 bp/Tag**;
+  in 20 von 23 Jahren positiv; einzige Stunde, die Bonferroni/BY-Korrekturen übersteht. Erklärung:
+  Lagerrisiko der Händler aus Orderungleichgewichten am US-Schluss; asymmetrisch (Ausverkäufe drehen stark).
+* **Update (Liberty Street 2026):** seit 2021 im Mittel ~0; nach Spread negativ. Für uns kein Baustein
+  (1,5 bp < Kosten) - Lehrbeispiel für das Verschwinden nach Veröffentlichung.
+
+## Noch offen (heruntergeladen, nicht gelesen)
+Evans (2018, WMR-Fix), Lou/Polk/Skouras (2019, Tug of War), Cont/Kukanov/Stoikov (2014, OFI); nicht frei
+gefunden: Gao et al. (2018), Babu et al. (Trends Everywhere), McConnell/Xu (2008); Mahadzva (SSRN gesperrt).
