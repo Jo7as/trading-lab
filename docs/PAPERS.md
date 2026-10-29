@@ -95,3 +95,26 @@ Texte lokal aus den PDFs extrahiert (pdftotext); Zitate kurz gehalten.
   **lange Variante**: die Umkehr läuft STUNDEN (London-Fix 11:00 ET bis NY-Schluss 17:00 ET, EZB-Fenster
   2:00-8:15 ET). Das sind ~2,5 bp pro Tag bei 1,7-2,5 bp Round-Trip für uns - höchstens grenzwertig,
   am ehesten EUR/USD und GBP/USD im Europa-Fenster und in Phasen hoher Volatilität. Kurzmessung lohnt.
+
+## Moskowitz, Ooi, Pedersen (2012): Time Series Momentum - JFE 104, 228-250 (Grundlage von S-007)
+
+* **Daten:** 58 liquide Futures/Forwards (24 Rohstoffe, 12 Währungspaare aus 9 Währungen, 9 Aktienindizes,
+  13 Staatsanleihen), 1965-2009, Hauptergebnisse ab 1985. Futures-Renditen = Überschussrenditen.
+* **Regel (TSMOM):** Vorzeichen der **12-Monats-Überschussrendite**, Haltedauer 1 Monat, monatlich neu.
+  Größe je Instrument = **40 % / ex-ante-Vola** -> jedes Instrument gleich viel Risiko; Portfolio =
+  gleichgewichteter Durchschnitt aller Instrumente (~12 % Vola p.a.). Ex-ante-Vola: EWMA der quadrierten
+  TÄGLICHEN Renditen (um den EWMA-Mittelwert), Schwerpunkt 60 Tage, x 261, **Stand t-1** (kein Look-ahead).
+  Margin-Bedarf 5-20 %.
+* **Ergebnisse:** 12-Monats-TSMOM positiv für **jedes** der 58 Instrumente; Fortsetzung über 1-12 Monate,
+  teilweise Umkehr über 1-5 Jahre. Diversifiziertes Portfolio: **Sharpe > 1 (brutto)**, ~2,5x Aktienmarkt;
+  Alpha ~1,58 %/Monat gegenüber MSCI World + Fama-French; kein Beta zu Markt/SMB/HML, positiv zu UMD.
+  Am besten in extremen Marktphasen (groß rauf und runter). Spekulanten (CFTC) verdienen auf Kosten der
+  Absicherer. Korrelationen von TSMOM ÜBER Anlageklassen sind höher als die der Klassen selbst.
+* **Grenzen:** brutto (keine Kosten im Hauptergebnis); 1985-2009 - die schwächeren 2010er fehlen.
+* **Abgleich mit S-007:** gleiche Signal-Idee und gleiche Vola-Schätzung (EWMA, Schwerpunkt 60, Stand t-1).
+  Unterschiede (alle in der Spec so gewollt): (1) wir gewichten **je Anlageklasse** gleich statt je Instrument
+  (Paper: 13 Anleihen + 24 Rohstoffe dominieren; wir: 7 USD-Paare zählen nicht 7-fach); (2) wöchentliche
+  Umschichtung mit 25 %-Puffer statt monatlich; (3) Signal auf Kursrendite (CFD/Spot) statt Überschussrendite
+  - bei FX fehlt damit der Zinsanteil im Signal; (4) 26 statt 58 Märkte, kaum Rohstoffe/Anleihen.
+  Unsere Brutto-Sharpe 0,79 (2004-2024) vs. > 1 (1985-2009) passt zur bekannten Schwäche nach 2009 und zum
+  kleineren Universum.
