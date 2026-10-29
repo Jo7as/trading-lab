@@ -1,7 +1,7 @@
 # H11: Chart tokens as precursors of big London / NY moves - PRE-REGISTRATION
 
-Written 2026-10-30, before any token was computed on data. **Status: DRAFT - waits for the
-user's release.** Measurement only, no strategy. Planned code: `trading_lab/chart_tokens.py`
+Written 2026-10-30, before any token was computed on data. **Status: released by the user in
+chat on 2026-10-30, before the discovery run.** Measurement only, no strategy. Planned code: `trading_lab/chart_tokens.py`
 (+ `tests/test_chart_tokens.py`), `studies/h11_tokens_study.py`. Nothing below (token
 definitions, timeframes, target, baseline, score, thresholds, verdict rule) is changed after the
 first run on the discovery years.
