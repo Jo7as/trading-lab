@@ -76,3 +76,9 @@ def test_without_an_agreed_spec_the_check_stops_by_default(toy) -> None:
 def test_a_run_without_spec_is_marked_in_the_report(toy) -> None:
     g, text, path = _run(toy, [])
     assert "UNGEPRÜFTE UMSETZUNG" in path.read_text()
+
+
+def test_cost_menu_offers_no_crypto_exchange_profiles_for_cfd_markets(toy) -> None:
+    _, text, _ = _run(toy, [])
+    assert "ftmo" in text
+    assert "bybit_perp" not in text and "binance_um" not in text

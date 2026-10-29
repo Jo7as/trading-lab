@@ -251,7 +251,10 @@ class GuidedCheck:
             (bei manchen Profilen auf die typischen Werte des Handelsplatzes skaliert) und die
             Kommission je Trade. 'ftmo' ist der Standard, weil das Ziel ein Prop-Konto ist.
             """)
-            opts = {str(i): n for i, n in enumerate(costs.PROFILES, 1)}
+            is_crypto = costs.asset_class(self.asset) == "crypto"
+            names = [n for n, p in costs.PROFILES.items()
+                     if (p.crypto_taker_frac_side > 0) == is_crypto or n == "data"]
+            opts = {str(i): n for i, n in enumerate(names, 1)}
             for k, n in opts.items():
                 self.say(f"   {k}. {n:10s} {costs.PROFILES[n].description}")
             default = next(k for k, n in opts.items() if n == costs.DEFAULT_PROFILE)

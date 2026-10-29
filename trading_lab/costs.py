@@ -38,6 +38,10 @@ FX = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "NZDUSD", "USDCHF", "USDCAD", "EUR
       "EURJPY", "GBPJPY", "AUDJPY", "EURCHF", "AUDNZD", "AUDCAD"}
 METALS = {"XAUUSD", "XAGUSD"}
 INDICES = {"US100", "SP500", "US30", "GER40", "UK100", "JP225"}
+CRYPTO = {"BTC", "SOL", "ETH", "BTCUSDT", "SOLUSDT", "ETHUSDT"}
+#: typical half-spread of the USDT perps in bp: BTC trades at one 0.1 tick (~0.01 bp at
+#: 40-100k), SOL at one 0.01 tick (~0.3-0.5 bp at 100-200 USDT, half of the tick)
+CRYPTO_HALF_SPREAD_BP = {"BTC": 0.05, "SOL": 0.4, "ETH": 0.1}
 LOT_UNITS = 100_000          # one FX lot = 100k units of the base currency
 LIQUID_UTC_HOURS = (13, 16)  # London/NY overlap, where the "typical" spreads are quoted
 
@@ -56,6 +60,8 @@ def asset_class(asset: str) -> str:
         return "metal"
     if a in INDICES:
         return "index"
+    if a in CRYPTO:
+        return "crypto"
     return "other"
 
 
@@ -68,6 +74,9 @@ class CostProfile:
     metal_frac_side: float = 0.0
     index_frac_side: float = 0.0
     other_frac_side: float = 0.0
+    #: crypto exchange fees per side as fraction of notional (taker / maker, no rebate tiers)
+    crypto_taker_frac_side: float = 0.0
+    crypto_maker_frac_side: float = 0.0
     #: typical liquid-hours spread per asset in price units; missing = keep the data
     spread_override: dict[str, float] = field(default_factory=dict)
 
@@ -90,6 +99,13 @@ PROFILES: dict[str, CostProfile] = {
                                           "~$0,90 je Kontrakt und Seite inkl. Gebühren",
                              spread_override={"US100": 0.25, "SP500": 0.25, "XAUUSD": 0.10},
                              index_frac_side=0.90 / (2 * 20_000.0), metal_frac_side=0.90 / (10 * 2300.0)),
+    # crypto exchanges, standard (non-VIP) tier as of 2026-10; check before live use
+    "bybit_perp": CostProfile("bybit_perp", "Bybit USDT-Perps (Ausführung von HyroTrader): "
+                                            "Taker 5,5 bp, Maker 2 bp je Seite, Standard-Stufe",
+                              crypto_taker_frac_side=0.00055, crypto_maker_frac_side=0.00020),
+    "binance_um": CostProfile("binance_um", "Binance USD-M-Perps: Taker 5 bp, Maker 2 bp je Seite, "
+                                            "VIP 0 ohne BNB-Rabatt",
+                              crypto_taker_frac_side=0.00050, crypto_maker_frac_side=0.00020),
 }
 DEFAULT_PROFILE = "ftmo"
 #: Dukascopy's FX commission is per million NOTIONAL, not per lot
@@ -121,8 +137,30 @@ def commission_bp_side(asset: str, price: float, profile: str | CostProfile | No
             return _DUKA_FX_FRAC_SIDE * 1e4
         notional_usd = LOT_UNITS * _base_in_usd(asset, price)
         return p.fx_usd_per_lot_side / notional_usd * 1e4
-    frac = {"metal": p.metal_frac_side, "index": p.index_frac_side}.get(cls, p.other_frac_side)
+    frac = {"metal": p.metal_frac_side, "index": p.index_frac_side,
+            "crypto": p.crypto_taker_frac_side}.get(cls, p.other_frac_side)
     return frac * 1e4
+
+
+def crypto_round_trip_bp(market: str, profile: str | CostProfile, *, maker_entry: bool = False,
+                         maker_exit: bool = False, half_spread_bp: float | None = None) -> float:
+    """Round-trip cost in bp of notional for a crypto perp trade (exchange fees + spread).
+
+    A taker leg pays its fee and half the spread; a maker (limit) leg pays the maker fee
+    and no spread - but only if it is filled, which the strategy has to model itself.
+    Funding is not included (it depends on the holding period).
+    """
+    p = profile if isinstance(profile, CostProfile) else get(profile)
+    m = market.upper().removesuffix("USDT")
+    if asset_class(m) != "crypto":
+        raise ValueError(f"{market!r} is not a crypto market")
+    if p.crypto_taker_frac_side <= 0:
+        raise ValueError(f"profile {p.name!r} has no crypto fees")
+    hs = CRYPTO_HALF_SPREAD_BP[m] if half_spread_bp is None else half_spread_bp
+    total = 0.0
+    for maker in (maker_entry, maker_exit):
+        total += (p.crypto_maker_frac_side * 1e4) if maker else (p.crypto_taker_frac_side * 1e4 + hs)
+    return total
 
 
 def adjust_frame(m1: pd.DataFrame, asset: str, profile: str | CostProfile | None = None) -> pd.DataFrame:

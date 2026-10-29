@@ -59,3 +59,19 @@ def test_normalise_charges_the_commission_in_R() -> None:
 def test_unknown_profile_is_an_error() -> None:
     with pytest.raises(KeyError):
         costs.get("nope")
+
+
+def test_crypto_round_trip_taker_maker_and_spread():
+    from trading_lab import costs
+
+    assert costs.asset_class("BTCUSDT") == "crypto"
+    # Bybit: 5.5 bp taker per side + 0.05 bp half spread per taker leg on BTC
+    assert costs.crypto_round_trip_bp("BTC", "bybit_perp") == pytest.approx(11.1)
+    # limit entry, market exit: 2 bp + 5.5 bp + SOL half spread 0.4 bp
+    assert costs.crypto_round_trip_bp("SOLUSDT", "bybit_perp", maker_entry=True) == pytest.approx(7.9)
+    assert costs.crypto_round_trip_bp("BTC", "binance_um", maker_entry=True, maker_exit=True) == pytest.approx(4.0)
+    assert costs.commission_bp_side("SOL", 150.0, "binance_um") == pytest.approx(5.0)
+    with pytest.raises(ValueError):
+        costs.crypto_round_trip_bp("BTC", "ftmo")
+    with pytest.raises(ValueError):
+        costs.crypto_round_trip_bp("US100", "bybit_perp")
