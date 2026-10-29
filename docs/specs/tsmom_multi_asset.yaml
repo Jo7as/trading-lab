@@ -1,0 +1,142 @@
+# S-007: Trendfolge über alle Anlageklassen (Time-Series-Momentum), Swing, Instant-Konto
+# Herkunft: Recherche 2026-10-29 (docs/FINDINGS.md). Die am besten belegte Kante der Literatur;
+# Regeln aus den Papern, nicht aus unseren Daten. Bewusst das Gegenteil von H-012
+# (2026-10-27: kein Stop, keine Korrelationsgrenze, geratene Finanzierung, keine Tests).
+
+id: S-007
+strategie: tsmom_multi_asset
+titel: "Trendfolge (TSMOM) über Indizes, FX, Metalle, Rohstoffe, Anleihen, Bitcoin - Richtung aus der Vergangenheitsrendite, Größe nach Volatilität, Risiko je Anlageklasse begrenzt"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: okay wir probieren es. 1. und dann 2.) - Annahmen: Portfolio als Bewertungseinheit, CFD-Swap-Formel + Lauf mit doppeltem Aufschlag, Notstop nur als Variante"
+abgestimmt_am: "2026-10-29"
+
+idee:
+  mechanismus: >
+    Preise reagieren zu langsam auf neue Informationen (Ankern, Herdenverhalten), danach
+    überschießen sie; Absicherer und Zentralbanken handeln gegen den Trend und zahlen dafür
+    eine Prämie. Ergebnis: die Rendite der letzten 1-12 Monate sagt die Richtung des
+    nächsten Monats voraus - in jeder Anlageklasse (Moskowitz/Ooi/Pedersen 2012), seit 1880
+    (Hurst/Ooi/Pedersen 2017), auch in 82 Märkten, die vorher nie getestet waren
+    (Babu et al. "Trends Everywhere"). Die Kante je Markt ist klein; sie entsteht aus vielen
+    wenig korrelierten Märkten - genau unser Ziel "viele kleine Edges".
+  quellen:
+    - "Moskowitz, Ooi, Pedersen (2012): Time series momentum, JFE 104, 228-250"
+    - "Hurst, Ooi, Pedersen (2017): A Century of Evidence on Trend-Following Investing, JPM"
+    - "Babu, Levine, Ooi, Pedersen, Stamelos (2020): Trends Everywhere, Journal of Investment Management"
+    - "Suominen, Hjalmarsson (2026): Boundaries of Time Series Momentum (Aktientrends brechen bei extremen Bewertungen) - Risiko, keine Regel"
+    - "docs/FINDINGS.md 2026-10-27 H-012 - was NICHT passieren darf"
+
+handel:
+  maerkte:
+    aktienindizes: [SP500, US100, US30, GER40, UK100, JP225]
+    fx_usd: [EURUSD, GBPUSD, USDJPY, AUDUSD, NZDUSD, USDCAD, USDCHF]
+    fx_kreuz: [EURJPY, EURGBP, EURCHF, GBPJPY, AUDJPY, AUDNZD, AUDCAD]
+    metalle: [XAUUSD, XAGUSD]
+    rohstoffe: [BRENT, WTI, COPPER]
+    anleihen: [UST10Y]
+    krypto: [BTCUSD]
+  zeitrahmen: "Signal auf Tagesschluss (17:00 New York); Umschichtung einmal pro Woche (Mittwoch)"
+  kontotyp: prop_swing
+  zielkonto: "FundedNext Stellar Instant (Wochenende erlaubt, kein Tageslimit, 6 % mitlaufend bis Startsaldo, News-Gewinne nur 40 % - Umschichtung nicht im News-Fenster)"
+  max_haltedauer: "unbegrenzt, solange der Trend gilt (typisch Wochen bis Monate)"
+  wochenende_halten: true
+  news_fenster: "Umschichtung Mittwoch 15:00 New York - nie 5 min um eine Fed/CPI-Veröffentlichung; an FOMC-Mittwochen auf Donnerstag 15:00 verschoben"
+
+entry:
+  bedingungen:
+    - "1. Signal je Markt am Tagesschluss: Vorzeichen der Rendite über die Rückschau (Basis: 12 Monate = 252 Handelstage, Moskowitz et al.). Variante blend: Mittel der Vorzeichen über 1, 3 und 12 Monate (Hurst et al.), Wert in {-1, -1/3, +1/3, +1}."
+    - "2. Zielgröße je Markt = Signal x (Risikobudget des Markts / erwartete Volatilität des Markts). Erwartete Volatilität = EWMA der täglichen Renditen, Schwerpunkt 60 Tage (wie Moskowitz et al.), annualisiert."
+    - "3. Risikobudget: jede Anlageklasse (7 Gruppen oben) bekommt den gleichen Anteil, Krypto nur den halben; innerhalb der Gruppe gleich verteilt. So können 7 USD-Paare nicht wie 7 unabhängige Wetten zählen (H-012-Fehler)."
+    - "4. Portfolio-Skalierung: alle Zielgrößen gemeinsam so skaliert, dass die erwartete Portfolio-Volatilität (EWMA-Kovarianz, 60 Tage) 8 % p.a. beträgt; Hebel je Markt höchstens wie beim Zielkonto erlaubt (Indizes 1:20, FX 1:100, Rohstoffe 1:10, Krypto 1:2 - Annahme, beim Kauf prüfen)."
+    - "5. Umschichtung nur am wöchentlichen Termin und nur, wenn sich die Zielgröße eines Markts um mehr als 25 % ändert oder das Vorzeichen wechselt (Kosten sparen)."
+  ausfuehrung: >
+    Signal am Schlusskurs von Tag t, Ausführung zum Kurs von Mittwoch 15:00 New York danach
+    (CFD-Daten: Bid/Ask der Minute; lange Tagesdaten: Schlusskurs des Folgetags + halber
+    gemessener Spread + 0,5 bp Slippage). Keine Order am Schlusskurs desselben Tages.
+
+stop_loss:
+  regel: >
+    Basis wie in den Papern: kein fester Stop - der Ausstieg kommt über das Signal (Regel 1)
+    und die Volatilitäts-Skalierung (Regel 2/4 verkleinert Positionen, wenn ein Markt wild
+    wird). Variante stop_3atr: Notstop je Position bei Einstieg -/+ 3 x ATR(20 Tage); nach
+    einem Stop bleibt der Markt flach, bis sein Signal die Richtung wechselt.
+  begruendung: >
+    Trendfolge verliert vor allem an Wendepunkten; das Signal schließt dann. Der Notstop
+    begrenzt einzelne Schocks (Franken 2015) für das 6-%-Konto. Ob er hilft, entscheidet
+    der Test - er ist vorab als Variante festgelegt.
+
+take_profit:
+  regel: "Kein festes Ziel - Ausstieg/Umkehr nur über das Signal (Trend vorbei)."
+  begruendung: "Die Rendite der Trendfolge kommt aus wenigen langen Trends; ein festes Ziel schneidet genau diese ab."
+
+exit_sonst:
+  - "Signalwechsel am Umschichtungstermin -> schließen bzw. drehen"
+  - "Variante stop_3atr: Notstop (intraday auf 1m-Daten; in den langen Tagesdaten am Tageshoch/-tief, Fill am Stop bzw. am Eröffnungskurs bei Lücke)"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  sizing: >
+    Kein Risiko "je Trade" im klassischen Sinn: das Portfolio zielt auf 8 % Volatilität p.a.
+    (≈ 0,5 % je Tag). Für die Pipeline gilt 1 R = 0,5 % des Kontos = eine Tages-
+    Standardabweichung des Portfolios. Die Ziel-Volatilität für das Instant-Konto
+    (6 % mitlaufend) wird im Prop-Schritt mit studies/prop_firms.py festgelegt
+    (wahrscheinlich 4-6 %).
+  max_offene_positionen: 27
+  korrelation: "Regel 3 (gleiches Budget je Anlageklasse) + Regel 4 (Kovarianz-Skalierung des ganzen Portfolios)"
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 6
+
+kosten:
+  profil: ftmo
+  swaps: >
+    Gemessen statt geraten: FX = Zinsdifferenz der beiden Währungen (3-Monats-Zinsen,
+    trading_lab/rates.py, FRED) minus 1,0 % p.a. Broker-Aufschlag je Seite; Indizes,
+    Metalle, Rohstoffe, Anleihen, Krypto = Long zahlt Zins der Kurswährung + 2,5 % p.a.,
+    Short erhält Zins - 2,5 % p.a. (übliche CFD-Formel). Jede Nacht, Mittwoch dreifach (FX)
+    bzw. Freitag dreifach (CFDs). Robustheit: Lauf mit doppeltem Aufschlag.
+  slippage: "0,5 bp je Fill; Spread = gemessener Median-Spread je Markt um 15:00 New York (CFD-Daten 2019-2024)"
+
+daten:
+  quelle: >
+    (a) lange Tagesdaten 2004-2024 (yfinance): Indizes ^SP500TR, ^NDX, ^DJI, ^GDAXI, ^FTSE,
+    ^N225; FX "=X"-Kurse; GC=F, SI=F, HG=F, BZ=F, ZN=F (fortlaufende Front-Kontrakte);
+    BTC-USD. (b) Dukascopy 1m Bid/Ask 2019-2024 für Kosten, Ausführung und den Abgleich.
+  bekannte_probleme:
+    - "Fehlkurse in yfinance-FX (z.B. EURUSD/USDJPY 2008-12-08 +17 %): Regel - ein Tag mit |Rendite| > 8 EWMA-Sigmas, der am Folgetag zu >= 80 % zurückläuft, ist ein Fehlkurs und wird durch den Vortagesschluss ersetzt. Echte Schocks (EURCHF 2015-01-15) laufen nicht zurück und bleiben. Liste der ersetzten Tage wird ausgegeben."
+    - "WTI hatte 2020 einen negativen Preis - WTI nur in den CFD-Daten ab 2019; in den langen Daten steht Öl nur als Brent (ab 2007)"
+    - "Fortlaufende Front-Futures (Gold, Silber, Kupfer, Brent, 10Y) springen an Rolltagen um den Contango; das Rauschen bleibt drin, die Finanzierung modelliert die CFD-Kosten. Abgleich (b) zeigt, ob das stört."
+    - "Kursindizes ohne Dividenden (US100, US30, UK100, JP225) unterschätzen Long-Renditen um die Dividendenrendite (konservativ); SP500 und GER40 sind Total-Return."
+    - "Zeitzonen: yfinance-Schlusskurse sind Börsenschlüsse (Tokio, Frankfurt, New York) - für die Signale (12 Monate) unerheblich, für die Ausführung wird ein Tag Verzögerung angesetzt."
+    - "Märkte starten zu verschiedenen Zeiten (FX 2003-2006, Brent 2007, BTC 2014): ein Markt zählt erst nach 252 Tagen Daten; das Budget seiner Gruppe verteilt sich auf die vorhandenen."
+  warmup: "252 Handelstage je Markt"
+
+varianten:
+  - name: basis
+    aenderung: "12-Monats-Signal (Moskowitz), kein fester Stop, 8 % Ziel-Volatilität"
+  - name: gitter_signal
+    aenderung: "signal in {12m, blend_1_3_12}"
+  - name: gitter_stop
+    aenderung: "stop in {keiner, stop_3atr}"
+  # 2 x 2 = 4 Varianten; Rückschau, Vola-Fenster, Budgets und Ziel-Volatilität bleiben fest
+
+bewertung:
+  einheit: >
+    Das PORTFOLIO ist die Strategie, nicht der einzelne Markt (ein Markt hat nur ~2-5
+    Signalwechsel pro Jahr - einzeln nie 100 Trades). Für die Pipeline: Tagesrenditen des
+    Portfolios in R (S2-S4 auf den täglichen Renditen, n = Handelstage), Trades = jede
+    Positionsepisode je Markt (für S1 n >= 100 und das Placebo). Die Schwellen bleiben
+    unverändert - Änderung der Einheit braucht die Freigabe des Nutzers.
+  placebo: "gleiche Positionsgrößen, Signal-Vorzeichen je Markt zufällig (100 Läufe, fester Seed)"
+  zeitraeume: "Training 2004-2024 (lange Daten), Holdout ab 2025 (beide Datenquellen) - einmalig mit Freigabe"
+
+referenz: >
+  (1) AQR Data Library "Time Series Momentum: Factors, Monthly" (öffentlich): die
+  Monatsrenditen unseres Portfolios sollten mit dem AQR-TSMOM-Faktor deutlich positiv
+  korrelieren (Erwartung 0,5-0,8; < 0,3 -> Fehler suchen). (2) Größenordnung aus den Papern:
+  Sharpe vor Kosten ~0,7-1,2 über 2004-2024, mit schwachen Jahren 2011-2018 und starken
+  2008, 2014, 2022. Netto-Sharpe > 1,5 -> zuerst Fehler suchen. (3) Abgleich der Datenquellen:
+  2019-2024 Tagesrenditen je Markt yfinance vs. Dukascopy-CFD, Korrelation >= 0,95,
+  sonst Markt prüfen.
+
+tests:
+  - tests/test_tsmom_multi_asset.py
