@@ -172,3 +172,28 @@ volatility-only control (lift of the size / volume letters alone); per-year and 
 
 FX (no audit yet), exchange volume, 1-min tokens, horizons other than 60 min, combinations of
 more than 3 items.
+
+## Amendments before the first run (2026-10-30, decided by the user, nothing measured yet)
+
+Found while counting frequencies only (no outcome was looked at):
+
+1. **Asia data gap.** Dukascopy index CFDs have no Asia-hour bars before 2018-04 (UK100 before
+   2019-01); XAUUSD has them from 2016. Years therefore: **mining 2018-05 - 2020-12** (XAUUSD also
+   2016-01 - 2018-04), **validation 2021**, **confirmation 2022-2024** (unchanged). UK100 enters
+   from 2019. User's choice.
+2. **Track B frequency.** One session per day makes ">= 1 per week per market" reachable only for
+   a few single-word families (upper bound measured: best family 1292 pooled occurrences without
+   the position letter vs 592 needed). New rule: a motif family needs **>= 150 occurrences pooled
+   over all markets** in the mining years. User's choice.
+
+Technical clarifications (no threshold changed):
+
+3. **Families are radius-1 stars**, not connected components: family(C) = C plus every combination
+   that differs from C by one allowed one-step mutation. Connected components would chain
+   (acb ~ bcb ~ bcc ~ ...) until a family covers almost every word of an item group.
+4. **Control rates per period:** the expected move / class rate of a stratum is computed on the
+   same period that is being evaluated (mining, validation or confirmation), so a year with more
+   moves everywhere does not lift every combination.
+5. **Track B multi-day motifs** = the last 4 session words before the target, contiguous in time
+   (e.g. London(d-1), NY(d-1), Asia(d) -> London(d) uses 3; the 4-word version reaches back one
+   more session). Motif length stays within 1-4 words.
