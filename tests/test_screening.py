@@ -408,3 +408,37 @@ def test_deflated_sharpe_punishes_the_best_of_many_noise_variants() -> None:
     assert deflated_sharpe(best, n_trials=200, trial_sharpes=sr) < 0.95
     edge = rng.normal(0.25, 1, 750)
     assert deflated_sharpe(edge, n_trials=200, trial_sharpes=sr) > 0.95
+
+
+# ── literature track (agreed 2026-10-29) ────────────────────────────────────
+
+def _lit_row(**kw) -> dict:
+    row = {"name": "x", "n": 1600, "gross_mean": 0.15, "placebo_gross": 0.0, "net_mean": 0.09,
+           "pos_years": 13, "n_years": 21, "neighbour_positive": 1.0, "t_daily": 2.37, "dsr": 0.906,
+           "placebo_edge": 0.15, "pbo": float("nan"), "n_trials": 4,
+           "track": "literatur", "reference_ok": True, "paper_base": True, "holding_days": 40.0}
+    row.update(kw)
+    return row
+
+
+def test_literature_track_relaxes_s3_and_s4_only_for_the_paper_rule() -> None:
+    import pandas as pd
+    from trading_lab import screening as S
+    ok = pd.DataFrame([_lit_row()])
+    assert len(S.s3_robust(ok).kept) == 1 and len(S.s4_significant(ok).kept) == 1
+    normal = pd.DataFrame([_lit_row(track=None)])
+    assert len(S.s3_robust(normal).kept) == 0 and len(S.s4_significant(normal).kept) == 0
+    no_ref = pd.DataFrame([_lit_row(reference_ok=False)])
+    assert len(S.s3_robust(no_ref).kept) == 0 and len(S.s4_significant(no_ref).kept) == 0
+    tuned = pd.DataFrame([_lit_row(paper_base=False)])                  # a variant, not the paper rule
+    assert len(S.s4_significant(tuned).kept) == 0
+    fast = pd.DataFrame([_lit_row(holding_days=0.2)])                   # intraday keeps 70 % years
+    assert len(S.s3_robust(fast).kept) == 0
+
+
+def test_literature_track_keeps_the_placebo_and_t_floor() -> None:
+    import pandas as pd
+    from trading_lab import screening as S
+    assert len(S.s4_significant(pd.DataFrame([_lit_row(t_daily=1.9)])).kept) == 0
+    assert len(S.s4_significant(pd.DataFrame([_lit_row(placebo_edge=-0.01)])).kept) == 0
+    assert len(S.s3_robust(pd.DataFrame([_lit_row(pos_years=12)])).kept) == 0     # 57 % < 60 %

@@ -86,6 +86,15 @@ S4_MIN_PLACEBO_EDGE = 0.0    # > 0: must beat the placebo, sign only
 S4_MAX_PBO = 0.25
 S4_ALPHA = 0.05              # family-wise, one-sided
 S4_MIN_DSR = 0.95
+# Literature track (agreed with the user 2026-10-29, docs/PRUEFABLAUF.md): a row that
+# implements a PUBLISHED rule 1:1 (``track == "literatur"``), whose reference check passed
+# (``reference_ok``), is judged against the paper's out-of-sample evidence rather than as a
+# fresh idea: S3 needs 60 % positive years when it holds positions > 1 week; S4 needs
+# t >= 2.0 for the paper's base variant (``paper_base``) instead of the trial-deflated bar.
+# Placebo and the holdout (S5) stay unchanged. Every other row keeps the normal bars.
+LIT_S3_MIN_POS_YEARS = 0.60
+LIT_S3_MIN_HOLD_DAYS = 5.0
+LIT_S4_MIN_T = 2.0
 _N = NormalDist()
 
 
@@ -398,12 +407,24 @@ def s3_robust(df: pd.DataFrame, *, pos_col: str = "pos_years",
     """
     judgeable = df[pos_col].notna() & df[n_years_col].notna()
     yrs = df[pos_col] / df[n_years_col].replace(0, np.nan)
-    mask = (yrs >= S3_MIN_POS_YEARS)
+    hold = pd.to_numeric(df["holding_days"], errors="coerce") if "holding_days" in df \
+        else pd.Series(np.nan, index=df.index)
+    slow_lit = literature_rows(df) & (hold > LIT_S3_MIN_HOLD_DAYS)
+    need = pd.Series(S3_MIN_POS_YEARS, index=df.index).where(~slow_lit, LIT_S3_MIN_POS_YEARS)
+    mask = (yrs >= need)
     if neighbour_col in df:
         mask &= df[neighbour_col].isna() | (df[neighbour_col] >= S3_NEIGHBOUR_MIN)
     return _split(df, mask, "S3 Robustheit",
-                  f"Vorzeichen in >= {S3_MIN_POS_YEARS:.0%} der Jahre, "
+                  f"Vorzeichen in >= {S3_MIN_POS_YEARS:.0%} der Jahre (Literatur-Spur, Haltedauer "
+                  f"> {LIT_S3_MIN_HOLD_DAYS:.0f} Tage: {LIT_S3_MIN_POS_YEARS:.0%}), "
                   f"Nachbarn >= {S3_NEIGHBOUR_MIN:.0%}", judgeable=judgeable)
+
+
+def literature_rows(df: pd.DataFrame) -> pd.Series:
+    """Rows on the literature track: published rule, reference check passed."""
+    track = df["track"] if "track" in df else pd.Series(None, index=df.index)
+    ref = df["reference_ok"] if "reference_ok" in df else pd.Series(False, index=df.index)
+    return (track == "literatur") & ref.fillna(False).astype(bool)
 
 
 def s4_significant(df: pd.DataFrame, *, t_col: str = "t_daily",
@@ -430,13 +451,16 @@ def s4_significant(df: pd.DataFrame, *, t_col: str = "t_daily",
         mask = dsr_ok.where(df[dsr_col].notna(), t_ok)
     else:
         mask = t_ok
+    base = df["paper_base"] if "paper_base" in df else pd.Series(False, index=df.index)
+    lit = literature_rows(df) & base.fillna(False).astype(bool)
+    mask = mask.astype(bool).where(~lit, df[t_col] >= LIT_S4_MIN_T)
     mask = mask.astype(bool) & (df[placebo_edge_col] > S4_MIN_PLACEBO_EDGE)
     if pbo_col in df:
         mask &= df[pbo_col].isna() | (df[pbo_col] <= S4_MAX_PBO)
     return _split(df, mask, "S4 Signifikanz",
                   f"DSR >= {S4_MIN_DSR} bzw. t(taeglich) >= t(n_trials) "
-                  f"[ohne n_trials {S4_MIN_T_DAILY}], Placebo-Vorsprung > 0, "
-                  f"PBO <= {S4_MAX_PBO}", judgeable=judgeable)
+                  f"[ohne n_trials {S4_MIN_T_DAILY}; Literatur-Spur Paper-Basis: t >= {LIT_S4_MIN_T}], "
+                  f"Placebo-Vorsprung > 0, PBO <= {S4_MAX_PBO}", judgeable=judgeable)
 
 
 def s5_oos(df: pd.DataFrame, *, passes_col: str = "oos_pass") -> Stage:

@@ -65,3 +65,22 @@ Kombinationen fester Varianten (Portfolios) werden als eine Hypothese getestet:
 [PORTFOLIOS.md](PORTFOLIOS.md) (`studies/portfolio_holdout.py`).
 
 *Forschungswerkzeug auf historischen Daten - keine Anlageberatung.*
+
+
+## Literatur-Spur (vom Nutzer freigegeben 2026-10-29)
+
+Für Strategien, die eine **veröffentlichte Regel 1:1** umsetzen (Zeile mit `track: literatur`)
+und deren **Referenzabgleich bestanden** ist (`reference_ok`, z.B. Korrelation >= 0,5 mit dem
+veröffentlichten Faktor), gelten zwei angepasste Schwellen (`trading_lab/screening.py`,
+`LIT_*`, Tests in `tests/test_screening.py`):
+
+* **S3:** >= 60 % positive Jahre statt 70 %, wenn die Positionen im Schnitt länger als
+  5 Tage gehalten werden (`holding_days`). Bei Sharpe 0,5 sind ~69 % positive Jahre zu erwarten.
+* **S4:** für die **Paper-Basisvariante** (`paper_base`) t(täglich) >= 2,0 statt des
+  Deflated-Sharpe-Kriteriums - die Literatur liefert die Out-of-Sample-Belege, wir prüfen,
+  ob es nach unseren Kosten hält. Optimierte Varianten behalten die normale Hürde.
+* **Unverändert:** S1, S2, Placebo-Vorsprung, PBO und der **einmalige Holdout (S5)**.
+
+Warum: bei langsamen Strategien wächst t nur mit der Wurzel der Jahre (t ≈ Sharpe x √Jahre);
+eine 100 Jahre belegte Kante mit Sharpe 0,5 schafft in 21 Jahren nur t ≈ 2,3. Die Spur ist
+kein Schlupfloch für eigene Ideen: ohne Veröffentlichung und bestandene Referenz gilt sie nicht.

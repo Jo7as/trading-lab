@@ -111,6 +111,13 @@ def aqr_monthly() -> pd.Series:
 
 # ── evaluation ─────────────────────────────────────────────────────────────
 
+def aqr_corr(ev: dict, aqr: pd.Series) -> float:
+    d = ev["res"]["daily"].loc[TRAIN_START:]
+    mon = d["net"].groupby(d.index.to_period("M")).sum()
+    both = pd.concat([mon, aqr], axis=1, join="inner").dropna()
+    return float(both.corr().iloc[0, 1])
+
+
 def _cfg(params: dict) -> M.TsmomConfig:
     return replace(M.TsmomConfig(), **params)
 
@@ -191,6 +198,7 @@ def trichter(holdout: str | None) -> int:
     p, _ = load_all(HOLDOUT_START)
     keys = [dict(zip(GRID, v)) for v in __import__("itertools").product(*GRID.values())]
     evs = {tuple(k.values()): evaluate(p, k, TRAIN_START) for k in keys}
+    aqr = aqr_monthly()
     rows = []
     for key, ev in evs.items():
         nbs = [evs[k] for k in evs if sum(a != b for a, b in zip(k, key)) == 1]
@@ -203,10 +211,15 @@ def trichter(holdout: str | None) -> int:
                      "neighbour_positive": float(np.mean([x["net_mean"] > 0 for x in nbs])),
                      "t_daily": ev["t_daily"], "n_trials": len(keys),
                      "dsr": screening.deflated_sharpe(ev["daily_r"].to_numpy(), n_trials=len(keys)),
-                     "pbo": np.nan, "sharpe_net": ev["sharpe_net"], "per_year_pct": ev["per_year_pct"]})
+                     "pbo": np.nan, "sharpe_net": ev["sharpe_net"], "per_year_pct": ev["per_year_pct"],
+                     # literature track (docs/PRUEFABLAUF.md): published rule, reference passed
+                     "track": "literatur", "paper_base": ev["params"] == {"signal": "12m", "stop": "keiner"},
+                     "aqr_corr": aqr_corr(ev, aqr), "reference_ok": aqr_corr(ev, aqr) >= 0.5,
+                     "holding_days": float(np.mean([(t["exit_time"] - t["entry_time"]).days for t in ev["trades"]]))})
         print(f"  {ev['params']}: n {ev['n']}, Ø brutto {ev['gross_mean']:+.3f} R, netto {ev['net_mean']:+.3f} R, "
               f"Placebo {pg:+.3f} R, Jahre {ev['pos_years']}/{ev['n_years']}, t {ev['t_daily']:.2f}, "
-              f"Sharpe netto {ev['sharpe_net']:.2f}", flush=True)
+              f"Sharpe netto {ev['sharpe_net']:.2f}, AQR {rows[-1]['aqr_corr']:.2f}, "
+              f"Haltedauer {rows[-1]['holding_days']:.0f} Tage", flush=True)
     if holdout:
         full, _ = load_all(None)
         for row in rows:
