@@ -9,13 +9,14 @@ included.
 
 | Strategy | Status | Instruments tested | Headline | File |
 |---|---|---|---|---|
+| **Trendfolge TSMOM** (`tsmom_multi_asset`, S-007) | **BESTÄTIGT** (S1-S5, Baustein im KORB) | 26 Märkte / 7 Klassen (2004-2026) | Holdout +13,5 %, Sharpe 0,87; netto Sharpe 0,64 mit echten FundedNext-Swaps | [tsmom_multi_asset.md](tsmom_multi_asset.md) |
 | **ORB Rejection Fade** (`orb_fade`) | **REJECTED** | US100, SP500, GER40 + 8 more (2019–2026) | earlier positives were a day-slicing bug; corrected: −0.29…−1.18 R on all 11 markets, 7–8/8 negative years | [orb_rejection_fade.md](orb_rejection_fade.md) · [source spec](orb_rejection_ifvg_SPEC.yaml) |
 | Pair spreads (ES/NQ, gold/silver, Brent/WTI, DAX/FTSE) | rejected | US100/SP500, US30/SP500, GER40/UK100, XAU/XAG (2019–2026) | gross PF ≈ 1.0 (no edge), net −141…−691 % with real spreads | [pair_spreads_REJECTED.md](pair_spreads_REJECTED.md) |
 | Fair Pricing (JJ Simon) | rejected | US100 (2016–2026) | −0.15…−0.30 R, acceptance FAIL | [fair_pricing_REJECTED.md](fair_pricing_REJECTED.md) |
 | NY-Open EMA12 | rejected | US100 (2016–2026) | −0.15…−0.30 R, all 20 parameter combos negative | [ny_open_ema12_REJECTED.md](ny_open_ema12_REJECTED.md) |
 
-There is currently **no candidate.** The one that looked strongest was rejected
-after a day-slicing bug in its engine was found and fixed.
+**Confirmed building block (2026-10-29): S-007 trend following** - see `configs/portfolios/KORB.yaml`.
+Earlier the strongest-looking candidate was rejected after a day-slicing bug was fixed.
 
 **Next plan:** [MULTI_STRATEGY_DUKASCOPY_PLAN.md](../MULTI_STRATEGY_DUKASCOPY_PLAN.md)
 — a four-module design (noise-area momentum, order-flow absorption at levels,

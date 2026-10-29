@@ -1,0 +1,20 @@
+# Portfolio KORB - der Baustein-Korb (Ziel des Nutzers: kleine, echte, wenig korrelierte Kanten
+# sammeln, Richtwert ~2 % pro Monat für den Korb). Nur Bausteine, die S1-S5 bestanden haben.
+# Ein Baustein wird hier eingetragen, nie still geändert: neue Version = neuer Eintrag.
+id: KORB
+name: Baustein-Korb
+stand: '2026-10-29'
+konto_ziel: "FundedNext Stellar Instant (6 % mitlaufend bis Startsaldo, kein Tageslimit, Wochenende erlaubt)"
+bausteine:
+- id: S-007
+  strategie: tsmom_multi_asset
+  status: bestaetigt          # S1-S5 (Literatur-Spur), Holdout 2025-01..2026-10 +13,5 %, Sharpe 0,87
+  spec: docs/specs/tsmom_multi_asset.yaml
+  params: {signal: 12m, stop: keiner, target_vol: 0.08}
+  ziel_vola_konto: 0.03       # fuer 6 % mitlaufend: ~96 % Ueberleben im 1. Jahr (Training, echte Swaps)
+  kosten: "artifacts/broker_costs/fundednext_demo.json (FX/Metall-Swaps gemessen, SP500/UK100 gemessen, uebrige Indizes geschaetzt)"
+  kennzahlen_training_2004_2024: {sharpe_brutto: 0.79, sharpe_netto_echte_swaps: 0.64, aqr_korrelation: 0.71}
+  laufen_lassen: "studies/tsmom_check.py --referenz --broker artifacts/broker_costs/fundednext_demo.json"
+  rhythmus: "woechentlich, Mittwoch 15:00 New York"
+kandidaten_nicht_bestaetigt:
+- {id: S-009, strategie: pre_fomc, grund: "echt (Placebo-Vorsprung +0,056 R, t 2,11), aber 4/6 positive Jahre - S3"}
