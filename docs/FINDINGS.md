@@ -936,3 +936,35 @@ time-at-price profile (50 bins, 70 % value area) -> POC / VAH / VAL; control = p
 * Only lead: break of the previous day's POC on 1h, +0.06 R vs control, 6/8 markets, t >= 2 in 1/8 -
   still net -0.04..-0.07 R after costs.
 * Net on every cell negative (-0.04..-0.34 R). Time-at-price adds no tradable information here.
+
+## 2026-10-29 — Crypto H10: volume-profile levels (magnet / hold / SMC + flow) - 2024 discovery, 2023 PENDING
+
+Pre-registration `docs/specs/h10_volume_profile_PREREG.md` (commit 11f74bb, before any data was
+read). `trading_lab/volume_levels.py` (+ `tests/test_volume_levels.py`), `studies/crypto_volume_profile_study.py`;
+report `artifacts/crypto/vp_2024.md`. BTC + SOL Binance perps, 1-min bars from the 10-s taker flow.
+9 windows (last 96/288/672 15-min bars, UTC day/week, Tokyo/London/NY session, leg between external
+swings) x POC/VAH/VAL/HVN/LVN (50 rows, 70 % VA) + naked daily POC; 90k levels, 71k magnet events,
+45k hold events (+138k control). Context: there is no academic specification of profile settings;
+Kavajecz & Odders-White (2004) tie support/resistance to order-book depth, Osler (2003) to stop/TP
+clustering - neither says traded volume marks those prices. Step D (above, CFDs) found the same
+for time-at-price.
+
+* **Magnet (24 h, vs a level at the same ATR distance and side at a random other time):** 45/46 cells
+  within +-5 pp or |t| < 3; most effects are slightly NEGATIVE (POC/VA reached 1-5 pp less often than
+  the control, the mirror level is reached as often or more). **The "80 % return to the prior POC" is
+  not there:** prior-day POC reached within 24 h 48.9 % (control 52.3 %), weekly POC 41.3 % (43.0 %),
+  naked POC 30.0 % (33.2 %). High rates (70-80 % for leg / session levels) come from the short
+  distance (median 0.6-1.2 ATR1h) and are matched by the control.
+* **Hold (bounce 0.5 ATR before break 0.5 ATR, vs shifted levels):** no level type holds better than
+  random. Leg POC/VAH/VAL break MORE often (-3.5..-3.8 pp, t -2.4..-3.9, < 5 pp so not a candidate).
+  Fade 4 h net negative in almost all large cells.
+* **Interactions:** SMC confluence (0.1 ATR15, 71-77 % of levels flagged - the SMC level set is dense)
+  changes nothing (-1..+1 pp). Taker flow into the level on the approach lowers the hold rate by
+  4-8 pp (t -2.8..-4.0) - but the same split on the CONTROL levels gives the same -5..-9 pp: flow
+  continuation (Kim & Hansen), not a level effect.
+* **2024 discovery candidates (|effect| >= 5 pp, |t| >= 3):** magnet `week:hvn` +13.4 pp (t 3.47,
+  n 173, BTC and SOL positive); hold `asia:val` -9.0 pp (t -3.07, holds LESS); interactions
+  `poc:flow` -7.5 pp / `vah:flow` -7.3 pp (both mirrored by the control). 4 of 97 cells at roughly a
+  Bonferroni threshold - about what chance plus the generic flow effect give.
+* **2023 confirmation not run yet:** the 2023 Binance cache is incomplete (BTC 78/365, SOL 141/365
+  days; the H9 download is paused). Verdict pending: `--year 2023`, then `--verdict`.
