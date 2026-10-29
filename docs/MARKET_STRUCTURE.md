@@ -83,3 +83,20 @@ res.active_zones(bar_idx, kinds=("fvg", "ifvg", "ob"))
 `0` none. `sweep_high` / `sweep_low`: the external swing target or an EQH/EQL pool (either
 level) was swept on this bar. `ext_swing_sweep_low` / `int_swing_sweep_low` (and `_high`): the
 current swing target of that level was swept.
+
+## Time-based liquidity (`trading_lab/liquidity.py`)
+
+Next to the swing-based levels: levels where resting orders cluster by the clock
+(Osler, NY Fed Staff Reports 125 / 150). All built from completed 1m mid bars and known at
+the start of the period they are valid in (`tests/test_liquidity.py`, full 24 h frames).
+
+| Level | Definition | Valid |
+|---|---|---|
+| `pd` | high / low of the previous 17:00-NY trading day (Monday -> Friday) | whole current day |
+| `pw` | high / low of the previous week (Sunday 17:00 NY start) | whole current week |
+| `asia` | high / low 20:00-24:00 NY (ICT Asian range) | 00:00 NY to 17:00 NY |
+| `or` | first 30 min after the local open (US indices 09:30 NY, GER40 09:00 Berlin, FX/metals 08:00 London) | end of the range to the end of that local date |
+
+`events(m1, bars, tf, table)`: the FIRST minute of a period beyond a level; the `tf` bar
+containing it is a `reclaim` (close back inside = sweep) or a `through` (close beyond).
+Later exceeds in the same period are ignored.

@@ -565,3 +565,24 @@ per fill. Grid 96 per pair, EURUSD/GBPUSD/AUDUSD/USDJPY (control), train 2019-20
 * **Grid: best variant per pair net -0.030 (EURUSD, GBPUSD), -0.048 (AUDUSD), -0.071 R
   (USDJPY); none passes S2.** Holdout untouched. Lesson: a fade effect of ~0.1 ATR is too
   small for market entries on FX; a limit-entry variant would be a new spec.
+
+## 2026-10-29 — Step B: big moves after time-based liquidity levels? (measurement)
+
+`studies/liquidity_levels_study.py` on the new `trading_lab/liquidity.py` (pd / pw / asia /
+or), 8 markets, 15m + 1h, train 2019-2024. Bracket from the event bar's close: stop 1 ATR
+(or, against the exceed, beyond the bar's extreme + 0.1 ATR), target 1/2/3/5 x stop, at most
+8 h (15m) / 24 h (1h); excess over the same bracket from every 4th bar. 1536 cells, 0 with
+net > 0 and t >= 2 individually.
+
+* **Classic sweep reversal (reclaim, trade against) does not produce big moves:** with the
+  tight SMC stop a small excess at 1R (+0.05 R, t >= 2 in 5-6 of 16 cells for pd/or), gone
+  at 3-5R, and the tiny stops make costs 0.2-0.4 R per trade. Against a close THROUGH a
+  level with a tight stop is clearly negative (-0.12..-0.20 R excess at 1R).
+* **The one lead: continuation after the previous WEEK's high/low is taken** (`pw`, trade
+  with the exceed, 1 ATR stop, 3-5 R target): excess +0.10..+0.15 R pooled, positive in 13
+  of 16 market x tf cells for closes through at 3R (indices GER40/SP500/US100 and USDJPY
+  strongest, GBPUSD/AUDUSD 15m negative), net ~+0.02..+0.04 R pooled, up to +0.2..+0.3 R
+  on indices 1h. Only ~2 events per market and month (n ~ 150 per cell) - single cells are
+  t 1-2; it needs a pooled spec (several markets, one rule) to be testable. Fits Osler's
+  stop cascades and classic weekly breakout / time-series momentum.
+* pd / asia / or continuation: same sign, roughly half the size - below costs.
