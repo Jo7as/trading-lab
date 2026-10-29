@@ -860,3 +860,17 @@ class only dilute it ("Trends Everywhere" gains come from NEW classes). S-007 st
 2004-2024: Sharpe 0.30 gross / 0.27 net (t 1.26), 12/21 years; equities +0.42, real assets
 +0.45, FX crosses +0.29, FX vs USD -0.06. **Correlation with S-007 +0.69** - a 25 % mix lowers
 the basket Sharpe from 0.63 to 0.57. Not a building block.
+
+## 2026-10-29 — Step C: round numbers (Osler) on 1m-4h - no range edge; break effect only where costs are 0.4-1.7 R
+
+`studies/round_number_study.py` (measurement, train 2019-2024): 7 markets (5 FX, USDJPY, gold),
+round grid (x.xx00/x.xx50, JPY 0.50, gold 5) vs a control grid of the same density shifted
+by 37 %, first touch per level and day, bracket from the bar close (stop 1 ATR, target k ATR).
+
+* **Range fade at round numbers ("abprall"): no effect.** Round minus control -0.03..+0.03 R
+  on every timeframe; from 15m up slightly WORSE than control (1-3 of 7 markets positive).
+* **Continuation after a close through a round number ("durch"): small, real, short-lived** -
+  +0.09 R (1m), +0.05 R (5m, 15m; 15m 7/7 markets) vs control, t >= 2 in up to 3 of 7
+  markets - Osler's stop clustering behind round numbers. Gone from 30m up (1h-4h negative).
+* Round-trip cost per 1-ATR stop: 1.7 R (1m), 0.68 (5m), 0.37 (15m), 0.25 (30m), 0.18 (1h),
+  0.12 (2h), 0.09 (4h). The effect lives exactly where costs are 4-20x larger. Not tradable.
