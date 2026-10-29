@@ -19,6 +19,15 @@ combination is compared with a **volatility- and clock-matched control**, not wi
 base rate; (2) a minimum count per combination; (3) a wide search finds hundreds of
 "conspicuous" combinations by chance - so mining, validation and confirmation are separate years.
 
+Two tracks, both measured, verdicts separate:
+
+* **Track A - intraday moves:** at every 15-min point in London / NY, which combinations of tokens
+  from Asia start up to now come before a 60-min move? (sections below up to "Track B")
+* **Track B - session sentences (DNA search):** every day is a sentence of session words
+  Asia -> London -> NY (and the days before). Which words / motifs in Asia say what London or
+  New York will do, and which Asia + London words say what New York will do - similar, not
+  identical. (section "Track B")
+
 ## Data
 
 * Dukascopy 1-min bid/ask, mid prices, `data_audit.build_study_frame`, exchange-local clocks.
@@ -105,6 +114,46 @@ is "up" if lift_up > 1 and lift_up > lift_down (else "down").
 **Nothing survives step 2 -> H12 closed.** A confirmed combination is a candidate for stage 2
 (below), never a strategy by itself.
 
+## Track B - session sentences (DNA-style motif search)
+
+**Session words.** For each market and day, one word per session: Asia (Tokyo 09:00-15:00 JST),
+London (08:00-16:30 London), New York (09:30-16:00 New York). Word = SAX shape of the session path
+(W = 4, A = 3) + size letter (session range / its 20-session median, tercile) + position letter
+(session close below / inside / above the previous session's range). E.g. `abcc/l/above`.
+
+**Outcome classes of a target session** (London or New York), fixed now:
+* direction: up / down / flat (|close - open| < 0.25 x the session's 20-session median range),
+* size: small / normal / big (tercile of range / 20-session median, mining years),
+* reversal: yes if the session first trades beyond one side of its first hour's range and then
+  closes beyond the other side.
+-> 9 direction x size classes + reversal yes / no, each tested as its own binary outcome (10).
+
+**Motifs (the "sentences").** For a target session the motif is an ordered sequence of the
+session words before it:
+
+| question | motif | target |
+|---|---|---|
+| Asia -> London | Asia word of the same day (+ optional: the previous day's NY word) | London |
+| Asia -> New York | Asia word (+ optional previous NY word) | New York |
+| Asia + London -> New York | Asia word, London word (+ optional previous NY word) | New York |
+| multi-day | the last 2 or 3 complete days as session-word sequences | next London / NY |
+
+Motif length 1-4 words. **Similar, not identical (like DNA motif search with mismatches):** a
+motif matches a day if at most **one** letter of one word differs by one step (SAX letter, size or
+position); motif families are formed as in track A (connected components of frequent motifs on the
+mining years). Order matters inside a motif (it is a sequence in time).
+
+**Frequency:** a motif family must occur on average >= 1 time per week per market in the mining
+years (one session per day, so 2-5 per week is only possible for short motifs).
+
+**Control (no volatility rediscovery):** the expected rate of each outcome class comes from the
+same market x quintile of the previous session's range / its 20-session median, mining years.
+Lift and day-clustered z as in track A (one observation per day, so z is per day).
+
+**Selection and verdict:** the same three steps as track A (mining lift >= 1.3, z >= 4.0;
+validation lift > 1.1, z >= 2.0, lift > 1 in >= 4 markets, at most 10 go on; confirmation
+z >= 2.58, same direction, >= 4 markets). Nothing survives validation -> track B closed.
+
 ## Stage 2 - make it tradeable (only for confirmed combinations, separate prereg)
 
 Net return of trading the confirmed combination in its direction (market entry at t, stop /
@@ -114,7 +163,8 @@ as a fixed list in its own pre-registration, written after stage 1.
 
 ## Reported, no weight
 
-Top 30 combinations of the mining years with counts, lifts, examples; single-item lifts; the
+Track B: for every question the top 30 motifs with their outcome-class table (how often each
+class followed vs the control). Top 30 combinations of the mining years with counts, lifts, examples; single-item lifts; the
 volatility-only control (lift of the size / volume letters alone); per-year and per-market tables.
 
 ## Not in this test
