@@ -874,3 +874,44 @@ by 37 %, first touch per level and day, bracket from the bar close (stop 1 ATR, 
   markets - Osler's stop clustering behind round numbers. Gone from 30m up (1h-4h negative).
 * Round-trip cost per 1-ATR stop: 1.7 R (1m), 0.68 (5m), 0.37 (15m), 0.25 (30m), 0.18 (1h),
   0.12 (2h), 0.09 (4h). The effect lives exactly where costs are 4-20x larger. Not tradable.
+
+## 2026-10-29 — Crypto H9: follow the flow after absorption at SMC levels - PRE-REGISTRATION
+
+Written before any 2023 data was downloaded or looked at. Origin: a post-hoc reading of H8
+(above): fading "absorption" lost money at 4 h (BTC -10.8 bp, t -2.2; order blocks -18.9 bp), so
+the flow direction may win even when the first 5 minutes reject the level (Kim & Hansen flow
+continuation). H9 tests that reading as its own hypothesis on data H8 never saw.
+
+* **Data (decisive sample):** BTCUSDT + SOLUSDT perps, **2023-01-01 .. 2023-12-31**, Binance USD-M
+  aggTrades -> 10-s taker-signed bars (`trading_lab/adapters/crypto_trades.py`), Binance flow AND
+  prices as in H8. Holdout (2025+) untouched. 2024 (H8's sample, cached) is reported as a second,
+  separate sample only - it generated the hypothesis and cannot confirm it.
+* **Levels (unchanged from H8, `trading_lab/level_flow.py`):** previous UTC day / week high-low,
+  external swings, EQH/EQL pools, order-block edges (15-min `market_structure`), previous-day
+  POC/VAH/VAL (bins BTC 25, SOL 0.10). Each level from `known_at` on, first touch within 3 days.
+* **Event = absorption (H8 definition, thresholds unchanged):** reaction window = the 30 10-s bars
+  (5 min) from the touch bar; approach side d = +1 if the level was above price when it became
+  known, else -1; flow = taker imbalance (buy - sell) / (buy + sell) notional over the window;
+  absorption iff d x flow >= 0.15 AND the window's last close is not beyond the level
+  (beyond_atr <= 0, ATR(14) of 15-min bars known at the touch).
+* **Trade: follow the flow = +d** (into/through the level, against the 5-min rejection), entry at
+  the close of the window's last bar, exit after **4 h** (primary); 1 h secondary.
+* **Costs:** net = gross - `costs.crypto_round_trip_bp(market, "bybit_perp")` per event
+  (taker both legs + half spreads). Funding is not modelled (a 4 h hold crosses at most one 8-h
+  fixing, typically ~1 bp, either sign).
+* **Statistics:** mean signed bp per event, t clustered by UTC day (per-day means), as in H8.
+* **Controls:** (a) random levels - the same levels moved by +-0.15..0.5 % (`control_levels`,
+  seeds 1-3), same event rule and trade; difference real - control with a day-clustered t
+  (OLS on a real/control dummy, cluster = day). (b) random direction - the same real events with
+  a random +-1 direction, 2000 draws; one-sided p = share of draws whose mean >= the observed one.
+* **Verdict "confirmed: candidate for a spec (user must agree)" only if ALL hold on 2023, pooled
+  BTC + SOL, 4 h:** C1 gross > 0 with day-clustered t >= 2.0; C2 net > 0; C3 real - random-level
+  control > 0 with t >= 1.65; C4 random-direction p < 0.05; C5 gross > 0 in BTC and SOL separately.
+  Anything else: **rejected**. If C1/C2/C4 hold but C3 fails, the result is "flow continuation,
+  not a level effect" - rejected as a levels x flow hypothesis.
+* **Reported, no weight in the verdict:** 1 h horizon; order blocks alone; per quarter 2023; 2024
+  second sample; Bybit flow and prices for 2023 (if downloaded); a non-overlapping version (per
+  market, skip events within 4 h of the last kept one); comparison rows "follow +d at every
+  touch" and "cascade" (flow in, close through).
+* Code: `studies/crypto_absorption_follow_study.py` + `tests/test_absorption_follow.py`; no
+  threshold, window, horizon or level is changed after the first look at 2023.
