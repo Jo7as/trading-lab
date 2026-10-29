@@ -703,3 +703,30 @@ slippage cannot be measured there; swaps are account parameters and can.
   pessimistic as well.
 * The demo server lacks US30, oil, copper, bonds and crypto; FundedNext's help lists US30,
   USOUSD/UKOUSD and BTCUSD for the paid Stellar accounts.
+
+## 2026-10-29 — Crypto order flow, step 1: Kim & Hansen quarter-hour effect replicated on 2024 (measurement)
+
+Plan: `docs/research/CRYPTO_ORDERFLOW_PLAN.md` (phase 4, step 1). `studies/crypto_kim_hansen_replication.py`,
+Binance USD-M perps, 10-s taker-signed bars (`trading_lab/adapters/crypto_trades.py`), opening
+imbalance in the first 10 s after :00/:15/:30/:45 (base-asset sizes, as in the paper), slope of the
+forward log return on it, Newey-West; placebo on :02/:17/:32/:47. Train only (2024-01..2024-10,
+the overlap with the paper's 2021-01..2024-10 sample); holdout untouched. Checked line by line
+against the paper PDF; remaining gaps: no reversal controls W_t, openings-only regression, 10 months.
+
+| bp per unit OI | 4 h | 8 h | 12 h | placebo 4 h |
+|---|---|---|---|---|
+| BTC (paper A.4) | +2.4 (3.8), t 1.5 | +2.6 (5.6), t 1.0 | +3.0 (6.4), t 0.9 | -0.1 |
+| SOL (paper A.4) | +4.5 (3.3), t 1.9 | +7.9 (2.4), t 2.2 | +8.4 (6.7), t 1.9 | -3.1 (t -1.6) |
+
+* Same sign and order of magnitude as the paper; BTC about half the paper's size and not
+  significant on 10 months alone; SOL in line, its placebo mildly negative.
+* The first quarter alone (Jan-Apr) showed 2-3x larger slopes - a strong bull quarter, not the norm.
+* Economics, as the theory predicted (`CRYPTO_MICROSTRUCTURE_THEORY.md` ch. 6): sign(OI) x return over
+  the top 10 % |OI| openings is +4.5..+8.9 bp gross against ~10 bp taker round trip - **not tradable
+  on its own**. Next: longer sample (2021-2023) and the hypotheses H1-H7 (cumulation, venue
+  aggregation, extremes, state dependence, reversal-then-continuation entry).
+* Index swaps from the MT5 symbol specification (user, 2026-10-29): SP500m futures calc,
+  -41.41 / -35 USD per lot per night, 1 lot = 100 x index -> **-1.9 % / -1.6 % p.a.** (model
+  -6.4 % / +1.4 %). With SP500 + UK100 measured and US100/US30/GER40/JP225 estimated as their
+  mean: financing -22 % over 21 years, **S-007 net Sharpe 0.64** (14/21 positive years,
+  indices +44.9 R instead of +29.3 R). Bonds/commodities/crypto still on the formula.
