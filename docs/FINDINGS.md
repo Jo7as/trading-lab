@@ -925,3 +925,14 @@ the paper's Section V.E (USD long 02:00 NY -> ECB fix; foreign long London fix -
 * Net: **all 28 pair-windows negative**, portfolio -1.1 (pre-ECB) to -4.3 bp/day (pre-Tokyo). Windows that
   start or end at 17:00 NY pay the rollover spread spike. Matches the paper (full spreads -> negative);
   not tradable for a retail CFD account.
+
+## 2026-10-29 — Step D: own range determination (time-at-price, POC / value area) - no better than plain range levels
+
+`studies/value_area_study.py` (measurement, train 2019-2024, 8 markets, 15m + 1h): previous day's
+time-at-price profile (50 bins, 70 % value area) -> POC / VAH / VAL; control = previous day's range at
+50 / 85 / 15 %. First touch per level and day, bracket from the bar close (stop 1 ATR, target k ATR).
+* Range fade at VAH/VAL ("abprall"): profile minus control -0.05..+0.04 R, no market with t >= 2 more than
+  once; the value-area edges are not better turning points than plain range fractions.
+* Only lead: break of the previous day's POC on 1h, +0.06 R vs control, 6/8 markets, t >= 2 in 1/8 -
+  still net -0.04..-0.07 R after costs.
+* Net on every cell negative (-0.04..-0.34 R). Time-at-price adds no tradable information here.
