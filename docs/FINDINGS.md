@@ -631,3 +631,14 @@ differential - 1 %). Portfolio = unit (agreed), 8 % target vol.
   3-month signals much weaker (Sharpe 0.15/0.11) - faster signals do not help here.
 * Verdict: the effect is real (placebo edge +0.15 R, AQR match) but at CFD costs and a 8 %
   vol it is not significant enough for our bar. Holdout untouched.
+* **Literature track + holdout (both released by the user 2026-10-29):** with the new track
+  (`docs/PRUEFABLAUF.md`) the paper base (12m, no stop) passes S3 (13/21 >= 60 %, holding
+  ~111 days) and S4 (t 2.37 >= 2.0, placebo +0.15 R); the 3-ATR stop variant fails S4
+  (normal bar). **Holdout 2025-01 .. 2026-10: +13.5 % net (gross +23.9 %, swaps -9.6 %),
+  Sharpe 0.87, t 1.20, max DD -6.3 % at 8 % vol - PASSED S5.** Contributors: metals +26.5 R,
+  equity indices +23.4 R, crypto +11.8 R; bonds -10 R (financing again).
+* First strategy of the lab through S1-S5. Caveats: holdout t 1.2 (22 months prove little on
+  their own); train+holdout max DD -20 % at 8 % vol. On FundedNext Instant (6 % trailing):
+  3 % vol -> ~1.7 % p.a., 95 % 1-year survival, ~2.5 % of the account paid out per year;
+  6 % vol -> 49 % survival. A basket pillar, not the 1 %/month on its own; real swap rates
+  (bonds, futures-based CFDs) are the biggest open cost question.
