@@ -46,11 +46,37 @@ def spread_bp_at(spreads: pd.DataFrame, ny_hour: int = 15, window_min: int = 30)
     return spreads[m].groupby("lab")["spread_bp"].median() / 2
 
 
+# MQL5 ENUM_SYMBOL_SWAP_MODE
+POINTS, CURRENCY_SYMBOL, CURRENCY_MARGIN, CURRENCY_DEPOSIT, INTEREST_CURRENT, INTEREST_OPEN = 1, 2, 3, 4, 5, 6
+
+
+def swap_pa_from_raw(row: pd.Series, swap: float) -> float:
+    """One lot, one night -> fraction p.a. of the notional (360-day year, broker convention).
+    Money modes are taken in the symbol's own currency (the margin currency of a CFD)."""
+    mid = (row["bid"] + row["ask"]) / 2
+    if not mid > 0:
+        return np.nan
+    mode = int(row["swap_mode"])
+    if mode == POINTS:
+        return swap * row["point"] / mid * 360
+    if mode in (CURRENCY_SYMBOL, CURRENCY_MARGIN):
+        return swap / (row["contract"] * mid) * 360
+    if mode == CURRENCY_DEPOSIT and row["tick_size"] > 0 and row["tick_value"] > 0:
+        return swap / (mid * row["tick_value"] / row["tick_size"]) * 360
+    if mode in (INTEREST_CURRENT, INTEREST_OPEN):
+        return swap / 100
+    return np.nan
+
+
 def swaps_pa(symbols: pd.DataFrame) -> pd.DataFrame:
-    """Median swap per side as a fraction p.a. of the notional (negative = the position pays)."""
+    """Median swap per side as a fraction p.a. of the notional (negative = the position pays).
+    Recomputed from the raw swap values (the EA's own conversion is empty when no quote had
+    arrived yet or for money-per-lot modes)."""
     if symbols.empty:
         return pd.DataFrame(columns=["swap_long_pa", "swap_short_pa"])
-    s = symbols.replace(1.7976931348623157e308, np.nan)          # EMPTY_VALUE of MQL5
+    s = symbols.copy()
+    s["swap_long_pa"] = [swap_pa_from_raw(r, r["swap_long"]) for _, r in s.iterrows()]
+    s["swap_short_pa"] = [swap_pa_from_raw(r, r["swap_short"]) for _, r in s.iterrows()]
     return s.groupby("lab")[["swap_long_pa", "swap_short_pa"]].median()
 
 

@@ -24,10 +24,13 @@ def test_summary_from_logger_files(tmp_path) -> None:
         {"utc": "2024.07.02 13:05:00", "lab": "SP500", "symbol": "US500", "bid": 5000, "ask": 5005, "spread_bp": 10.0},
     ])
     _write(tmp_path, "symbols", [
+        # money per lot per night (margin currency), 1 lot = 1 x 5000: -7 % p.a. = -0.97222 / night
         {"utc": "2024.07.02 00:01:00", "lab": "SP500", "symbol": "US500", "tick_value": 1.0, "tick_size": 0.01,
-         "swap_long_pa": -0.07, "swap_short_pa": 0.02},
+         "bid": 5000.0, "ask": 5000.0, "point": 0.01, "contract": 1.0, "swap_mode": 3,
+         "swap_long": -5000 * 0.07 / 360, "swap_short": 5000 * 0.02 / 360},
         {"utc": "2024.07.03 00:01:00", "lab": "SP500", "symbol": "US500", "tick_value": 1.0, "tick_size": 0.01,
-         "swap_long_pa": -0.07, "swap_short_pa": 0.02},
+         "bid": 0.0, "ask": 0.0, "point": 0.01, "contract": 1.0, "swap_mode": 3,
+         "swap_long": -5000 * 0.07 / 360, "swap_short": 5000 * 0.02 / 360},           # no quote yet -> ignored
     ])
     _write(tmp_path, "probes", [
         {"utc": "2024.07.02 19:00:01", "lab": "SP500", "symbol": "US500", "side": "open_buy", "volume": 0.1,
@@ -44,7 +47,13 @@ def test_summary_from_logger_files(tmp_path) -> None:
     out = tmp_path / "o.json"
     B.write_override(B.summary(tmp_path, "123"), out, source="demo")
     j = json.loads(out.read_text())
-    assert j["swaps_pa"]["SP500"] == [-0.07, 0.02]
+    assert j["swaps_pa"]["SP500"] == pytest.approx([-0.07, 0.02])
+
+
+def test_swap_points_mode() -> None:
+    row = pd.Series({"bid": 1.1, "ask": 1.1, "swap_mode": 1, "point": 0.00001, "contract": 100000,
+                     "tick_value": 1.0, "tick_size": 0.00001})
+    assert B.swap_pa_from_raw(row, -0.7) == pytest.approx(-0.7 * 0.00001 / 1.1 * 360)
 
 
 def test_measured_swaps_replace_the_formula() -> None:
