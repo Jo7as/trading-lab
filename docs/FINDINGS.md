@@ -525,3 +525,24 @@ as the Expert Systems 2021 study found. Swing: 0.5 +0.04 R / 0.618 +0.01 R vs co
 -0.06 R, but only ~10-25 trades per market in six years and the pooled figure counts
 shared trades several times - a hint, not evidence. Swing variants cannot reach S1's
 100 trades on any single market.
+
+## 2026-10-29 — Step A for S-003: what happens after a sweep? (measurement, no strategy)
+
+`studies/sweep_continuation_study.py`, train 2019-2024, 4 FX majors (Mahadzva's set) +
+US100/SP500/GER40/XAUUSD, 15m and 1h, three level types (external / internal swing
+target, EQH/EQL pool), two kinds (reclaim = wick through and close back; through = close
+beyond), with/against the structure trend, horizons 1/4/12/24 bars, excess over the
+unconditional drift in ATR, events thinned so windows do not overlap. 768 cells.
+
+* **Classic sweeps do not reverse.** After a wick through a level with the close back
+  inside, price drifts slightly further IN the sweep direction: +0.01..+0.04 ATR on
+  average, 60-88 % of cells positive, t >= 2 in ~6 % of reclaim cells (2.3 % expected by
+  chance). Direction consistent with Mahadzva's continuation claim; size far below the
+  ~0.06-0.27 ATR round trip (ftmo).
+* **Closes THROUGH a level mean-revert short term, strongest on FX:** internal swing
+  break in trend direction, next 4 bars: EURUSD 15m -0.09 ATR (t -4.1), 1h -0.12 ATR
+  (t -2.7), GBPUSD/AUDUSD negative too, USDJPY not. So "wait for a close beyond the swept
+  level, then enter with it" (the confirmation rule in the pasted S-003 plan) selects
+  exactly the events that pull back.
+* Only EURUSD 1h shows a fade effect larger than its cost (0.12 vs 0.065 ATR) - a lead,
+  one cell among 768, needs a spec, the pipeline and the (unspent) holdout.
