@@ -657,3 +657,18 @@ the close of day +3, shared risk budget, no variants), long daily data 2004-2024
 * Bug found on the way (before any verdict): the shared budget was divided by the number of
   indices entering the SAME day - scattered placebo entries got 6x the size; now divided by
   the active indices, with a test.
+
+## 2026-10-29 — Quick checks before a spec: Pre-FOMC drift alive, FX carry dead after the markup
+
+`studies/satellite_check.py` (measurement, no strategy, TRAIN only). FOMC dates from
+federalreserve.gov in `trading_lab/fomc_meetings.json` (191 scheduled meetings 2004-2027,
+press-conference flag).
+
+* **Pre-FOMC drift** (Lucca/Moench), 14:00 NY the day before -> 13:55 statement day, 1m CFD
+  2019-2024, 47 meetings: SP500 +27.6 bp vs +5.5 bp on other days (t 1.91), US100 +44.8 vs
+  +7.7 (t 2.22), US30 +16.8 vs +4.1 (t 1.36), GER40 +39.5 vs +3.7 (t 2.38); 64-72 % positive.
+  Round trip on indices ~3-5 bp incl. one night of financing - the effect is 5-10x the cost.
+  -> worth a spec (S-009).
+* **FX carry G10** (13 pairs, vol-scaled, monthly, 2004-2024): carry income +5.2 % p.a. before
+  the swap markup, +1.9 % after 1 % per side; price -3.4 % p.a. (2008 -37 %, 2015 -26 %);
+  Sharpe 0.12 before / -0.10 after the markup. Dead on CFDs - no spec.
