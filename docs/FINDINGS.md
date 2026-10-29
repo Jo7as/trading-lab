@@ -586,3 +586,20 @@ net > 0 and t >= 2 individually.
   t 1-2; it needs a pooled spec (several markets, one rule) to be testable. Fits Osler's
   stop cascades and classic weekly breakout / time-series momentum.
 * pd / asia / or continuation: same sign, roughly half the size - below costs.
+
+## 2026-10-29 — S-006: Noise-area intraday momentum (Zarattini/Aziz/Barbon) - FIRST S4 survivors
+
+Spec `docs/specs/noise_area_momentum.yaml` (rules from the paper, no tuning), index CFDs,
+1m bid/ask fills, ftmo costs + 0.5 bp per fill, 1 R = one 14-day daily sigma. Train 2019-2024.
+
+* Reference check: base variant (30 min, trailing band/VWAP) on mid prices SP500 Sharpe
+  1.52, US100 1.38 (paper: SPY 1.33 net); net 0.65 / 0.69. US30 ~0, GER40 negative net -
+  the effect does not carry to every index.
+* Funnel (4 variants per market, 16 in total): **3 rows pass S1-S4** - SP500 30min/band
+  (net +0.027 R, t_daily 1.86, DSR 0.974), SP500 30min/band_vwap (+0.020 R, DSR 0.951),
+  US100 30min/band (+0.026 R, t_daily 1.95, DSR 0.978); 5/6 positive years, all neighbours
+  positive. 15 min checks are weaker (more trades, more cost). PBO is not computable with 4
+  trials (NaN passes by design) - selection risk is small, the rule comes from the paper.
+* Size: ~20 trades/month, +0.02..0.03 R net each -> ~2.5 % p.a. at 0.5 %/R. SP500 and US100
+  are one bet (correlated). A basket component, not the 1 %/month on its own.
+* Holdout (2025+) not opened yet - needs the user's release.
