@@ -37,11 +37,21 @@ GROUPS = {
     "anleihen": ("UST10Y",),
     "krypto": ("BTCUSD",),
 }
+# wider universe for measurements (not the agreed S-007 universe - see long_daily.EXTRA_TICKERS)
+GROUPS_EXTRA = {
+    "aktienindizes": ("AUS200", "FRA40", "EU50", "ESP35", "HK50"),
+    "metalle": ("XPTUSD", "XPDUSD"),
+    "fx_kreuz": ("EURAUD", "EURCAD", "EURNZD", "GBPAUD", "GBPCAD", "GBPCHF", "GBPNZD", "NZDJPY", "CADJPY",
+                 "CHFJPY", "AUDCHF", "NZDCAD", "NZDCHF", "CADCHF"),
+    "fx_usd": ("USDSEK", "USDNOK"),
+}
 GROUP_OF = {a: g for g, xs in GROUPS.items() for a in xs}
+GROUP_OF.update({a: g for g, xs in GROUPS_EXTRA.items() for a in xs})
 GROUP_WEIGHT = {"krypto": 0.5}
 LEVERAGE = {"aktienindizes": 20.0, "fx_usd": 100.0, "fx_kreuz": 100.0, "metalle": 10.0, "rohstoffe": 10.0,
             "anleihen": 10.0, "krypto": 2.0}
-QUOTE_CCY = {"GER40": "EUR", "UK100": "GBP", "JP225": "JPY"}       # everything else not FX: USD
+QUOTE_CCY = {"GER40": "EUR", "UK100": "GBP", "JP225": "JPY", "AUS200": "AUD", "FRA40": "EUR", "EU50": "EUR",
+             "ESP35": "EUR", "HK50": "USD"}                       # HKD is pegged to USD       # everything else not FX: USD
 YEAR = 252
 LOOKBACKS = {"12m": (252,), "blend_1_3_12": (21, 63, 252)}
 

@@ -27,12 +27,23 @@ TICKERS = {
     "XAUUSD": "GC=F", "XAGUSD": "SI=F", "BRENT": "BZ=F", "COPPER": "HG=F", "UST10Y": "ZN=F", "BTCUSD": "BTC-USD",
     # WTI: no long series (negative price 2020) - only in the CFD data
 }
+# Further markets FundedNext offers (measurement for a wider trend universe, 2026-10-29) -
+# NOT part of the agreed S-007 universe; studies pass them explicitly.
+EXTRA_TICKERS = {
+    "AUS200": "^AXJO", "FRA40": "^FCHI", "EU50": "^STOXX50E", "ESP35": "^IBEX", "HK50": "^HSI",
+    "XPTUSD": "PL=F", "XPDUSD": "PA=F",
+    "EURAUD": "EURAUD=X", "EURCAD": "EURCAD=X", "EURNZD": "EURNZD=X", "GBPAUD": "GBPAUD=X", "GBPCAD": "GBPCAD=X",
+    "GBPCHF": "GBPCHF=X", "GBPNZD": "GBPNZD=X", "NZDJPY": "NZDJPY=X", "CADJPY": "CADJPY=X", "CHFJPY": "CHFJPY=X",
+    "AUDCHF": "AUDCHF=X", "NZDCAD": "NZDCAD=X", "NZDCHF": "NZDCHF=X", "CADCHF": "CADCHF=X",
+    "USDSEK": "SEK=X", "USDNOK": "NOK=X",
+}
+ALL_TICKERS = {**TICKERS, **EXTRA_TICKERS}
 COLS = ("open", "high", "low", "close")
 
 
 def download(asset: str, start: str = "1995-01-01") -> pd.DataFrame:
     import yfinance as yf
-    d = yf.download(TICKERS[asset], start=start, progress=False, auto_adjust=False)
+    d = yf.download(ALL_TICKERS[asset], start=start, progress=False, auto_adjust=False)
     if isinstance(d.columns, pd.MultiIndex):
         d.columns = d.columns.get_level_values(0)
     d = d.rename(columns=str.lower)[list(COLS)].dropna(subset=["close"])
@@ -61,7 +72,7 @@ def load_daily(asset: str, *, fetch: bool = False) -> pd.DataFrame:
             raise FileNotFoundError(f"{f} missing - run studies/tsmom_check.py --fetch once")
         download(asset)
     df = pd.read_csv(f, index_col=0, parse_dates=True)
-    return fix_fx_dates(df) if TICKERS[asset].endswith("=X") else df
+    return fix_fx_dates(df) if ALL_TICKERS[asset].endswith("=X") else df
 
 
 def clean_bad_ticks(df: pd.DataFrame, n_sigma: float = 8.0, revert: float = 0.8, com: int = 60
@@ -86,4 +97,4 @@ def clean_bad_ticks(df: pd.DataFrame, n_sigma: float = 8.0, revert: float = 0.8,
     return out, bad
 
 
-__all__ = ["TICKERS", "CACHE", "download", "load_daily", "fix_fx_dates", "clean_bad_ticks"]
+__all__ = ["TICKERS", "EXTRA_TICKERS", "ALL_TICKERS", "CACHE", "download", "load_daily", "fix_fx_dates", "clean_bad_ticks"]

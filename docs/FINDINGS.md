@@ -845,3 +845,11 @@ Spec `docs/specs/weekly_level_break.yaml` (normal track), 8 markets pooled, 8 va
   DSR 0.24 / 0.16, PBO 0.36 -> **0 of 8 pass S4**. Holdout untouched.
 * Same pattern as S-004: a real but small effect; the 1-ATR stop on intraday bars makes the
   round trip 0.08-0.2 R.
+
+## 2026-10-29 — Wider trend universe (49 instead of 26 markets): worse, not better
+
+`studies/tsmom_universe_check.py`: S-007 rules on the 26 markets plus 23 further FundedNext
+markets (AUS200, CAC, STOXX 50, IBEX, Hang Seng, platinum, palladium, 14 FX crosses, USDSEK,
+USDNOK), train 2004-2024: Sharpe gross 0.79 -> 0.71, net 0.64 -> 0.46, 14/21 -> 12/21 years;
+FX crosses +37 R -> -1.5 R. With a fixed budget per asset class, more markets of the same
+class only dilute it ("Trends Everywhere" gains come from NEW classes). S-007 stays at 26.
