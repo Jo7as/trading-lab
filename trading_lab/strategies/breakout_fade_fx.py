@@ -102,11 +102,14 @@ def entry_allowed(t_ns: int) -> bool:
     return friday_entry_allowed(t_ns)
 
 
-def execute(prep: Prepared, cfg: BreakoutFadeConfig, d: int, start_ns: int, stop: float, target: float,
-            deadline_ns: int) -> dict | None:
+def execute(prep: Prepared, cfg, d: int, start_ns: int, stop: float, target: float,
+            deadline_ns: int, *, fin_pa: tuple[float, float] | None = None) -> dict | None:
     """Market entry at the first minute >= ``start_ns``; stop first each minute, target
     (if finite) only from the minute after entry; flat at ``deadline_ns`` (open of the
-    first minute at/after it, i.e. at the bar's close) or the Friday cut."""
+    first minute at/after it, i.e. at the bar's close) or the Friday cut.
+
+    ``fin_pa`` = measured (long, short) financing p.a. (negative = pays, S-005); without it
+    the S-004 rule: FX pays 1 % p.a., tripled on Wednesday. ``cfg`` needs ``slippage_bp``."""
     t, bid, ask = prep.m1_ns, prep.bid, prep.ask
     n = len(t)
     k0 = int(np.searchsorted(t, start_ns, "left"))
@@ -140,8 +143,13 @@ def execute(prep: Prepared, cfg: BreakoutFadeConfig, d: int, start_ns: int, stop
         k = n - 1
         px = (bid if d > 0 else ask)["close"][k]
     risk = d * (entry - stop)
-    fin = FIN_RATE_FX / 365.0 * rollover_weights(int(t[k0]), int(t[k]), triple_dow=2) * entry \
-        if asset_class(prep.asset) == "fx" else 0.0
+    if fin_pa is not None:
+        rate = fin_pa[0] if d > 0 else fin_pa[1]
+        fin = -rate / 365.0 * rollover_weights(int(t[k0]), int(t[k]),
+                                               triple_dow=2 if asset_class(prep.asset) == "fx" else 4) * entry
+    else:
+        fin = FIN_RATE_FX / 365.0 * rollover_weights(int(t[k0]), int(t[k]), triple_dow=2) * entry \
+            if asset_class(prep.asset) == "fx" else 0.0
     return {"entry_time": pd.Timestamp(t[k0], tz="UTC"), "exit_time": pd.Timestamp(t[k], tz="UTC"),
             "direction": d, "entry": entry, "stop": stop, "target": target if np.isfinite(target) else None,
             "r": (d * (px - entry) - fin) / risk, "swap_r": fin / risk, "exit_reason": reason}

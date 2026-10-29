@@ -796,3 +796,52 @@ price only (FundedNext FX swaps ~0).
 * With S-007 at Sharpe ~0.63, an uncorrelated partner only helps above ~0.26 (equal risk):
   value at 0.20 lowers the basket. Not a building block - another published effect that
   faded after publication.
+
+## 2026-10-29 — Crypto: VPIN as a risk filter - adds nothing beyond realised volatility
+
+`studies/crypto_vpin_risk_filter.py` (+ `tests/test_crypto_vpin_filter.py`), BTC + SOL perps 2024
+(train), Binance. VPIN with the paper's defaults (V = January's average daily notional / 50,
+n = 50), taker-side and BVC classification, sampled hourly; targets: |return| and realised
+volatility over the next 1 h / 4 h, jump = next-hour |return| > 3 x 7-day hourly std.
+
+* Unconditionally VPIN sorts risk: top vs bottom quintile, 1-h jump rate 1.0 -> 3.2 % (BTC, BVC),
+  0.9 -> 2.4 % (SOL, BVC).
+* **Controlling for past 1-h and 24-h realised volatility, VPIN adds nothing**: R² gain 0.0-0.4
+  points, and the coefficient is *negative* (t -1.5 .. -4.2) - at a given volatility, high VPIN
+  is followed by slightly calmer hours. Within volatility terciles the jump rates of the top-VPIN
+  hours are higher in some cells and lower in others (few jumps per cell).
+* Matches the known critique (Andersen & Bondarenko 2014, J. Financial Markets): VPIN's
+  forecasting power is mostly volatility and trading intensity. For a prop account's daily-loss
+  protection a plain realised-volatility filter does the same job without trade data.
+
+## 2026-10-29 — Crypto order flow, H2: Binance + Bybit aggregated - no gain; line closed
+
+Kim & Hansen measurement (`studies/crypto_kim_hansen_replication.py --venues ...`), 2024-01..10,
+opening imbalance from Binance alone, Bybit alone, and both summed (base-asset sizes):
+
+| 4 h slope, bp per unit OI | Binance | Bybit | Binance + Bybit |
+|---|---|---|---|
+| BTC | +2.4 (t 1.5) | +0.8 (t 0.7) | +1.8 (t 1.1) |
+| SOL | +4.5 (t 1.9) | +3.4 (t 1.8) | +4.8 (t 2.0) |
+
+* Bybit's flow is weaker than Binance's, and summing the two does not beat Binance alone
+  (BTC worse, SOL equal) - consistent with Binance as the price leader (Albers et al. 2021).
+  The top-10 % |OI| gross stays below costs in every variant (BTC combined +2.5..+6.4 bp).
+* **Line closed** (dossier `docs/strategies/crypto_orderflow_REJECTED.md`): the quarter-hour
+  effect is real but too small (2-9 bp vs ~11 bp), extreme/limit entries are not robust and
+  suffer adverse selection, SMC levels x flow behave like random levels, VPIN is volatility,
+  multi-venue aggregation adds nothing. Hyperliquid TWAPs (E5) not tested - no free history,
+  and a public signal on a venue no prop firm executes on.
+
+## 2026-10-29 — S-005: Weekly level break (own find from step B) - fails S4
+
+Spec `docs/specs/weekly_level_break.yaml` (normal track), 8 markets pooled, 8 variants, train
+2019-2024, ftmo costs + 0.5 bp, measured FundedNext swaps.
+
+* The continuation is real before costs: gross +0.10..+0.19 R per trade vs placebo (same
+  bracket, random bars at the same hour, random direction) +0.01..+0.03 R.
+* Costs eat most of it: 15m (1 ATR on 15m is small) net -0.05..-0.07 R; 1h 'durch' net
+  +0.052 R (3R) / +0.060 R (5R), 5/6 positive years but 2023 -35..-52 R; t 0.77 / 0.50,
+  DSR 0.24 / 0.16, PBO 0.36 -> **0 of 8 pass S4**. Holdout untouched.
+* Same pattern as S-004: a real but small effect; the 1-ATR stop on intraday bars makes the
+  round trip 0.08-0.2 R.

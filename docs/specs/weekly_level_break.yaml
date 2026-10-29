@@ -1,0 +1,100 @@
+# S-005: Wochenlevel-Bruch - Fortsetzung nach dem ersten Bruch des Vorwochenhochs/-tiefs
+# Herkunft: Schritt B (studies/liquidity_levels_study.py, docs/FINDINGS.md 2026-10-29): nach dem
+# ersten Überschreiten des Vorwochen-Extrems läuft der Kurs eher weiter (+0,10..+0,15 R
+# Überschuss bei 1 ATR Stop / 3-5 R Ziel, 13 von 16 Zellen positiv). ACHTUNG: aus UNSEREN
+# Trainingsdaten gefunden -> normale (strenge) Prüfung, keine Literatur-Spur; alle 8 gemessenen
+# Märkte gemeinsam, keine Auswahl der guten.
+
+id: S-005
+strategie: weekly_level_break
+titel: "Wochenlevel-Bruch: erstes Überschreiten des Vorwochenhochs (-tiefs) -> mit dem Bruch handeln, Stop 1 ATR, Ziel 3 oder 5 x Stop"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: ja)"
+abgestimmt_am: "2026-10-29"
+
+idee:
+  mechanismus: >
+    Über dem Vorwochenhoch liegen gebündelt Stop-Buys von Shorts und Breakout-Kauforders
+    (unter dem Tief spiegelbildlich). Wird das Level zum ersten Mal in der Woche
+    überschritten, lösen diese Orders aus und schieben den Kurs weiter - eine Stop-Kaskade
+    (Osler 2005). Je größer und bekannter das Level, desto mehr Orders liegen dort; das
+    Wochenlevel ist das größte, das wir gemessen haben (Tageslevel/Asia/Opening Range: halb
+    so stark).
+  quellen:
+    - "Osler (2005): Stop-loss orders and price cascades in currency markets, NY Fed SR 150"
+    - "Osler (2003): Currency orders and exchange rate dynamics, NY Fed SR 125"
+    - "docs/FINDINGS.md 2026-10-29 Schritt B (trading_lab/liquidity.py, 1536 Zellen)"
+
+handel:
+  maerkte: [EURUSD, GBPUSD, AUDUSD, USDJPY, US100, SP500, GER40, XAUUSD]
+  zeitrahmen: "Signal auf 15m oder 1h (Variante), Ereignis und Fills auf 1m Bid/Ask"
+  kontotyp: prop_standard
+  zielkonto: "FundedNext Stellar Instant"
+  max_haltedauer: "15m: 32 Kerzen (8 h), 1h: 24 Kerzen (1 Tag); spätestens Freitag 21:00 UTC"
+  wochenende_halten: false
+  news_fenster: "nicht modelliert (Kalender fehlt); Risiko: Brüche kommen oft MIT News - offener Punkt"
+
+entry:
+  bedingungen:
+    - "1. Levels aus trading_lab/liquidity.py (pw): Hoch/Tief der Vorwoche (Woche ab Sonntag 17:00 New York), gültig die ganze laufende Woche."
+    - "2. Ereignis: die ERSTE Minute der Woche, die über dem Vorwochenhoch (unter dem -tief) handelt; spätere Überschreitungen derselben Woche zählen nicht."
+    - "3. Variante art: 'durch' = nur wenn die Signalkerze (15m/1h), die diese Minute enthält, auch jenseits des Levels schließt; 'alle' = jedes erste Überschreiten."
+    - "4. Richtung = Richtung des Bruchs (Hoch -> Long, Tief -> Short). Höchstens eine Position je Markt; je Woche und Seite höchstens ein Trade."
+  ausfuehrung: "Market zum Open der Minute nach dem Schluss der Signalkerze (Long zum Ask, Short zum Bid), 0,5 bp Slippage. Kein Einstieg ab Freitag 21:00 UTC."
+
+stop_loss:
+  regel: "Einstieg -/+ 1 x ATR(14) des Signal-Zeitrahmens (Stand Signalkerze). Im Einstiegs-Minute zählt nur der Stop; bei gleichzeitigem Stop und Ziel in einer Minute zählt der Stop."
+  begruendung: "Läuft der Kurs 1 ATR gegen den Bruch zurück, ist die Kaskade gescheitert; Schritt B wurde mit genau diesem Stop gemessen."
+
+take_profit:
+  regel: "Ziel = Einstieg +/- k x Stop-Abstand, k in {3, 5} (Variante)."
+  begruendung: "Die Kaskade bringt große Bewegungen; Schritt B zeigte den Vorsprung bei 3-5 R, nicht bei 1 R."
+
+exit_sonst:
+  - "Zeit-Exit nach 32 (15m) bzw. 24 (1h) Signalkerzen, Market"
+  - "Freitag 21:00 UTC: alles schließen"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  max_offene_positionen: 4
+  korrelation: "EURUSD/GBPUSD/AUDUSD zusammen höchstens 1 R in gleicher USD-Richtung; US100/SP500 zusammen höchstens 1 R. Wird im Portfolio-Schritt angewendet; die Bewertung nutzt alle Trades."
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 6
+
+kosten:
+  profil: ftmo
+  swaps: "über Nacht: gemessene FundedNext-Swaps (artifacts/broker_costs/fundednext_demo.json), sonst Formel von S-007"
+  slippage: "0,5 bp je Market- und Stop-Fill"
+
+daten:
+  quelle: "Dukascopy 1m Bid/Ask (artifacts/cache/m1); Levels auf 1m-Mitte; Training 2019-2024, Holdout ab 2025"
+  bekannte_probleme:
+    - "Montag: das Vorwochenlevel wird oft schon in der Sonntagnacht-Lücke überschritten (dünner Markt) - zählt als Ereignis, wird aber am Open der nächsten Minute gefüllt"
+    - "Aus unseren Daten gefunden: die Prüfung muss mehr leisten als bei einer Paper-Regel (normale Spur, DSR mit allen 8 Varianten)"
+  warmup: "eine Woche (Vorwochenlevel) + 14 Kerzen ATR"
+
+varianten:
+  - name: basis
+    aenderung: "1h, art 'durch', Ziel 3 R"
+  - name: gitter_zeitrahmen
+    aenderung: "zeitrahmen in {15min, 1h}"
+  - name: gitter_art
+    aenderung: "art in {durch, alle}"
+  - name: gitter_ziel
+    aenderung: "ziel_r in {3, 5}"
+  # 2 x 2 x 2 = 8 Varianten
+
+bewertung:
+  einheit: "alle 8 Märkte gemeinsam je Variante (eine Zeile pro Variante, keine Marktauswahl)"
+  spur: "normal (DSR >= 0,95 mit 8 Versuchen, 70 % positive Jahre, Nachbarn, Placebo, PBO)"
+  placebo: "gleiche Klammer (1 ATR Stop, k x Ziel, gleiche Haltedauer) an zufälligen Signalkerzen derselben Märkte und Uhrzeiten, zufällige Richtung, 100 Läufe"
+  zeitraeume: "Training 2019-2024, Holdout ab 2025 - einmalig mit Freigabe"
+
+referenz: >
+  Schritt B (Mittel über die 8 Märkte, ohne Kosten): 'durch' 1h k=3 Überschuss ≈ +0,13 R,
+  k=5 ≈ +0,13 R; netto ≈ +0,02..+0,04 R gepoolt. Erwartung: Ø brutto je Trade ≈ +0,1 R,
+  netto klein positiv. Plausibilitätsgrenze: netto > 0,3 R je Trade oder > 50 % Treffer bei
+  3 R -> zuerst Fehler suchen.
+
+tests:
+  - tests/test_weekly_level_break.py
