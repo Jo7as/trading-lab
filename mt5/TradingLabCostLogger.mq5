@@ -21,10 +21,10 @@
 #include <Trade/Trade.mqh>
 
 input group "=== Symbols (lab=broker, comma separated) ==="
-input string InpMap1 = "SP500=US500,US100=US100,US30=US30,GER40=GER40,UK100=UK100,JP225=JP225";
+input string InpMap1 = "SP500=SP500m,US100=ND100m,US30=,GER40=GDAXIm,UK100=UK100,JP225=NI225";   // FundedNext names
 input string InpMap2 = "EURUSD=EURUSD,GBPUSD=GBPUSD,USDJPY=USDJPY,AUDUSD=AUDUSD,NZDUSD=NZDUSD,USDCAD=USDCAD,USDCHF=USDCHF";
 input string InpMap3 = "EURJPY=EURJPY,EURGBP=EURGBP,EURCHF=EURCHF,GBPJPY=GBPJPY,AUDJPY=AUDJPY,AUDNZD=AUDNZD,AUDCAD=AUDCAD";
-input string InpMap4 = "XAUUSD=XAUUSD,XAGUSD=XAGUSD,BRENT=UKOIL,WTI=USOIL,COPPER=XCUUSD,UST10Y=,BTCUSD=BTCUSD";
+input string InpMap4 = "XAUUSD=XAUUSD,XAGUSD=XAGUSD,BRENT=,WTI=,COPPER=,UST10Y=,BTCUSD=";        // not offered on FundedNext-Server3
 
 input group "=== Logging ==="
 input int    InpEverySeconds = 60;      // quote snapshot interval
