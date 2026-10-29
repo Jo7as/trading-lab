@@ -1,0 +1,95 @@
+# S-008: Turn of the Month - Aktienindizes long über den Monatswechsel (Kalender-Satellit)
+# Herkunft: Recherche 2026-10-29 (docs/FINDINGS.md). Veröffentlichte Regel, Literatur-Spur
+# (docs/PRUEFABLAUF.md). Satellit zum Korb: wenige Tage pro Monat, zeitlich unabhängig von
+# der Trendfolge S-007.
+
+id: S-008
+strategie: turn_of_month
+titel: "Turn of the Month: Aktienindizes long vom vorletzten Handelstag-Schluss bis zum Schluss des 3. Handelstags des neuen Monats"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: jo)"
+abgestimmt_am: "2026-10-29"
+
+idee:
+  mechanismus: >
+    Zum Monatsende und -anfang fließt planbares Geld in Aktien: Gehälter, Pensions- und
+    Sparpläne, Fonds-Zuflüsse, Neugewichtungen zum Monatsultimo. Die Nachfrage ist
+    vorhersehbar, aber zeitlich gebündelt - der Preis steigt in diesen Tagen stärker als an
+    anderen. McConnell/Xu (2008): in den USA 1926-2005 entfällt die GESAMTE Aktienprämie
+    auf die 4 Tage um den Monatswechsel; in 30 von 34 Ländern ebenso. Für S&P-500-Futures
+    der einzige Kalendereffekt, der dauerhaft signifikant blieb.
+  quellen:
+    - "McConnell, Xu (2008): Equity Returns at the Turn of the Month, Financial Analysts Journal 64(2)"
+    - "Lakonishok, Smidt (1988): Are Seasonal Anomalies Real? A Ninety-Year Perspective, RFS 1(4)"
+    - "Gegenstimme: Abschwächung nach 2006 in einigen entwickelten Märkten (MSCI-Studie, Aalto 2014) - Risiko"
+
+handel:
+  maerkte: [SP500, US100, US30, GER40, UK100, JP225]
+  zeitrahmen: "Tagesschlusskurse (Börsenkalender des jeweiligen Index)"
+  kontotyp: prop_swing
+  zielkonto: "FundedNext Stellar Instant (Wochenende erlaubt)"
+  max_haltedauer: "4 Handelstage (+ evtl. Wochenende)"
+  wochenende_halten: true
+  news_fenster: "Ein- und Ausstieg am Tagesschluss - US-Arbeitsmarktdaten (1. Freitag) fallen meist in das Fenster, werden aber nicht im 5-Minuten-Fenster gehandelt"
+
+entry:
+  bedingungen:
+    - "1. Handelstage je Index aus seinen eigenen Daten (Tage mit Schlusskurs). Tag -1 = letzter Handelstag des Monats, Tag +1..+3 = die ersten drei des neuen Monats (McConnell/Xu-Fenster -1..+3)."
+    - "2. Long zum Schlusskurs von Tag -2 (vorletzter Handelstag), damit die Rendite von Tag -1 enthalten ist."
+    - "3. Jeder Monat, ohne Filter."
+  ausfuehrung: "Market zum Schlusskurs von Tag -2 (+ halber gemessener Spread + 0,5 bp Slippage); die Order kann vor dem Schluss gestellt werden, weil der Termin vorher feststeht - kein Look-ahead."
+
+stop_loss:
+  regel: "Kein Stop (Paper): das Risiko ist durch die feste Haltedauer von 4 Tagen und das Vola-Sizing begrenzt. Es gibt keine Varianten."
+  begruendung: "Ein Stop würde den Effekt (Zufluss über genau diese Tage) an zufälligen Tagen abschneiden."
+
+take_profit:
+  regel: "Zeit-Exit zum Schlusskurs von Tag +3."
+  begruendung: "Das Fenster des Papers."
+
+exit_sonst:
+  - "Zeit-Exit Tag +3, kein anderer"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  sizing: >
+    Je Index gleiches Risiko: Positionsgröße so, dass eine Tages-Standardabweichung (EWMA 60
+    Tage) 0,5 % / Anzahl Indizes des Kontos entspricht; die 6 Indizes zusammen sind EIN
+    Block (1 R = 0,5 % = eine Tages-Sigma des Blocks bei Korrelation 1, konservativ).
+  max_offene_positionen: 6
+  korrelation: "Die 6 Indizes laufen stark zusammen - sie teilen sich ein Risikobudget (oben), nicht 6 eigene."
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 6
+
+kosten:
+  profil: ftmo
+  swaps: "Long zahlt Zins der Kurswährung + 2,5 % p.a. je Kalendertag (wie S-007, trading_lab/rates.py)"
+  slippage: "0,5 bp je Fill; Spread = gemessener Median je Index (artifacts/tsmom/costs.json)"
+
+daten:
+  quelle: "lange Tagesdaten 2004-2024 (trading_lab/long_daily.py: ^SP500TR, ^NDX, ^DJI, ^GDAXI, ^FTSE, ^N225), Holdout ab 2025"
+  bekannte_probleme:
+    - "Kursindizes ohne Dividenden (US100, US30, UK100, JP225) - bei 4 Tagen pro Monat vernachlässigbar"
+    - "Börsenschlüsse unterschiedlich (Tokio, Frankfurt, New York) - jeder Index mit seinem eigenen Kalender"
+    - "Feiertage verschieben Tag -2 / +3 - aus den Handelstagen der Daten bestimmt, nicht aus dem Kalender"
+  warmup: "60 Handelstage (Vola)"
+
+varianten:
+  - name: basis
+    aenderung: "Fenster -1..+3, alle 6 Indizes, kein Stop - die Regel des Papers, keine weiteren Varianten"
+
+bewertung:
+  einheit: "Portfolio der 6 Indizes (wie S-007); Trades = jede Index-Position; Tagesrenditen in R"
+  spur: "Literatur-Spur (veröffentlichte Regel, Referenz muss bestehen)"
+  placebo: "gleiche Haltedauer (4 Tage) und Sizing, Einstiegstag zufällig in der Monatsmitte (Tag 6 bis -6), 100 Läufe"
+  zeitraeume: "Training 2004-2024, Holdout ab 2025 - einmalig mit Freigabe"
+
+referenz: >
+  McConnell/Xu: die mittlere Tagesrendite in den Fenster-Tagen (-1..+3) ist deutlich höher
+  als an den übrigen Tagen; die Aktienprämie kommt fast ganz aus dem Fenster. Prüfung: auf
+  unseren Daten 2004-2024 Ø Tagesrendite Fenster vs. Rest je Index (Erwartung: Fenster
+  positiv und größer; Rest nahe null). Plausibilitätsgrenze: Netto-Sharpe der Tagesrenditen
+  > 1,5 oder > 70 % Gewinnmonate -> Fehler suchen.
+
+tests:
+  - tests/test_turn_of_month.py

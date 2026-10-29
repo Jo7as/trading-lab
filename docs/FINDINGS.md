@@ -642,3 +642,18 @@ differential - 1 %). Portfolio = unit (agreed), 8 % target vol.
   3 % vol -> ~1.7 % p.a., 95 % 1-year survival, ~2.5 % of the account paid out per year;
   6 % vol -> 49 % survival. A basket pillar, not the 1 %/month on its own; real swap rates
   (bonds, futures-based CFDs) are the biggest open cost question.
+
+## 2026-10-29 — S-008: Turn of the Month (McConnell/Xu) - the effect is gone, fails S1
+
+Spec `docs/specs/turn_of_month.yaml` (paper rule: long 6 indices from the close of day -2 to
+the close of day +3, shared risk budget, no variants), long daily data 2004-2024.
+
+* Reference only partly: window vs other days (bp/day) SP500 +5.3 vs +4.5, US100 +6.8 vs
+  +5.8, GER40 +5.7 vs +3.4, UK100 +5.8 vs +0.8, but US30 +2.8 vs +3.4 and JP225 -0.4 vs +4.6.
+* Portfolio: 1506 positions, +0.022 R gross / +0.005 R net, Sharpe 0.28 / 0.07, 12/21 years.
+  **Placebo (4 random mid-month days, same sizing) +0.026 R - the window is no better than
+  any other 4 days** -> fails S1. Holdout untouched. Consistent with the post-2006 decline
+  reported for developed markets.
+* Bug found on the way (before any verdict): the shared budget was divided by the number of
+  indices entering the SAME day - scattered placebo entries got 6x the size; now divided by
+  the active indices, with a test.
