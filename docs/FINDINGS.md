@@ -758,3 +758,41 @@ fills only on trade-through, thresholds and offsets fixed before the run (2 x 2 
   month end GBPUSD +3.4 bp / EURGBP +2.6 bp (t ~2.5, n 72) ~ cost. Not tradable with market orders.
 * Lesson: intraday flow effects exist but are 1-3 bp; retail CFD costs are 2-3 bp. Basket
   blocks have to come from multi-day holding periods.
+
+## 2026-10-29 — Crypto order flow, H8: SMC levels x order flow - no edge, levels = random levels
+
+`studies/crypto_level_flow_study.py` on `trading_lab/level_flow.py` (+ `tests/test_level_flow.py`).
+BTC + SOL perps 2024 (train), Binance flow and prices, 10-s bars. Levels: previous day / week
+high-low (UTC), external swings, EQH/EQL, order blocks (15-min `market_structure`), previous-day
+POC/VAH/VAL. First touch per level, 5-min reaction window, labels with thresholds fixed before
+the run (flow into the level >= 0.15, through = close >= 0.25 ATR beyond): absorption / reclaim
+(fade) and cascade / break (follow). Placebo: the same levels moved 0.15-0.5 %, 3 seeds.
+12,820 real events, 38,139 control events.
+
+* **No label is positive after costs** (~11.4 bp taker round trip) in the pooled tables; real and
+  control levels behave alike - the SMC levels carry no information a random nearby price
+  does not (as with fib levels in S-002).
+* **Flow does not improve SMC's reading:** absorption (strong flow in, close back) faded is
+  *worse* than reclaim without flow (4 h: -8.1 vs +1.4 bp both markets; BTC -10.8 bp, t -2.2;
+  order blocks -18.9 bp, t -2.0). Read the other way it says the flow direction tends to win even
+  when the first 5 minutes reject - in line with Kim & Hansen's flow continuation - but this is a
+  post-hoc reading of one cell family and needs its own pre-registered test on other data.
+* "Break" without flow mean-reverts strongly at real AND control levels (4 h -12.9 vs -15.1 bp):
+  a generic reversal after a 0.25-ATR push, not a level effect.
+* Killzones: no zone turns a label positive net with a control that differs (Asia reclaim +12.9
+  gross vs control +10.9).
+* Limits: one year, Binance flow only (Bybit download still running), one set of thresholds,
+  5-min window, taker costs. Verdict: H8 as specified rejected; not worth a spec.
+
+## 2026-10-29 — Quick check FX value (Asness/Moskowitz/Pedersen): decayed, does not help the basket
+
+`studies/fx_value_check.py`, FRED spot + CPI 1980-2024, 7 currencies vs USD, monthly, ~8 % vol,
+price only (FundedNext FX swaps ~0).
+
+* Time-series value (long cheap, short expensive currency): Sharpe 0.05 - nothing.
+* Cross-sectional value (rank-weighted, dollar neutral): Sharpe 0.50 over 1980-2024 (t 3.35)
+  but decaying by decade: 0.68 / 0.86 / 0.46 / 0.32 / **-0.40 (2020s)**; 2004-2024 only 0.20,
+  11/21 positive years. Correlation with S-007 0.00.
+* With S-007 at Sharpe ~0.63, an uncorrelated partner only helps above ~0.26 (equal risk):
+  value at 0.20 lowers the basket. Not a building block - another published effect that
+  faded after publication.
