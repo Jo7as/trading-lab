@@ -937,7 +937,7 @@ time-at-price profile (50 bins, 70 % value area) -> POC / VAH / VAL; control = p
   still net -0.04..-0.07 R after costs.
 * Net on every cell negative (-0.04..-0.34 R). Time-at-price adds no tradable information here.
 
-## 2026-10-29 — Crypto H10: volume-profile levels (magnet / hold / SMC + flow) - 2024 discovery, 2023 PENDING
+## 2026-10-29 — Crypto H10: volume-profile levels (magnet / hold / SMC + flow) - no better than random levels
 
 Pre-registration `docs/specs/h10_volume_profile_PREREG.md` (commit 11f74bb, before any data was
 read). `trading_lab/volume_levels.py` (+ `tests/test_volume_levels.py`), `studies/crypto_volume_profile_study.py`;
@@ -966,5 +966,69 @@ for time-at-price.
   n 173, BTC and SOL positive); hold `asia:val` -9.0 pp (t -3.07, holds LESS); interactions
   `poc:flow` -7.5 pp / `vah:flow` -7.3 pp (both mirrored by the control). 4 of 97 cells at roughly a
   Bonferroni threshold - about what chance plus the generic flow effect give.
-* **2023 confirmation not run yet:** the 2023 Binance cache is incomplete (BTC 78/365, SOL 141/365
-  days; the H9 download is paused). Verdict pending: `--year 2023`, then `--verdict`.
+* **2023 confirmation (run once, unchanged code; `artifacts/crypto/vp_2023.md`, `vp_verdict.md`;
+  87k levels, 68k magnet, 44k hold events):** `week:hvn` magnet +5.9 pp, t 1.58 - fails;
+  `asia:val` -3.0 pp, t -0.39 - fails; `leg:vah` breaks more again (-3.4 pp, t -2.94, both markets
+  -3.4 pp) but stays below the 5 pp bar in both years. Prior-day POC within 24 h 51.1 % vs control
+  51.8 %; naked POC 27.3 % vs 30.3 %. Confluence again 0 pp.
+* **Interactions `poc:flow` (-10.5 pp, t -3.70) and `vah:flow` (-11.4 pp, t -5.18) pass the rule
+  formally - but the identical split on the shifted CONTROL levels gives -11.3 / -12.7 pp. Flow into
+  any price lowers the bounce rate (flow continuation, as in H8/H9 and Kim & Hansen); the profile level
+  adds nothing. Not a volume-profile effect.**
+* **Verdict (pre-registered rule): 0 of 87 magnet/hold cells confirmed - volume-profile levels on
+  BTC/SOL perps are no better than random levels**, for every window (fixed bars, sessions, legs) and
+  every node type; no "magnet", no "hold", no SMC synergy. Together with H8 (previous-day POC/VA) and
+  step D (CFD time-at-price) the volume-profile line is closed. Leads worth nothing on their own: leg
+  value-area levels break ~3.5 pp more often than random (both years, < 5 pp); generic taker-flow
+  continuation at touches (already the H9 question).
+
+## 2026-10-29 — H11-B quick check: NY opening range + untouched 1h level as target - level = random level
+
+User idea (chart, NQ 5m): the first 30 min of New York draw a range 0 / 0.5 / 1, an untouched 1h
+swing high/low beyond it is the target, and two different paths lead there - "deep" (retrace to 0.5,
+limit there, stop 0) or "shallow" (break of 1, stop order, stop 0.5). Quick measurement, no spec:
+`studies/h11_target_first_quick.py` (+ `tests/test_h11_target_first.py`), report
+`artifacts/h11_target_first_quick.json`. US100, mid space, `build_study_frame`, NY clock, entries
+10:00-11:59, flat 15:55, stop wins ties, target only from the bar after the fill. **2016-2021 only**;
+2022-2024 untouched for a confirmation, holdout closed. Placebo: same days and paths, target distance
+(in range units) permuted across the days of the group, 1000 shuffles.
+
+| dir | path | n | target hit | driftless p0 | R gross | placebo | p | R net |
+|---|---|---|---|---|---|---|---|---|
+| long | deep | 161 | 27 % | 31 % | -0.13 | -0.09 | 0.82 | -0.17 |
+| long | shallow | 197 | 59 % | 57 % | +0.04 | +0.05 | 0.57 | -0.01 |
+| short | deep | 240 | 26 % | 29 % | +0.05 | +0.04 | 0.44 | +0.01 |
+| short | shallow | 166 | 55 % | 52 % | +0.07 | +0.03 | 0.24 | +0.02 |
+
+* Hit rates sit on the driftless first-passage value for the given stop/target geometry; the real 1h
+  level beats its shuffle in no group. Net within +-0.02 R, sign flips year to year.
+* Same verdict as H8/H10 and step C/D: a "liquidity" level is reached as often as any level at the
+  same distance. The path classes (deep vs shallow) only change the geometry, not the odds.
+* Not tested: token-learned path classes (H11 token stage). Expectation lowered - the setup itself
+  carries no effect, so tokens would have to supply all of it.
+
+## 2026-10-29 — H11-A quick check: a big London/NY move is predictable from the pre-session range (the bar for tokens)
+
+`studies/h11_move_forecast_quick.py`, report `artifacts/h11_move_forecast_quick.json`. Mid space,
+`build_study_frame`, exchange-local clocks, **2016-2021 only**. y = range of the first 4 h of the
+session / its 20-session median (prior only); "big" = top quartile of y. Predictors: x_pre = 6 h
+pre-session range / own 20-session median, x_rel = pre range / session median, x_prev = yesterday's y,
+x_reg = 20/100-session median ratio.
+
+| asset:session | n | AUC x_pre | AUC x_rel | P(big) top quintile x_rel | room (median range / spread) |
+|---|---|---|---|---|---|
+| US100 ny | 1389 | 0.70 | 0.71 | 53 % | 66 |
+| SP500 ny | 1249 | 0.76 | 0.76 | 59 % | 41 |
+| US30 ny | 1390 | 0.74 | 0.74 | 57 % | 85 |
+| GER40 london | 766 | 0.67 | 0.67 | 47 % | 80 |
+| UK100 london | 616 | 0.72 | 0.70 | 55 % | 50 |
+| XAUUSD london | 1374 | 0.63 | 0.66 | 45 % | 19 |
+| XAUUSD ny | 1403 | 0.65 | 0.67 | 44 % | 28 |
+
+* Base rate 25 %; bottom quintile 8-17 %. AUC > 0.5 in every year for the US indices (0.58-0.84).
+  This is volatility clustering, not news timing (P(big) by weekday flat, 20-33 %). GER40 starts
+  2018 here (pre-session coverage before 2018 below 80 %).
+* x_reg < 0.5 is mostly the normaliser (a rising median shrinks y), not a signal.
+* Meaning for H11: a token reading of the pre-session must beat AUC ~0.70 (indices) to add anything.
+  A predicted big range is not yet a trade - direction is the open question (stage 2: tokens /
+  two-sided breakout / EMA trend / 15m BOS as a fixed list).
