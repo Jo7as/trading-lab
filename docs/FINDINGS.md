@@ -1183,3 +1183,28 @@ train 2006-2024 (2004 + 24 months warm-up).
   4 % vol): +11.5 % in 22 months (~0.52 %/month), Sharpe 1.40, max DD -5.1 %, 17/22 positive months, worst month
   -3.1 %. Caveats: 22 strong equity months; correlation of the two blocks 0.46 here vs 0.18 in train -
   in a sharp equity crash they may fall together. Basket holdout is not a separate clean test of the mix.
+
+## 2026-10-31 — Paket 1: planted edge in real prices - how many edges does the pipeline miss?
+
+`studies/planted_edge.py`, tests `tests/test_planted_edge.py`: a known drift written into real SP500 1m prices
+(mid, bid, ask together), neutral rig with 1 trade per weekday and 9 variants, full path (`optimise` with costs,
+neighbours, replay placebo, DSR, PBO, then `run_funnel`), 40 seeds per level, train 2019-2024 (6 years).
+
+| Sharpe before costs | best row net | S1 | S2 | S3 | S4 |
+|---|---|---|---|---|---|
+| 0 (control) | -0.15 | 65 % | 38 % | 5 % | **0 %** |
+| 0.5 | 0.27 | 95 % | 75 % | 38 % | 0 % |
+| 1.0 | 0.67 | 100 % | 95 % | 68 % | **20 %** |
+| 1.5 | 1.09 | 100 % | 100 % | 93 % | **53 %** |
+| 2.0 | 1.51 | 100 % | 100 % | 95 % | 73 % |
+| 2.5 | 1.93 | 100 % | 100 % | 100 % | 78 % |
+| 3.0 | 2.35 | 100 % | 100 % | 100 % | 80 % |
+
+* **No false alarm:** 0 of 40 at S4 (95 % upper bound ~7 %). The pipeline does not invent edges here.
+* **It misses small edges:** on 6 years a net Sharpe of ~0.7 passes S4 in only 1 of 5 runs; 50 % needs ~1.1.
+  Our real edges are in the 0.5-0.7 range. This is statistics (t = Sharpe x sqrt(years)), not a bug.
+* **PBO weakness:** the hit rate stalls at ~80 % although DSR and placebo are at 100 %: in 15-22 % of the runs
+  with strong edges PBO > 0.25 alone rejects. PBO measures rank stability; among near-equal variants of one
+  real edge the in-sample best is arbitrary. Not changed (thresholds stay). Checked on all 345 real rows: PBO
+  alone rejected **no** real candidate so far.
+* S1/S2 pass noise often at Sharpe 0 - by design of a loose-to-strict funnel; best-of-9 flatters the net value.
