@@ -6,9 +6,9 @@
 id: S-010
 strategie: drop_continuation
 titel: "Fortsetzung nach scharfem 5-min-Abverkauf im 1h-Aufwärtstrend (Short)"
-status: entwurf
-abgestimmt_von: ""
-abgestimmt_am: ""
+status: abgestimmt
+abgestimmt_von: "Jo7as (im Chat, inkl. Kontoannahme FundedNext Stellar Instant)"
+abgestimmt_am: "2026-10-30"
 
 idee:
   mechanismus: >
