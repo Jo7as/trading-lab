@@ -78,3 +78,16 @@ def test_directional_stats_ignores_pure_volatility():
     r = directional_stats(np.array([1.0, 1.0, 0.0, 1.0]), np.zeros(4), p, p, np.arange(4),
                           np.array(["a", "a", "b", "b"]))
     assert r["dir_excess"] == 0.75 and r["dir_markets_up"] == 2
+
+
+def test_fx_mirror_swaps_letters_and_trend():
+    from studies.h12_fx_check import mirror
+    from trading_lab.chart_tokens import sax_str
+    # cca / size l / v3 / trend up
+    word = 2 * 9 + 2 * 3 + 0
+    code = (((word * 3 + 2) * 3 + 2) * 2) + 1
+    m = mirror(code)
+    tok, tr = divmod(m, 2)
+    w, rest = divmod(tok, 9)
+    assert sax_str(w, 3, 3) == "aac" and rest == 2 * 3 + 2 and tr == 0
+    assert mirror(m) == code
