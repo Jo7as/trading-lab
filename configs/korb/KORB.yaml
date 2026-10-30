@@ -17,4 +17,5 @@ bausteine:
   laufen_lassen: "studies/tsmom_check.py --referenz --broker artifacts/broker_costs/fundednext_demo.json"
   rhythmus: "woechentlich, Mittwoch 15:00 New York"
 kandidaten_nicht_bestaetigt:
+- {id: S-010, strategie: vol_managed_equity, grund: "S1-S4 bestanden (netto Sharpe 0,54, Korb 0,78), Holdout ab 2025 noch offen; Nutzer will den Baustein im Korb (2026-10-30)"}
 - {id: S-009, strategie: pre_fomc, grund: "echt (Placebo-Vorsprung +0,056 R, t 2,11), aber 4/6 positive Jahre - S3"}
