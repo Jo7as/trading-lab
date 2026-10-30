@@ -1208,3 +1208,14 @@ neighbours, replay placebo, DSR, PBO, then `run_funnel`), 40 seeds per level, tr
   real edge the in-sample best is arbitrary. Not changed (thresholds stay). Checked on all 345 real rows: PBO
   alone rejected **no** real candidate so far.
 * S1/S2 pass noise often at Sharpe 0 - by design of a loose-to-strict funnel; best-of-9 flatters the net value.
+
+## 2026-10-31 — Paket 3: power hint and watchlist - the list is empty today
+
+`trading_lab/watchlist.py`, `studies/watchlist.py`, result `docs/BEOBACHTUNG.md`. No gate changed.
+* Benjamini-Hochberg at 20 % FDR over 60 families (strategy x market, S-005, S-008, S-009), best variant corrected
+  for the search inside its family: **0 on the list**. Best: momentum US100 p 0.007 (t 3.74, 77 effective
+  trials, but failed the holdout inside TK6), S-009 pre-FOMC p 0.018 (t 2.11, holdout untouched), noise area.
+  60 families need p <= 0.0033 for rank 1. S-009 does not qualify; it stays the closest unspent candidate.
+* The families are correlated and the Bonferroni step inside a family is conservative, so the list errs towards
+  empty; its value is in fresh studies with few families, not in re-scoring the old batch.
+* Paket 2 (trial register, holdout counter) dropped on the user's decision: nothing gets stricter.

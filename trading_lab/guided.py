@@ -43,6 +43,7 @@ import pandas as pd
 from . import screening, strategy_spec
 from .optimizer import (MIN_TRADES, build_rows, evaluate_holdout, grid_size, run_variant,
                         per_year, prop_profile, search, shortlist)
+from .watchlist import power_note
 from .registry import (ASSETS, BUDGET_SCALE, DESCRIPTIONS, HOLDOUT_START, NOT_ADAPTED,
                        REGISTRY, SHORTLIST, load_cached)
 
@@ -361,6 +362,9 @@ class GuidedCheck:
             opts = {k: f"{name} (~{max(20, int(b * scale))} Varianten)" for k, (name, b) in BUDGETS.items()}
             b = self._choose("Wie gründlich suchen?", opts, "n")
             self.budget = max(20, int(BUDGETS[b][1] * scale))
+        years = (self.holdout_start - self.m1.index[0]).days / 365.25 if getattr(self, "m1", None) is not None else 0.0
+        if years > 0:                              # a hint, it blocks nothing
+            self.say(f"\n  Hinweis: {power_note(years, self.budget)}")
         self._record(5, grid={k: list(v) for k, v in self.spec.grid.items()}, budget=self.budget)
 
     # 6 ─────────────────────────────────────────────────────────────────

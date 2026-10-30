@@ -84,3 +84,21 @@ veröffentlichten Faktor), gelten zwei angepasste Schwellen (`trading_lab/screen
 Warum: bei langsamen Strategien wächst t nur mit der Wurzel der Jahre (t ≈ Sharpe x √Jahre);
 eine 100 Jahre belegte Kante mit Sharpe 0,5 schafft in 21 Jahren nur t ≈ 2,3. Die Spur ist
 kein Schlupfloch für eigene Ideen: ohne Veröffentlichung und bestandene Referenz gilt sie nicht.
+
+
+## Power-Hinweis und Beobachtungsliste
+
+Beides macht die Prüfung **nicht strenger** und lockert sie nicht: S1-S5 bleiben unverändert.
+
+* **Power-Hinweis:** Schritt 5 zeigt, wie groß die Chance ist, eine Kante einer bestimmten Stärke mit den
+  vorhandenen Jahren nachzuweisen (`trading_lab/watchlist.py`). Nur eine Warnung. Ein Fehlschlag bei niedriger
+  Trefferchance ist kein Gegenbeweis.
+* **Beobachtungsliste** (`studies/watchlist.py`, Ergebnis `docs/BEOBACHTUNG.md`): reine Beobachtung, keine
+  Stufe. Benjamini-Hochberg bei 20 % FDR über alle Familien (Strategie x Markt), beste Variante korrigiert für
+  die Suche in der Familie. Ein Eintrag gibt **weder Handel noch den Korb** frei, sondern nur eine Prüfung auf
+  frischen Daten oder einen Test im Korb.
+* **Korb-Test:** Kandidaten werden vorab benannt und als eine Hypothese geprüft (`docs/PORTFOLIOS.md`,
+  `studies/portfolio_holdout.py`), ohne nachträgliche Auswahl. Der Holdout wird dafür nur mit Freigabe geöffnet.
+
+Warum: `studies/planted_edge.py` zeigt, dass eine Netto-Sharpe von ~0,7 auf 6 Jahren Stufe 4 nur in 1 von 5
+Läufen besteht (keine Fehlalarme). Knappe Fälle sollen sichtbar bleiben, statt verloren zu gehen.
