@@ -507,6 +507,15 @@ def track_a(df: pd.DataFrame, feasibility: bool) -> dict:
     return {"min_occ": min_occ, "weeks": weeks, "tried": tried, "candidates": cands}
 
 
+def directional_stats(y_d: np.ndarray, y_o: np.ndarray, p_d: np.ndarray, p_o: np.ndarray,
+                      cluster: np.ndarray, market: np.ndarray) -> dict:
+    """Prereg amendment: does D beat O beyond the control? s = (y_D - y_O) - (p_D - p_O)."""
+    s = (y_d - y_o) - (p_d - p_o)
+    by_m = {str(m): float(s[market == m].mean()) for m in np.unique(market)}
+    return {"dir_excess": float(s.mean()), "dir_z": clustered_z(s, cluster), "dir_by_market": by_m,
+            "dir_markets_up": sum(v > 0 for v in by_m.values())}
+
+
 def evaluate_a(df: pd.DataFrame, period: str, units: list[dict]) -> list[dict]:
     d = df[df["period"] == period].reset_index(drop=True)
     y = {"up": (d["move"] == 1).to_numpy(float), "down": (d["move"] == -1).to_numpy(float)}
@@ -530,6 +539,9 @@ def evaluate_a(df: pd.DataFrame, period: str, units: list[dict]) -> list[dict]:
                 per_m[m] = float(yy[r].sum() / pp[r].sum()) if pp[r].sum() > 0 else float("nan")
         res["lift_by_market"] = per_m
         res["markets_up"] = sum(v > 1 for v in per_m.values())
+        other = "down" if u["dir"] == "up" else "up"
+        res |= directional_stats(yy[rows], y[other][rows], pp[rows], p[other][rows], cluster[rows],
+                                 d["market"].to_numpy()[rows])
         out.append(u | {period: res})
     return out
 
@@ -678,15 +690,19 @@ def main() -> int:
                 out[tr] = {"selected": [], "note": "nothing to confirm"}
                 continue
             res = ev(a if tr == "A" else b, "confirmation", units)
-            alpha_z = C_Z
             for r in res:
-                r["confirmed"] = passes(r["confirmation"], 1.0, alpha_z, V_MARKETS)
+                c = r["confirmation"]
+                r["old_rule_passed"] = passes(c, 1.0, C_Z, V_MARKETS)
+                r["confirmed"] = (c.get("dir_excess", -1) > 0 and c.get("dir_z", -9) >= C_Z
+                                  and c.get("dir_markets_up", 0) >= V_MARKETS)
             out[tr] = res
             for r in res:
                 c = r["confirmation"]
-                print(f"{tr} {r.get('question', r['groups'])} {r['dir']} lift {c.get('lift', float('nan')):.2f} "
-                      f"z {c.get('z', float('nan')):.2f} markets {c.get('markets_up', 0)} -> "
-                      f"{'CONFIRMED' if r['confirmed'] else 'fail'}")
+                print(f"{tr} {'+'.join(r['groups'])} {r['kind']} {r['dir']} n {c.get('n', 0)} lift "
+                      f"{c.get('lift', float('nan')):.2f} z {c.get('z', float('nan')):.2f} (old rule "
+                      f"{'pass' if r['old_rule_passed'] else 'fail'}) | direction excess "
+                      f"{c.get('dir_excess', float('nan')):+.3f} z {c.get('dir_z', float('nan')):.2f} "
+                      f"markets {c.get('dir_markets_up', 0)} -> {'CONFIRMED' if r['confirmed'] else 'fail'}")
         (OUT / "confirmation.json").write_text(json.dumps(out, indent=1, default=str))
         return 0
 

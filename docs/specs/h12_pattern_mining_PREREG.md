@@ -197,3 +197,17 @@ Technical clarifications (no threshold changed):
 5. **Track B multi-day motifs** = the last 4 session words before the target, contiguous in time
    (e.g. London(d-1), NY(d-1), Asia(d) -> London(d) uses 3; the 4-word version reaches back one
    more session). Motif length stays within 1-4 words.
+
+## Amendment before the confirmation run (2026-10-30, decided by the user, 2022-2024 untouched)
+
+Validation showed that the selected combinations raise up-moves as well as down-moves: the
+volatility control (market x clock x last-1-h range quintile) is too coarse, so the lift of one
+direction also measures volatility. The written confirmation rule could therefore be passed by
+volatility alone. This amendment was made **after seeing mining and validation results**, it is
+stricter, and the user decided it.
+
+**New confirmation verdict (track A).** For a unit with direction D (other direction O), per
+decision point: `s = (y_D - y_O) - (p_D - p_O)`. A unit is confirmed iff mean(s) > 0, day-clustered
+z >= 2.58, and mean(s) > 0 in at least 4 markets. The selected units stay as chosen (top 10 by
+validation z, including the one duplicate pair). The old rule (lift > 1, z >= 2.58, >= 4 markets)
+is reported next to it, without weight.

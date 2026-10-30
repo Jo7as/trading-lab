@@ -64,3 +64,17 @@ def test_prior_median_skips_gaps():
     # 21st valid value (index 21) uses the 20 valid values before it: 1..5, 7..21 -> median 11.5
     assert m[21] == np.median(np.r_[np.arange(1.0, 6.0), np.arange(7.0, 22.0)])
     assert np.isnan(m[5]) and m.notna().sum() == 30 - 1 - NORM
+
+
+def test_directional_stats_ignores_pure_volatility():
+    from studies.h12_mining_study import directional_stats
+    # both directions rise equally above the control: no directional excess
+    y_d = np.array([1.0, 0.0, 0.0, 0.0])
+    y_o = np.array([0.0, 1.0, 0.0, 0.0])
+    p = np.full(4, 0.1)
+    r = directional_stats(y_d, y_o, p, p, np.arange(4), np.array(["a", "a", "b", "b"]))
+    assert r["dir_excess"] == 0.0
+    # only D rises
+    r = directional_stats(np.array([1.0, 1.0, 0.0, 1.0]), np.zeros(4), p, p, np.arange(4),
+                          np.array(["a", "a", "b", "b"]))
+    assert r["dir_excess"] == 0.75 and r["dir_markets_up"] == 2
