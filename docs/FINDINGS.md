@@ -1106,3 +1106,16 @@ Pre-registration `docs/specs/h12_pattern_mining_PREREG.md` with its amendments; 
 every gap (rolling median with `min_periods=NORM` on a series with NaN) - the cause of n = 109 on S16@60m
 and of lost rows elsewhere. Found and fixed for H12 (`prior_median`), not rerun for H11. Its conclusion
 rests on the large readings (~7900 rows, shape alone 0.49-0.51), but the bug was in the run.
+
+## 2026-10-30 — Multi-day scan: correlation filter confirms Hurst, vol-managed equity premium helps the basket, reversal does not
+
+`studies/multiday_scan.py` (measurements, train 2004-2024, measured FundedNext swaps).
+* **Correlation filter for S-007:** Sharpe by quintile of lagged market correlation 1.04 / 0.46 / 1.40 /
+  0.24 / -0.13 (low -> high); scaled risk 0.66 -> 0.74, DD unchanged. Confirms Hurst et al., but S-007's
+  holdout is spent, so a filter version has no clean test.
+* **Vol-managed equity premium** (6 indices long, 21-day vol sizing, weekly): Sharpe 0.50 (t 2.33), 15/21
+  years, correlation with S-007 +0.14; 2008 -36 %, 2022 -17 % on this (too large) scale. **Basket with S-007
+  (equal risk): Sharpe 0.75 vs 0.64.** On FundedNext Instant at 4 % vol: 3.0 % p.a. vs 2.5 %, DD -8.3 % vs
+  -9.0 %, survival 91 % vs 90 %. A modest gain; the holdout of this block is untouched.
+* **Index reversal after 3-day drops (< -2 sigma):** +24.7 bp vs +19.4 bp unconditional over 5 days,
+  Sharpe 0.19 - lowers the basket.
