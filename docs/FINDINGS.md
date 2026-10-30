@@ -1063,3 +1063,46 @@ leave-one-year-out, max-statistic over the grid (1000 shuffles).
   the 6 h range. The candle / path shape adds 0.00-0.01. "Patterns" in the shape sense: none.
 * Lessons for H12 (fuzzy frequent patterns): a minimum n per reading, and a **size/volume-only
   control** in every comparison - otherwise a pattern search rediscovers volatility.
+
+## 2026-10-30 — H12: token-combination mining - one directional candidate, about the size of costs
+
+Pre-registration `docs/specs/h12_pattern_mining_PREREG.md` with its amendments; `trading_lab/pattern_mining.py`,
+`studies/h12_mining_study.py`, reports `artifacts/h12/validation.json`, `artifacts/h12/confirmation.json`.
+6 markets, decision every 15 min London 08:00 - NY 15:00, move = first passage of a top-decile hour
+(1.6-1.9 ATR1h) within 60 min. Mining 2018-05..2020 (gold from 2016), validation 2021, confirmation
+2022-2024, run once. Holdout closed.
+
+* **Track B (session sentences Asia -> London -> NY):** 143 units met the frequency rule, 0 mining
+  candidates. Closed.
+* **Track A:** 6268 units met the frequency rule, 300 mining candidates, 173 validated, top 10 sent on.
+  Theme: new session low / sharp drop in the last 5-60 min -> more big moves.
+* **Most of this is volatility, not direction.** Up-moves rise too (2021: down 15 % vs control 10 %,
+  up 11 % vs 7 %). The volatility control (market x clock x last-1-h range quintile) was too coarse,
+  so the written confirmation rule could be passed by volatility alone. **Amendment after seeing
+  validation, before touching 2022-2024, stricter, decided by the user:** confirmed only on
+  directional excess `(y_D - y_O) - (p_D - p_O)`, z >= 2.58, > 0 in >= 4 markets.
+* **Confirmation: 1 of 10 passes** (the old rule alone would have passed 4 of 10).
+
+  **5-min word `cca` family (sharp drop over the last 30 min, large range, high volume) + 1-h trend up
+  -> short side** (5 variants: cca/l/v3, bca/l/v3, cba/l/v3, cca/m/v3, cca/l/v2).
+
+  | period | n | P(down) / control | P(up) / control | directional excess | z | per week per market |
+  |---|---|---|---|---|---|---|
+  | mining | 6992 | 9.6 / 7.0 % | 4.3 / 5.3 % | +3.7 pp | 6.65 | 5.2 |
+  | validation 2021 | 2333 | 11.1 / 7.6 % | 7.5 / 5.5 % | +1.5 pp | 1.46 | 5.0 |
+  | confirmation | 6626 | 10.3 / 8.1 % | 6.8 / 6.7 % | +2.0 pp | 3.24 | 4.9 |
+
+  Confirmation by year +1.7 / +2.2 / +2.1 pp; by market SP500 +3.3, XAUUSD +2.9, GER40 +2.5, US30 +2.5,
+  US100 +0.3, UK100 -0.2. Its 15-min sister (`b15+trend`) misses: +1.5 pp, z 1.84. Direction is
+  continuation of the drop, against the 1-h trend - "buy the dip" is the wrong side here.
+* **Economics, rough:** 2.0 pp x ~1.75 ATR1h = ~0.035 ATR1h per signal, counting only the tail events.
+  Round trip on the Dukascopy spread: 0.033-0.036 ATR (US100, US30, GER40), 0.050 (SP500), 0.07 (UK100,
+  XAUUSD). So the effect is **about the size of the cost**; no trade was simulated. The rest of the
+  return distribution (the ~83 % of signals without a move) is unmeasured.
+* Caveats: the verdict rule was changed after validation (stricter, documented); the top 10 were chosen
+  by the old, volatility-contaminated rule; validation alone had z 1.46. Not a Baustein yet.
+
+**Correction to H11 (2026-10-30):** `studies/h11_tokens_study.py::_ratio` voided a token for 20 days after
+every gap (rolling median with `min_periods=NORM` on a series with NaN) - the cause of n = 109 on S16@60m
+and of lost rows elsewhere. Found and fixed for H12 (`prior_median`), not rerun for H11. Its conclusion
+rests on the large readings (~7900 rows, shape alone 0.49-0.51), but the bug was in the run.
