@@ -1,0 +1,96 @@
+# Stufe 2 von H12: der eine bestätigte Muster-Kandidat als echter Trade.
+# Herkunft: docs/specs/h12_pattern_mining_PREREG.md, docs/specs/h12_fx_check_PREREG.md, docs/FINDINGS.md 2026-10-30.
+# ACHTUNG: 2018-05 bis 2024 sind durch die Suche verbraucht, die Filter werden dort in-sample gewählt.
+# Sauber ist nur noch der Holdout ab 2025 - einmal, nur über studies/pruefen.py, nur nach Freigabe.
+
+id: S-010
+strategie: drop_continuation
+titel: "Fortsetzung nach scharfem 5-min-Abverkauf im 1h-Aufwärtstrend (Short)"
+status: entwurf
+abgestimmt_von: ""
+abgestimmt_am: ""
+
+idee:
+  mechanismus: >
+    Ein scharfer Abverkauf mit grosser Spanne und hohem Volumen gegen den Stundentrend trifft auf
+    Long-Positionen des Trends. Deren Stops und erzwungene Verkäufe können den Abverkauf kurzfristig
+    fortsetzen. Das ist eine Hypothese über den Mechanismus, gemessen ist nur der Effekt.
+  quellen:
+    - "docs/FINDINGS.md 2026-10-30, H12: +2,0 Punkte Richtungsvorteil 2022-2024, z 3,24 je Markt-Tag, 2,26 je Tag"
+    - "docs/FINDINGS.md 2026-10-30, H12 FX: +1,65 Punkte auf 6 von 6 Paaren, z 2,97 je Tag"
+
+handel:
+  maerkte: [US100, US30, GER40]   # nach Kosten gewählt (0,033-0,036 ATR), NICHT nach Effekt; US100 bleibt deshalb drin
+  zeitrahmen: "5min-Signal, Prüfung alle 15 min"
+  kontotyp: prop_standard
+  max_haltedauer: "60 Minuten"
+  wochenende_halten: false
+  news_fenster: "kein Filter: im Repo gibt es keinen vollständigen Kalender 2018-2024; Signale nahe an News bleiben drin, offen als Risiko"
+
+entry:
+  bedingungen:
+    - "Prüfzeitpunkt t = jeder 15-min-Schluss von London 08:00 bis New York 15:00"
+    - "5-min-Token (letzte 6 Bars vor t) ist eines von: cca/l/v3, bca/l/v3, cba/l/v3, cca/m/v3, cca/l/v2 (Definition H12, Terzile aus 2018-05..2020 eingefroren)"
+    - "1h-Trend aufwärts: EMA20 > EMA50 auf 1h-Bars, bekannt bei t"
+    - "keine offene Position im Markt und in seiner Korrelationsgruppe"
+  ausfuehrung: "Short per Market am Open der ersten 1-min-Bar nach t, auf der Bid-Seite; Ausstieg auf der Ask-Seite"
+
+stop_loss:
+  regel: "Einstieg + m, mit m = thr x ATR(14, 1h) bei t; thr = 90.-Perzentil der 60-min-Exkursion aus 2018-05..2020 (US100 1,87, US30 1,78, GER40 1,66)"
+  begruendung: "Gleiche Grösse wie die H12-Move-Definition, damit das Ergebnis direkt mit der Messung vergleichbar ist."
+
+take_profit:
+  regel: "Einstieg - m (1R); fester Abstand wie der Stop"
+  begruendung: "Die Messung sagt: -m wird öfter vor +m erreicht. Ein anderes Ziel wäre eine neue, ungemessene Hypothese."
+
+exit_sonst:
+  - "Zeit-Exit 60 Minuten nach t, per Market"
+  - "Bar berührt Stop und Ziel zugleich: Stop gilt"
+
+risiko:
+  risiko_je_trade_pct: 0.25
+  max_offene_positionen: 2
+  korrelation: "US100 und US30 sind eine Gruppe mit höchstens einer offenen Position; GER40 zählt separat"
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 6      # FundedNext Stellar Instant: 6 % trailing
+
+kosten:
+  profil: ftmo
+  swaps: "keine, Haltedauer höchstens 60 Minuten"
+  slippage: "1 bp je Market-Seite beim Einstieg und bei Stop/Zeit-Exit, relativ zum Preis"
+
+daten:
+  quelle: "Dukascopy 1m bid/ask, artifacts/cache/m1, data_audit.build_study_frame"
+  bekannte_probleme:
+    - "Keine Asia-Bars vor 2018-04 (für dieses Signal nicht nötig, Prüfzeitraum beginnt trotzdem 2018-05)"
+    - "Dukascopy-Volumen ist Broker-Volumen, kein Börsenvolumen; der Volumen-Buchstabe ist ein Näherungswert"
+    - "1h-Bars laufen auf UTC-Stunden"
+  warmup: "50 1h-Bars für EMA50, 20 gültige Tage für die Uhrzeit-Mediane"
+
+varianten:
+  - name: basis
+    aenderung: "ohne Filter"
+  - name: session
+    aenderung: "nur t zwischen New York 09:30 und London 16:30"
+  - name: struktur15
+    aenderung: "letztes BOS auf 15 min (market_structure.analyze) ist abwärts"
+  - name: neues_tief
+    aenderung: "die 15-min-Bar bis t macht ein neues Tief seit 00:00 UTC"
+  - name: hohe_vola
+    aenderung: "Spanne der letzten Stunde / ATR1h in den obersten zwei Quintilen (Grenzen aus 2018-05..2020)"
+
+referenz: >
+  Eigene Messung H12: Bei symmetrischem Stop/Ziel entspricht +2 Punkte Richtungsvorteil grob +0,02 R brutto
+  aus den Stop/Ziel-Treffern. Bei US100 kostet der Spread etwa 0,02 R. Die Basisvariante muss deshalb nahe
+  null netto liegen. Weicht sie stark ab, zuerst Fehler suchen. Zusätzlich Zufallsrichtung als Placebo.
+
+tests:
+  - tests/test_drop_continuation.py
+
+# Bewertung, vor dem ersten Lauf festgelegt (2018-05..2024, in-sample für die Filter):
+#   Eine Variante geht nur weiter, wenn netto nach Kosten alle vier gelten:
+#   mittleres R > 0; z >= 2,33 mit dem Kalendertag als Cluster (0,05 / 5 Varianten, einseitig);
+#   positiv in mindestens 5 der 7 Jahre; positiv in mindestens 2 der 3 Märkte.
+#   Immer mitberichtet: Zufallsrichtungs-Placebo, Trefferquote, Zeit-Exit-Anteil, Trades pro Woche.
+#   Keine Filter-Kombinationen. Höchstens die beste Variante geht in studies/pruefen.py.
+#   Besteht keine: Kandidat bleibt ein gemessener Effekt ohne Baustein, der Holdout bleibt zu.
