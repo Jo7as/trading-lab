@@ -1,6 +1,6 @@
 # trading-lab
 
-A research lab for **testing, backtesting and evolving intraday trading strategies**.
+A research lab for **testing, backtesting and evolving trading strategies**.
 It is a paper-trading / signal system — no live broker execution.
 
 The loop is simple:
@@ -23,6 +23,35 @@ month. Both are still paper-only: no forward test yet, and parts of the costs ar
 Details, numbers and limits: [docs/KORB.md](docs/KORB.md), definition:
 [configs/korb/KORB.yaml](configs/korb/KORB.yaml), research log: [docs/FINDINGS.md](docs/FINDINGS.md), paper
 notes: [docs/PAPERS.md](docs/PAPERS.md).
+
+### What was built
+
+* **Screening funnel** (`trading_lab/screening.py`, `optimizer.py`): S1 exploration, S2 costs, S3 robustness,
+  S4 significance (Deflated Sharpe, placebo, PBO), S5 one-shot holdout; a **literature track** for published
+  rules with a passed reference check ([docs/PRUEFABLAUF.md](docs/PRUEFABLAUF.md)).
+* **Spec-first rule**: every strategy needs an agreed spec in `docs/specs/` before it is tested (see `AGENTS.md`).
+* **Guided check** (`studies/pruefen.py`): 12 fixed interactive steps, identical for every strategy.
+* **Cost model** (`trading_lab/costs.py`): checked against broker data; **MT5 cost logger**
+  (`mt5/TradingLabCostLogger.mq5`, `trading_lab/broker_costs.py`) for real swaps, spreads and slippage.
+* **Market structure** (`market_structure.py`): swings (fractal, zigzag), BOS/CHoCH, EQH/EQL pools, FVG/IFVG,
+  order blocks; shared, reference-tested **indicators** (`indicators.py`).
+* **Liquidity library** (`liquidity.py`): previous day/week, Asia range, opening range.
+* **Long daily data** (`long_daily.py`): yfinance cache, bad-tick repair, FX re-dating.
+* **Prop simulator** (`prop_sim.py`, [docs/PROP_FIRMS.md](docs/PROP_FIRMS.md)): instant and one-step rules
+  (trailing drawdown, daily pause, consistency, payouts), `studies/prop_firms.py`.
+
+### What was tested
+
+| Result | Tests |
+|---|---|
+| **Passed all stages** | S-007 trend following, S-010 vol-managed equity premium |
+| Passed training, failed holdout | S-006 noise-area momentum; earlier portfolio TK6 |
+| Real but too small after costs | S-004 breakout fade, S-005 weekly level break, FX fix reversal (short and long windows), intraday momentum into the close, break of round numbers |
+| Effect present, failed a stage | S-009 pre-FOMC drift (4/6 positive years) |
+| No effect or faded | S-001 SMC/ICT 2022, S-002 Fibonacci, S-008 turn of the month, options expiration, FX carry after CFD swaps, FX value since 2004, cross-sectional momentum (too close to S-007), index reversal, round-number range fades, value-area levels |
+
+Main lesson: intraday order-flow effects are real but only 1-3 bp, or live on 1-15 minute bars where a
+1-ATR stop costs 0.4-1.7 R. What held up are risk premia with long holding periods.
 
 ## Layout
 
