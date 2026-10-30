@@ -14,6 +14,16 @@ The loop is simple:
 4. A **signal worker** replays the current best strategy on closed bars and
    posts signals (Telegram).
 
+## Current state: the building-block basket
+
+After testing many strategy families, two blocks passed all five funnel stages including a one-shot
+holdout (via the literature track): **S-007 trend following** and **S-010 volatility-managed equity
+premium**. Together about 3 % p.a. (~0.25 %/month) at 4 % target volatility in training, about 20 orders a
+month. Both are still paper-only: no forward test yet, and parts of the costs are estimated.
+Details, numbers and limits: [docs/KORB.md](docs/KORB.md), definition:
+[configs/korb/KORB.yaml](configs/korb/KORB.yaml), research log: [docs/FINDINGS.md](docs/FINDINGS.md), paper
+notes: [docs/PAPERS.md](docs/PAPERS.md).
+
 ## Layout
 
 ```
