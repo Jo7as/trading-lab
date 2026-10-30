@@ -1119,3 +1119,23 @@ rests on the large readings (~7900 rows, shape alone 0.49-0.51), but the bug was
   -9.0 %, survival 91 % vs 90 %. A modest gain; the holdout of this block is untouched.
 * **Index reversal after 3-day drops (< -2 sigma):** +24.7 bp vs +19.4 bp unconditional over 5 days,
   Sharpe 0.19 - lowers the basket.
+
+## 2026-10-30 — H12 FX check: the candidate holds on new markets, but costs are higher there, not lower
+
+Pre-registration `docs/specs/h12_fx_check_PREREG.md` (commit 1204111, before the run), `studies/h12_fx_check.py`,
+report `artifacts/h12/fx_check.json`. The one confirmed combination, unchanged, on 6 FX pairs that took no
+part in the mining. Fit 2019-2020, test 2021-2024, holdout closed.
+
+* **Primary (as found, -> down): PASS.** n 11726, down 8.3 % vs control 6.4 %, up 6.2 % vs 5.9 %, directional
+  excess +1.65 pp, 6/6 pairs positive (+0.9 to +3.1), every year positive (+3.0 / +0.9 / +1.0 / +1.8),
+  6.1 signals per week per pair. Mirror (`aac` + trend down -> up, no weight): +0.68 pp, 5/6 pairs.
+* **Clustering correction, applies to both tests.** The prereg z clusters by market-day, but pairs and
+  indices move together on the same day. With the **calendar day** as cluster: FX z 3.95 -> **2.97** (still
+  above its bar of 2.0); **index/gold confirmation z 3.24 -> 2.26, below its bar of 2.58.** Written verdicts
+  stand as run; the honest reading of the original confirmation is weaker than reported in the entry above.
+* **Cost premise was wrong.** With the FTMO commission ($2.50/lot/side), FX costs 0.061 ATR1h (EURUSD, USDJPY),
+  0.074 (GBPUSD), 0.118-0.133 (AUDUSD, USDCAD, NZDUSD; the Dukascopy spread overstates these three against a raw
+  account). Indices without commission: 0.033-0.05 ATR. Rough gross 1.65 pp x ~1.65 ATR = ~0.027 ATR per signal,
+  so **FX is about 2x under water**; US100/US30/GER40 stay the cheapest venue. No trade simulated.
+* Reading: a small, broad continuation effect that appears across asset classes - more credible as a
+  phenomenon than the index test alone, not tradeable as it stands.
