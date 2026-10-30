@@ -1166,3 +1166,15 @@ correlation group, FTMO profile + 1 bp slippage per market side. Holdout closed,
 * Reading: a move of ~1.7 ATR1h in 60 min is about 0.5 % of price, so 2 bp of slippage plus the spread at a
   hectic moment costs 5x the edge. Short-horizon patterns on CFDs die on costs again - the old finding of
   this log. A new search has to optimise net return at longer horizons directly.
+
+## 2026-10-30 — S-010: Vol-managed equity premium - passes S1-S4 (literature track), holdout open
+
+Spec `docs/specs/vol_managed_equity.yaml`, 6 indices long, monthly, measured/estimated FundedNext swaps,
+train 2006-2024 (2004 + 24 months warm-up).
+* varianz (paper): Sharpe 0.68 gross / 0.54 net, t 2.40, DSR 0.969, 13/19 years, placebo edge +0.33 R, but
+  vol 15.3 % and max DD -50 % (1/variance sits near the 3x cap in calm years).
+* vola: Sharpe 0.68 / 0.54, t 2.37, DSR 0.967, vol 9.4 %, max DD -30 % - same Sharpe, much smoother.
+* konstant (comparison): Sharpe 0.52 / 0.41, t 1.83 - the management adds value here, against Cederburg et al.
+* Correlation with S-007 +0.18; basket equal risk Sharpe 0.78 vs 0.65.
+* Sensitive to financing: with the formula swaps (~-5.5 % p.a.) net Sharpe 0.27. Four of six index swaps
+  are estimated - the biggest open number.

@@ -1,0 +1,95 @@
+# S-010: Volatilitäts-gesteuerte Aktienprämie - zweiter Baustein neben der Trendfolge S-007
+# Herkunft: Kurzmessung 2026-10-30 (studies/multiday_scan.py): Sharpe 0,50, Korrelation mit S-007
+# +0,14, Korb-Sharpe 0,75 statt 0,64. Regel aus dem Paper; Holdout ab 2025 für diesen Baustein unberührt.
+# VORBEHALT: Cederburg u.a. (2020): Vola-Steuerung ist in Echtzeit oft nicht besser als Halten.
+
+id: S-010
+strategie: vol_managed_equity
+titel: "Aktienindizes long, Positionsgröße umgekehrt zur Varianz des Vormonats, monatlich angepasst"
+status: abgestimmt
+abgestimmt_von: "Jonas (Nutzer, im Chat: ja)"
+abgestimmt_am: "2026-10-30"
+
+idee:
+  mechanismus: >
+    Aktien zahlen langfristig eine Risikoprämie. Wenn die Volatilität hoch ist, steigt die erwartete
+    Rendite weniger stark als das Risiko; darum lohnt es sich, in unruhigen Phasen kleiner und in ruhigen
+    größer zu investieren (Moreira/Muir 2017). Zusammen mit der Trendfolge: wenig korreliert, weil S-007
+    auch short gehen kann und in Krisen oft gewinnt, während die Prämie dort verliert.
+  quellen:
+    - "Moreira, Muir (2017): Volatility-Managed Portfolios, Journal of Finance 72(4)"
+    - "Cederburg, O'Doherty, Wang, Yan (2020): On the performance of volatility-managed portfolios, JFE - Gegenposition"
+    - "Barroso, Detzel (2021): Transaktionskosten zehren den Vorteil auf"
+    - "docs/FINDINGS.md 2026-10-30 Kurzmessung"
+
+handel:
+  maerkte: [SP500, US100, US30, GER40, UK100, JP225]
+  zeitrahmen: "Tagesschlusskurse; Anpassung einmal im Monat"
+  kontotyp: prop_swing
+  zielkonto: "FundedNext Stellar Instant (Wochenende erlaubt, 6 % mitlaufend bis Startsaldo)"
+  max_haltedauer: "unbegrenzt (Dauerposition long, nur die Größe ändert sich)"
+  wochenende_halten: true
+  news_fenster: "Anpassung am ersten Handelstag des Monats zum Schlusskurs; am Vortag Signal - nicht im 5-Minuten-News-Fenster ausführen"
+
+entry:
+  bedingungen:
+    - "1. Korbrendite: gleichgewichtetes Mittel der Tagesrenditen der 6 Indizes (ein Index zählt, sobald er Daten hat)."
+    - "2. Varianz des Monats: Summe der quadrierten Korb-Tagesrenditen des abgelaufenen Monats, annualisiert (Moreira/Muir)."
+    - "3. Basis-Gewicht: w = c / Varianz des Vormonats. c so, dass die erwartete Vola 8 % p.a. beträgt, NUR mit bis dahin bekannten Daten: c = 0,08 x Wurzel(erweiterndes Mittel der Monatsvarianzen). Variante vola: w = 0,08 / Wurzel(Varianz)."
+    - "4. Hebel des Korbs höchstens 3 (Summe der Nominalwerte / Konto), je Index gleich verteilt."
+  ausfuehrung: "Signal aus dem letzten Handelstag des Monats, Ausführung zum Schlusskurs des ersten Handelstags des Folgemonats (ein Tag Verzögerung), halber gemessener Spread + 0,5 bp."
+
+stop_loss:
+  regel: "Kein Stop (Paper): das Risiko steuert die Positionsgröße; die Vola-Skalierung verkleinert in Krisen spätestens zum Monatswechsel."
+  begruendung: "Die Prämie ist eine Dauerposition; Stops würden sie zu ungünstigen Zeiten abschneiden. Das Krisenrisiko wird im Korb über S-007 und die Ziel-Vola begrenzt."
+
+take_profit:
+  regel: "Kein Ziel - Dauerposition."
+  begruendung: "Die Rendite ist die Prämie selbst."
+
+exit_sonst:
+  - "keine; Anpassung nur am Monatstermin, Änderung unter 10 % wird nicht gehandelt (Kosten)"
+
+risiko:
+  risiko_je_trade_pct: 0.5
+  sizing: "Ziel-Vola 8 % p.a. für die Bewertung; die Konto-Vola des Korbs (S-007 + S-010) wird im Prop-Schritt festgelegt (vermutlich 3-4 %). 1 R = 8 %/Wurzel(252) des Kontos."
+  max_offene_positionen: 6
+  korrelation: "Die 6 Indizes sind EIN Korb mit einer gemeinsamen Vola-Steuerung; im Korb mit S-007 wird die Summe der Index-Positionen begrenzt."
+  tagesverlust_limit_pct: 5
+  gesamtverlust_limit_pct: 6
+
+kosten:
+  profil: ftmo
+  swaps: "gemessene FundedNext-Swaps: SP500 -1,94 %, UK100 -1,72 % p.a. long; US100/US30/GER40/JP225 geschätzt -1,83 % (artifacts/broker_costs/fundednext_demo.json). Robustheit: Lauf mit Formel Zins + 2,5 %."
+  slippage: "0,5 bp je Fill, Spread aus artifacts/tsmom/costs.json"
+
+daten:
+  quelle: "lange Tagesdaten (trading_lab/long_daily.py) 2004-2024, Holdout ab 2025"
+  bekannte_probleme:
+    - "Kursindizes ohne Dividenden (US100, US30, UK100, JP225) unterschätzen die Rendite; ein CFD-Long bekommt Dividenden verrechnet - konservativ, die Größe wird im Lauf ausgewiesen"
+    - "Börsenschlüsse zu verschiedenen Zeiten (Tokio, Frankfurt, New York) - Korbrendite leicht unsynchron"
+    - "Index-Swaps teils geschätzt, Spreads aus Dukascopy statt FundedNext"
+  warmup: "24 Monate für das erweiternde Varianzmittel"
+
+varianten:
+  - name: basis
+    aenderung: "Gewicht umgekehrt zur Varianz (Paper), monatlich"
+  - name: gitter_gewicht
+    aenderung: "gewicht in {varianz, vola}"
+  # 2 Varianten; Vergleich (keine Variante): konstante Position gleicher Ø-Vola = reine Aktienprämie
+
+bewertung:
+  einheit: "Korb der 6 Indizes als Portfolio (wie S-007); Trades = Monatspositionen je Index; Tagesrenditen in R"
+  spur: "Literatur-Spur (veröffentlichte Regel, Referenz muss bestehen; Haltedauer > 5 Tage)"
+  placebo: "gleiche Monatsgrößen, Richtung je Monat zufällig (100 Läufe) - misst, ob die Long-Prämie echt ist"
+  zeitraeume: "Training 2004-2024, Holdout ab 2025 - einmalig mit Freigabe"
+
+referenz: >
+  Moreira/Muir: Vola-Steuerung des Marktes erhöht die Sharpe gegenüber Halten mit gleicher Vola
+  (Größenordnung 0,4 -> 0,5). Prüfung: S-010 gegen die konstante Position gleicher Ø-Vola auf denselben
+  Daten. Ist S-010 nicht besser, gilt der Vorbehalt von Cederburg u.a.: dann ist die einfachere
+  konstante Position vorzuziehen (Bericht, keine Änderung der Regel). Plausibilitätsgrenze: Sharpe netto
+  > 1,0 -> zuerst Fehler suchen. Korrelation mit S-007 erwartet klein (< 0,4).
+
+tests:
+  - tests/test_vol_managed_equity.py
