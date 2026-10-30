@@ -1178,3 +1178,8 @@ train 2006-2024 (2004 + 24 months warm-up).
 * Correlation with S-007 +0.18; basket equal risk Sharpe 0.78 vs 0.65.
 * Sensitive to financing: with the formula swaps (~-5.5 % p.a.) net Sharpe 0.27. Four of six index swaps
   are estimated - the biggest open number.
+* **S-010 holdout (2025-01..2026-10, released by the user 2026-10-30): PASSED S5.** varianz +38.9 %, Sharpe 1.38,
+  t 1.90; vola +22.3 %, Sharpe 1.30, t 1.79. Basket S-007 + S-010 (vola, equal risk, scaled on train to
+  4 % vol): +11.5 % in 22 months (~0.52 %/month), Sharpe 1.40, max DD -5.1 %, 17/22 positive months, worst month
+  -3.1 %. Caveats: 22 strong equity months; correlation of the two blocks 0.46 here vs 0.18 in train -
+  in a sharp equity crash they may fall together. Basket holdout is not a separate clean test of the mix.

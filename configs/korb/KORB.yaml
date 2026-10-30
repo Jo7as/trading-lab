@@ -16,6 +16,13 @@ bausteine:
   kennzahlen_training_2004_2024: {sharpe_brutto: 0.79, sharpe_netto_echte_swaps: 0.64, aqr_korrelation: 0.71}
   laufen_lassen: "studies/tsmom_check.py --referenz --broker artifacts/broker_costs/fundednext_demo.json"
   rhythmus: "woechentlich, Mittwoch 15:00 New York"
+- id: S-010
+  strategie: vol_managed_equity
+  status: bestaetigt          # S1-S5 (Literatur-Spur), Holdout ab 2025 bestanden
+  spec: docs/specs/vol_managed_equity.yaml
+  params: {gewicht: vola}     # gleiche Sharpe wie die Paper-Variante, Drawdown -30 % statt -50 %
+  kosten: "artifacts/broker_costs/fundednext_demo.json (SP500, UK100 gemessen, uebrige Indizes geschaetzt)"
+  laufen_lassen: "studies/vol_managed_check.py"
+  rhythmus: "monatlich, erster Handelstag"
 kandidaten_nicht_bestaetigt:
-- {id: S-010, strategie: vol_managed_equity, grund: "S1-S4 bestanden (netto Sharpe 0,54, Korb 0,78), Holdout ab 2025 noch offen; Nutzer will den Baustein im Korb (2026-10-30)"}
 - {id: S-009, strategie: pre_fomc, grund: "echt (Placebo-Vorsprung +0,056 R, t 2,11), aber 4/6 positive Jahre - S3"}
