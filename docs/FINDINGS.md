@@ -1139,3 +1139,30 @@ part in the mining. Fit 2019-2020, test 2021-2024, holdout closed.
   so **FX is about 2x under water**; US100/US30/GER40 stay the cheapest venue. No trade simulated.
 * Reading: a small, broad continuation effect that appears across asset classes - more credible as a
   phenomenon than the index test alone, not tradeable as it stands.
+
+## 2026-10-30 — S-010 drop_continuation (stage 2 of H12): all 5 variants fail, the effect is real-sized but below costs
+
+Spec `docs/specs/drop_continuation.yaml` (agreed by the user, code committed before the run, 86e7a8b),
+`trading_lab/strategies/drop_continuation.py`, `tests/test_drop_continuation.py`,
+`studies/drop_continuation_study.py`, report `artifacts/drop_continuation.json`. US100, US30, GER40,
+2018-05..2024, short at market, stop / target +-m (1.66-1.87 ATR1h), 60-min time exit, one position per
+correlation group, FTMO profile + 1 bp slippage per market side. Holdout closed, pipeline not entered.
+
+| variant | trades | per week | net R | z (day) | years > 0 | markets > 0 |
+|---|---|---|---|---|---|---|
+| basis | 3941 | 11.5 | -0.060 | -6.26 | 0/7 | 0/3 |
+| session | 693 | 2.0 | -0.032 | -1.17 | 2/7 | 0/3 |
+| struktur15 | 1377 | 4.0 | -0.066 | -4.28 | 0/7 | 0/3 |
+| neues_tief | 1424 | 4.1 | -0.063 | -3.59 | 1/7 | 0/3 |
+| hohe_vola | 2764 | 8.0 | -0.056 | -4.71 | 0/7 | 0/3 |
+
+* **Verdict per spec: no variant passes. No Baustein, holdout stays closed.** Filters did not lift the effect:
+  every variant stays near or below the unfiltered net result once its random-direction placebo is compared.
+* **Bug check, because the basis missed the reference (net "near zero"):** same trades on mid without costs give
+  +0.016 R (z 1.69), long -0.016 R; US100 +0.005, US30 +0.005, GER40 +0.034. That matches the measured ~+0.02 R,
+  so the rules are fine. **The reference was wrong:** it counted only the median spread of US100. Real mean
+  cost at the signal: spread 0.033 R + slippage 0.046 R = 0.078 R. Even without slippage the basis is negative.
+* Also: 84 % of trades end on the 60-min time exit, the +-m target is too far for most signals.
+* Reading: a move of ~1.7 ATR1h in 60 min is about 0.5 % of price, so 2 bp of slippage plus the spread at a
+  hectic moment costs 5x the edge. Short-horizon patterns on CFDs die on costs again - the old finding of
+  this log. A new search has to optimise net return at longer horizons directly.
