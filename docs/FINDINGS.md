@@ -1219,3 +1219,15 @@ neighbours, replay placebo, DSR, PBO, then `run_funnel`), 40 seeds per level, tr
 * The families are correlated and the Bonferroni step inside a family is conservative, so the list errs towards
   empty; its value is in fresh studies with few families, not in re-scoring the old batch.
 * Paket 2 (trial register, holdout counter) dropped on the user's decision: nothing gets stricter.
+
+## 2026-11-01 — S-009 on unseen years 2016-2018: same sign, but not better than random days
+
+`studies/pre_fomc_extended.py`, rule unchanged, 1m cache reaches 2016, holdout (2025+) not read.
+* 2016-2018 (24 meetings, never seen): net +0.042 R, t 1.95, 70 % positive, all 3 years positive; moves +12..+21 bp.
+  **Placebo +0.048 R vs gross +0.053 R: in these calm bull years random days were just as good** (edge +0.005 R).
+  With press conference net +0.050 R (t 2.21), placebo +0.052 R; without +0.033 R (t 0.85), placebo +0.045 R.
+* 2019-2024: net +0.055 R, placebo +0.007 R, t 2.31.
+* 2016-2024: 71 meetings, net +0.050 R, placebo +0.020 R (edge +0.040 R), t 2.92, 7/9 positive years.
+* Reading: the extra years add sign and years, not separation from placebo; the fresh period alone does not
+  confirm a pre-FOMC effect beyond the equity drift. Over 9 years S-009 would clear S3 (78 %); that is a
+  period chosen after seeing the failure, so only its untouched holdout (16 meetings) could decide.
